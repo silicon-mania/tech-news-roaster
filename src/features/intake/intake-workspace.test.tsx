@@ -2,12 +2,28 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
-import { type GenerationIntake, IntakeWorkspace } from "./intake-workspace";
+import {
+  type GenerationIntake,
+  type GenerationRun,
+  IntakeWorkspace,
+} from "./intake-workspace";
 
-function renderWorkspace(
-  onStartGenerationRun: (intake: GenerationIntake) => void = vi.fn(),
-) {
-  render(<IntakeWorkspace onStartGenerationRun={onStartGenerationRun} />);
+function renderWorkspace({
+  initialActiveRunId,
+  initialRuns,
+  onStartGenerationRun = vi.fn(),
+}: {
+  initialActiveRunId?: string;
+  initialRuns?: GenerationRun[];
+  onStartGenerationRun?: (intake: GenerationIntake) => void;
+} = {}) {
+  render(
+    <IntakeWorkspace
+      initialActiveRunId={initialActiveRunId}
+      initialRuns={initialRuns}
+      onStartGenerationRun={onStartGenerationRun}
+    />,
+  );
 
   return {
     sourceTweetUrlInput: screen.getByLabelText(/source tweet url/i),
@@ -21,7 +37,7 @@ describe("IntakeWorkspace", () => {
     const user = userEvent.setup();
     const startGenerationRun = vi.fn();
     const { sourceTweetUrlInput, usersDirectionInput, generateButton } =
-      renderWorkspace(startGenerationRun);
+      renderWorkspace({ onStartGenerationRun: startGenerationRun });
 
     await user.type(
       sourceTweetUrlInput,
@@ -38,13 +54,26 @@ describe("IntakeWorkspace", () => {
       usersDirection: "Make it sharper about platform risk.",
     });
     expect(screen.getByRole("status")).toHaveTextContent("Intake accepted.");
+    expect(
+      screen.getByRole("button", {
+        name: /new generation run.*running.*0\/3 drafts/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "New generation run" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Tracking provider drafts as they arrive."),
+    ).toBeInTheDocument();
+    expect(generateButton).toBeDisabled();
   });
 
   test("rejects invalid URLs before generation starts", async () => {
     const user = userEvent.setup();
     const startGenerationRun = vi.fn();
-    const { sourceTweetUrlInput, generateButton } =
-      renderWorkspace(startGenerationRun);
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      onStartGenerationRun: startGenerationRun,
+    });
 
     await user.type(sourceTweetUrlInput, "https://example.com/posts/123");
     await user.click(generateButton);
@@ -59,8 +88,9 @@ describe("IntakeWorkspace", () => {
   test("allows User's Direction to stay empty", async () => {
     const user = userEvent.setup();
     const startGenerationRun = vi.fn();
-    const { sourceTweetUrlInput, generateButton } =
-      renderWorkspace(startGenerationRun);
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      onStartGenerationRun: startGenerationRun,
+    });
 
     await user.type(
       sourceTweetUrlInput,
@@ -85,5 +115,76 @@ describe("IntakeWorkspace", () => {
     expect(screen.queryByLabelText(/preset/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+  });
+
+  test("keeps the running run inspectable and prevents another in-flight run", async () => {
+    const user = userEvent.setup();
+    const startGenerationRun = vi.fn();
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      onStartGenerationRun: startGenerationRun,
+    });
+
+    await user.type(
+      sourceTweetUrlInput,
+      "https://x.com/siliconmania/status/1234567890",
+    );
+    await user.click(generateButton);
+
+    expect(
+      screen.getByRole("button", {
+        name: /new generation run.*running.*0\/3 drafts/i,
+      }),
+    ).toHaveAttribute("aria-current", "true");
+    expect(screen.getByText("0/3")).toBeInTheDocument();
+    expect(generateButton).toBeDisabled();
+
+    await user.click(generateButton);
+
+    expect(startGenerationRun).toHaveBeenCalledTimes(1);
+  });
+
+  test("selecting a run replaces the active run", async () => {
+    const user = userEvent.setup();
+    const seededRuns: GenerationRun[] = [
+      {
+        id: "first-run",
+        label: "First run",
+        sourceTweetUrl: "https://x.com/siliconmania/status/111",
+        usersDirection: "",
+        status: "running",
+        draftCount: 0,
+        draftTarget: 3,
+      },
+      {
+        id: "second-run",
+        label: "Second run",
+        sourceTweetUrl: "https://x.com/siliconmania/status/222",
+        usersDirection: "Lean into the business model.",
+        status: "running",
+        draftCount: 1,
+        draftTarget: 3,
+      },
+    ];
+
+    renderWorkspace({
+      initialActiveRunId: "first-run",
+      initialRuns: seededRuns,
+    });
+
+    expect(
+      screen.getByRole("heading", { name: "First run" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /second run/i }));
+
+    expect(
+      screen.getByRole("heading", { name: "Second run" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("https://x.com/siliconmania/status/222"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Lean into the business model."),
+    ).toBeInTheDocument();
   });
 });
