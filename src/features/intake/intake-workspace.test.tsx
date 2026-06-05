@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
+import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import {
   buildGenerationFailureEvent,
   buildStubbedGenerationEvents,
@@ -166,6 +167,7 @@ function buildGenerationEvents({
   const tweetContext = buildFixtureTweetContext(sourceTweetUrl);
 
   return buildStubbedGenerationEvents({
+    replySignals: buildReplySignals(tweetContext),
     sourceTweet: tweetContext.sourceTweet,
     sourceTweetUrl,
     usersDirection,
@@ -949,7 +951,13 @@ describe("IntakeWorkspace", () => {
     await screen.findByRole("button", {
       name: /open runs drawer, 1 runs/i,
     });
+    await waitFor(() =>
+      expect(sourceTweetUrlInput).toHaveValue(
+        "https://x.com/siliconmania/status/1234567890",
+      ),
+    );
     await user.clear(sourceTweetUrlInput);
+    await waitFor(() => expect(sourceTweetUrlInput).toHaveValue(""));
     await user.type(
       sourceTweetUrlInput,
       "https://x.com/siliconmania/status/1234567890",

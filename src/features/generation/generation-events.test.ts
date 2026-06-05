@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
 import {
   buildGenerationFailureEvent,
@@ -13,6 +14,7 @@ describe("generation event contracts", () => {
       "https://x.com/siliconmania/status/2468",
     );
     const events = buildStubbedGenerationEvents({
+      replySignals: buildReplySignals(tweetContext),
       sourceTweet: tweetContext.sourceTweet,
       sourceTweetUrl: "https://x.com/siliconmania/status/2468",
       usersDirection: "Keep it skeptical.",

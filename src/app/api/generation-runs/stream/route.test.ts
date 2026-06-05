@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { parseGenerationStreamEvent } from "@/features/generation/generation-events";
-import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
+import {
+  buildFixtureTweetContext,
+  type RetrievedTweetContext,
+} from "@/features/tweet-retrieval/tweet-retrieval";
 import { GET, streamGenerationRun } from "./route";
 
 describe("generation stream route", () => {
@@ -120,4 +123,114 @@ describe("generation stream route", () => {
       "Retrieved source tweet text from the service.",
     );
   });
+
+  test("requests outside-X enrichment when source and replies are thin", async () => {
+    const thinContext = buildThinTweetContext();
+    const enrichmentRequests: unknown[] = [];
+    const response = await streamGenerationRun(
+      new Request(
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F9999&usersDirection=Make+the+launch+risk+clear.",
+      ),
+      {
+        retrieveOutsideXEnrichment: async (input) => {
+          enrichmentRequests.push(input);
+
+          return {
+            retrievedAt: "2026-06-05T10:20:00.000Z",
+            items: [
+              {
+                title: "Outside report",
+                summary: "The launch is tied to a broader platform shift.",
+                url: "https://example.com/report",
+              },
+            ],
+          };
+        },
+        retrieveTweetContext: async () => thinContext,
+      },
+    );
+    const events = await readStreamEvents(response);
+
+    expect(enrichmentRequests).toEqual([
+      {
+        sourceTweet: thinContext.sourceTweet,
+        usersDirection: "Make the launch risk clear.",
+        replySignals: [],
+      },
+    ]);
+    expect(events.at(-1)).toMatchObject({
+      type: "completed",
+      run: {
+        sourceTweet: thinContext.sourceTweet,
+      },
+    });
+    expect(JSON.stringify(events)).not.toContain("Outside report");
+    expect(JSON.stringify(events)).not.toContain("enrichment");
+  });
+
+  test("skips outside-X enrichment when source and replies are sufficient", async () => {
+    const enrichmentRequests: unknown[] = [];
+    const sufficientContext = buildFixtureTweetContext(
+      "https://x.com/siliconmania/status/1357",
+    );
+    const response = await streamGenerationRun(
+      new Request(
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F1357",
+      ),
+      {
+        retrieveOutsideXEnrichment: async (input) => {
+          enrichmentRequests.push(input);
+
+          return {
+            retrievedAt: "2026-06-05T10:20:00.000Z",
+            items: [
+              {
+                title: "Unneeded outside report",
+                summary: "This should not be requested.",
+              },
+            ],
+          };
+        },
+        retrieveTweetContext: async () => sufficientContext,
+      },
+    );
+
+    expect(enrichmentRequests).toEqual([]);
+    expect(await response.text()).toContain(sufficientContext.sourceTweet.text);
+  });
 });
+
+async function readStreamEvents(response: Response) {
+  const rawEvents = await response.text();
+
+  return rawEvents
+    .trim()
+    .split("\n\n")
+    .map((rawEvent) => {
+      const dataLine = rawEvent
+        .split("\n")
+        .find((line) => line.startsWith("data: "));
+
+      if (!dataLine) {
+        throw new Error("Missing SSE data line.");
+      }
+
+      return parseGenerationStreamEvent(
+        JSON.parse(dataLine.replace("data: ", "")),
+      );
+    });
+}
+
+function buildThinTweetContext(): RetrievedTweetContext {
+  const tweetContext = buildFixtureTweetContext(
+    "https://x.com/siliconmania/status/9999",
+  );
+
+  return {
+    sourceTweet: {
+      ...tweetContext.sourceTweet,
+      text: "Huge if true.",
+    },
+    replies: [],
+  };
+}

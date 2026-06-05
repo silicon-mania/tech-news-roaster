@@ -1,4 +1,8 @@
 import { z } from "zod";
+import type {
+  OutsideXEnrichmentContext,
+  ReplySignal,
+} from "@/features/enrichment/outside-x-enrichment";
 import { retrievedSourceTweetSchema } from "@/features/tweet-retrieval/tweet-retrieval";
 
 export const draftTarget = 3;
@@ -62,6 +66,8 @@ export type GenerationStreamEvent = z.infer<typeof generationStreamEventSchema>;
 type StubbedGenerationInput = {
   sourceTweetUrl: string;
   sourceTweet: z.infer<typeof retrievedSourceTweetSchema>;
+  replySignals: ReplySignal[];
+  enrichmentContext?: OutsideXEnrichmentContext;
   usersDirection: string;
 };
 
@@ -78,6 +84,8 @@ export function parseCompletedGenerationRunPayload(
 }
 
 export function buildStubbedGenerationEvents({
+  enrichmentContext,
+  replySignals,
   sourceTweet,
   sourceTweetUrl,
   usersDirection,
@@ -86,20 +94,29 @@ export function buildStubbedGenerationEvents({
   const directionClause = usersDirection
     ? ` It respects the user's direction: ${usersDirection}`
     : "";
+  const replySignalClause =
+    replySignals.length > 0
+      ? " It also reads the reply signals without exposing them as a research panel."
+      : "";
+  const enrichmentClause =
+    enrichmentContext && enrichmentContext.items.length > 0
+      ? " It uses outside-X context only as hidden supporting material."
+      : "";
+  const contextClause = `${directionClause}${replySignalClause}${enrichmentClause}`;
   const drafts: QuoteTweetDraft[] = [
     {
       id: "draft-openai",
-      text: `Quote-tweet draft: The real story is not the launch, it is the leverage. This update turns one product move into a pressure test for every platform trying to own the next interface.${directionClause}`,
+      text: `Quote-tweet draft: The real story is not the launch, it is the leverage. This update turns one product move into a pressure test for every platform trying to own the next interface.${contextClause}`,
       modelProvenance: "OpenAI stub model",
     },
     {
       id: "draft-anthropic",
-      text: `Quote-tweet draft: Useful tech news usually hides in the incentives. If this works, the winner is not just the team shipping faster, but the company that makes everyone else adapt around it.${directionClause}`,
+      text: `Quote-tweet draft: Useful tech news usually hides in the incentives. If this works, the winner is not just the team shipping faster, but the company that makes everyone else adapt around it.${contextClause}`,
       modelProvenance: "Anthropic stub model",
     },
     {
       id: "draft-google",
-      text: `Quote-tweet draft: This looks like a feature, but it behaves like a distribution bet. Watch who gets access first, who gets priced out, and who suddenly has to explain their roadmap.${directionClause}`,
+      text: `Quote-tweet draft: This looks like a feature, but it behaves like a distribution bet. Watch who gets access first, who gets priced out, and who suddenly has to explain their roadmap.${contextClause}`,
       modelProvenance: "Google stub model",
     },
   ];
