@@ -1,6 +1,11 @@
 "use client";
 
-import { type FormEvent, useId, useRef, useState } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
+import {
+  draftTarget,
+  parseGenerationStreamEvent,
+  type QuoteTweetDraft,
+} from "@/features/generation/generation-events";
 import { parseSourceTweetUrl } from "./source-tweet-url";
 
 export type GenerationIntake = {
@@ -13,10 +18,23 @@ export type GenerationRun = {
   label: string;
   sourceTweetUrl: string;
   usersDirection: string;
-  status: "running";
+  status: "running" | "completed";
   draftCount: number;
   draftTarget: number;
+  drafts: QuoteTweetDraft[];
 };
+
+type GenerationEventListener = (message: MessageEvent<string>) => void;
+
+type GenerationEventSource = {
+  addEventListener(
+    type: "progress" | "completed",
+    listener: GenerationEventListener,
+  ): void;
+  close(): void;
+};
+
+type GenerationEventSourceFactory = (url: string) => GenerationEventSource;
 
 type SubmissionState =
   | { kind: "idle" }
@@ -27,12 +45,18 @@ type SubmissionState =
 type IntakeWorkspaceProps = {
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
+  generationEventSourceFactory?: GenerationEventSourceFactory;
   onStartGenerationRun?: (intake: GenerationIntake) => void | Promise<void>;
 };
 
 const genericRunningRunLabel = "New generation run";
 
+function createGenerationEventSource(url: string) {
+  return new EventSource(url);
+}
+
 export function IntakeWorkspace({
+  generationEventSourceFactory = createGenerationEventSource,
   initialActiveRunId,
   initialRuns = [],
   onStartGenerationRun,
@@ -51,6 +75,19 @@ export function IntakeWorkspace({
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
     kind: "idle",
   });
+  const generationEventSources = useRef<Map<string, GenerationEventSource>>(
+    new Map(),
+  );
+
+  useEffect(() => {
+    return () => {
+      for (const eventSource of generationEventSources.current.values()) {
+        eventSource.close();
+      }
+
+      generationEventSources.current.clear();
+    };
+  }, []);
 
   const activeRun = runs.find((run) => run.id === activeRunId) ?? null;
   const hasRunningRun = runs.some((run) => run.status === "running");
@@ -90,7 +127,8 @@ export function IntakeWorkspace({
       usersDirection: usersDirection.trim(),
       status: "running",
       draftCount: 0,
-      draftTarget: 3,
+      draftTarget,
+      drafts: [],
     };
 
     setRuns((currentRuns) => [runningRun, ...currentRuns]);
@@ -101,6 +139,71 @@ export function IntakeWorkspace({
     });
 
     void onStartGenerationRun?.(intake);
+    subscribeToGenerationRun(runId, intake);
+  }
+
+  function subscribeToGenerationRun(runId: string, intake: GenerationIntake) {
+    const eventSource = generationEventSourceFactory(
+      buildGenerationStreamUrl(intake),
+    );
+
+    generationEventSources.current.set(runId, eventSource);
+
+    eventSource.addEventListener("progress", (message) => {
+      const event = parseGenerationStreamEvent(
+        JSON.parse((message as MessageEvent<string>).data),
+      );
+
+      if (event.type !== "progress") {
+        return;
+      }
+
+      setRuns((currentRuns) =>
+        currentRuns.map((run) => {
+          if (run.id !== runId) {
+            return run;
+          }
+
+          return {
+            ...run,
+            draftCount: event.draftCount,
+            draftTarget: event.draftTarget,
+            drafts: [...run.drafts, event.draft],
+            label:
+              run.label === genericRunningRunLabel ? event.label : run.label,
+          };
+        }),
+      );
+    });
+
+    eventSource.addEventListener("completed", (message) => {
+      const event = parseGenerationStreamEvent(
+        JSON.parse((message as MessageEvent<string>).data),
+      );
+
+      if (event.type !== "completed") {
+        return;
+      }
+
+      setRuns((currentRuns) =>
+        currentRuns.map((run) => {
+          if (run.id !== runId) {
+            return run;
+          }
+
+          return {
+            ...run,
+            status: "completed",
+            label: event.run.label,
+            draftCount: event.run.drafts.length,
+            drafts: event.run.drafts,
+          };
+        }),
+      );
+
+      eventSource.close();
+      generationEventSources.current.delete(runId);
+    });
   }
 
   const sourceTweetUrlDescription =
@@ -156,7 +259,7 @@ export function IntakeWorkspace({
                             aria-hidden="true"
                             className="h-2 w-2 rounded-full bg-sky-300"
                           />
-                          Running
+                          {run.status === "running" ? "Running" : "Complete"}
                         </span>
                       </span>
                       <span className="text-slate-400 text-xs">
@@ -183,7 +286,7 @@ export function IntakeWorkspace({
                     aria-hidden="true"
                     className="h-2 w-2 rounded-full bg-sky-300"
                   />
-                  Running
+                  {activeRun.status === "running" ? "Running" : "Complete"}
                 </span>
               ) : null}
             </div>
@@ -201,6 +304,35 @@ export function IntakeWorkspace({
                     {activeRun.draftCount}/{activeRun.draftTarget}
                   </p>
                 </div>
+
+                {activeRun.status === "completed" &&
+                activeRun.drafts.length === draftTarget ? (
+                  <section aria-label="Completed draft comparison">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium text-slate-300 text-sm">
+                        Draft comparison
+                      </p>
+                      <span className="text-slate-500 text-xs">
+                        {activeRun.drafts.length} drafts
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-3 xl:grid-cols-3">
+                      {activeRun.drafts.map((draft) => (
+                        <article
+                          key={draft.id}
+                          className="grid content-between gap-4 rounded-md border border-slate-800 bg-slate-900/55 p-4"
+                        >
+                          <p className="whitespace-pre-wrap text-slate-100 text-sm leading-6">
+                            {draft.text}
+                          </p>
+                          <p className="border-slate-800 border-t pt-3 text-slate-400 text-xs">
+                            Model Provenance: {draft.modelProvenance}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
 
                 <div className="grid gap-3">
                   <div>
@@ -325,4 +457,16 @@ export function IntakeWorkspace({
       </div>
     </main>
   );
+}
+
+function buildGenerationStreamUrl(intake: GenerationIntake) {
+  const searchParams = new URLSearchParams({
+    sourceTweetUrl: intake.sourceTweetUrl,
+  });
+
+  if (intake.usersDirection) {
+    searchParams.set("usersDirection", intake.usersDirection);
+  }
+
+  return `/api/generation-runs/stream?${searchParams.toString()}`;
 }
