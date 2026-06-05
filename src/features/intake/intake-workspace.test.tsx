@@ -587,6 +587,9 @@ describe("IntakeWorkspace", () => {
         savedAt: expect.any(String),
       }),
     );
+    expect(sourceTweetUrlInput).toHaveValue(
+      "https://x.com/siliconmania/status/1234567890",
+    );
 
     await user.click(
       screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
@@ -743,6 +746,193 @@ describe("IntakeWorkspace", () => {
         name: /copy draft 2/i,
       }),
     ).toBeInTheDocument();
+  });
+
+  test("enters plain-text editing only after clicking an already-expanded draft", async () => {
+    const user = userEvent.setup();
+    const completedRun = buildCompletedRun({
+      drafts: [
+        {
+          id: "draft-openai",
+          text: "First line.\nSecond line.",
+          modelProvenance: "OpenAI stub model",
+        },
+        {
+          id: "draft-anthropic",
+          text: "Quote-tweet draft: second saved draft.",
+          modelProvenance: "Anthropic stub model",
+        },
+        {
+          id: "draft-google",
+          text: "Quote-tweet draft: third saved draft.",
+          modelProvenance: "Google stub model",
+        },
+      ],
+    });
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [completedRun],
+    });
+
+    const expandedFirstDraft = screen.getByRole("article", {
+      name: /expanded draft 1/i,
+    });
+
+    expect(
+      within(expandedFirstDraft).queryByRole("textbox", {
+        name: /edit draft 1/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(expandedFirstDraft).toHaveTextContent("First line.");
+
+    await user.click(
+      within(expandedFirstDraft).getByRole("button", {
+        name: /edit draft 1/i,
+      }),
+    );
+
+    expect(
+      within(expandedFirstDraft).getByRole("textbox", {
+        name: /edit draft 1/i,
+      }),
+    ).toHaveValue("First line.\nSecond line.");
+    expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
+  test("preserves line breaks, hides autosave state, and copies the current draft text", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn(async () => undefined);
+    const savedRunStore = createMemorySavedRunStore();
+    const completedRun = buildCompletedRun();
+
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [completedRun],
+      savedRunStore,
+    });
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /edit draft 1/i,
+      }),
+    );
+    const draftEditor = screen.getByRole("textbox", {
+      name: /edit draft 1/i,
+    });
+
+    await user.clear(draftEditor);
+    await user.type(
+      draftEditor,
+      "Edited first line.{enter}Edited second line.",
+    );
+
+    expect(screen.queryByText(/autosave|saving/i)).not.toBeInTheDocument();
+    await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
+    expect(savedRunStore.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "saved-run",
+        drafts: expect.arrayContaining([
+          expect.objectContaining({
+            id: "draft-openai",
+            text: "Edited first line.\nEdited second line.",
+          }),
+        ]),
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /copy draft 1/i,
+      }),
+    );
+
+    expect(writeText).toHaveBeenCalledWith(
+      "Edited first line.\nEdited second line.",
+    );
+  });
+
+  test("reopens the latest edited Saved Run content without regenerating", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore([
+      buildCompletedRun({ id: "saved-run", label: "Editable saved run" }),
+      buildCompletedRun({
+        id: "other-run",
+        label: "Other saved run",
+        sourceTweetUrl: "https://x.com/siliconmania/status/222",
+        drafts: [
+          {
+            id: "other-openai",
+            text: "Other first draft.",
+            modelProvenance: "OpenAI stub model",
+          },
+          {
+            id: "other-anthropic",
+            text: "Other second draft.",
+            modelProvenance: "Anthropic stub model",
+          },
+          {
+            id: "other-google",
+            text: "Other third draft.",
+            modelProvenance: "Google stub model",
+          },
+        ],
+      }),
+    ]);
+    const { generationStreamUrls } = renderWorkspace({ savedRunStore });
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /open runs drawer, 2 runs/i,
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /editable saved run/i,
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /edit draft 1/i,
+      }),
+    );
+    const draftEditor = screen.getByRole("textbox", {
+      name: /edit draft 1/i,
+    });
+
+    await user.clear(draftEditor);
+    await user.type(draftEditor, "Latest edit line one.{enter}Line two.");
+    await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
+
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 2 runs/i }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /other saved run/i,
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 2 runs/i }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /editable saved run/i,
+      }),
+    );
+
+    expect(generationStreamUrls).toEqual([]);
+    expect(
+      screen.getByRole("article", {
+        name: /expanded draft 1/i,
+      }),
+    ).toHaveTextContent("Latest edit line one. Line two.");
   });
 
   test("reusing the same source tweet creates an independent Saved Run", async () => {

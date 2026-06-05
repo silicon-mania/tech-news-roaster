@@ -6,13 +6,37 @@ import type { QuoteTweetDraft } from "@/features/generation/generation-events";
 
 type DraftComparisonProps = {
   drafts: QuoteTweetDraft[];
+  onDraftTextChange: (draftId: string, text: string) => void;
 };
 
-export function DraftComparison({ drafts }: DraftComparisonProps) {
+export function DraftComparison({
+  drafts,
+  onDraftTextChange,
+}: DraftComparisonProps) {
   const [expandedDraftId, setExpandedDraftId] = useState(drafts.at(0)?.id);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
   useEffect(() => {
-    setExpandedDraftId(drafts.at(0)?.id);
+    setExpandedDraftId((currentExpandedDraftId) => {
+      if (
+        currentExpandedDraftId &&
+        drafts.some((draft) => draft.id === currentExpandedDraftId)
+      ) {
+        return currentExpandedDraftId;
+      }
+
+      return drafts.at(0)?.id;
+    });
+    setEditingDraftId((currentEditingDraftId) => {
+      if (
+        currentEditingDraftId &&
+        drafts.some((draft) => draft.id === currentEditingDraftId)
+      ) {
+        return currentEditingDraftId;
+      }
+
+      return null;
+    });
   }, [drafts]);
 
   return (
@@ -26,7 +50,7 @@ export function DraftComparison({ drafts }: DraftComparisonProps) {
             <article
               aria-label={`Expanded draft ${index + 1}`}
               key={draft.id}
-              className="grid gap-5 rounded-sm border border-slate-800/70 bg-slate-950/25 px-1 py-1 sm:px-2"
+              className="group grid gap-5 rounded-sm border border-slate-800/70 bg-slate-950/25 px-1 py-1 sm:px-2"
             >
               <div className="flex items-center justify-between gap-3 px-2 pt-2">
                 <ProviderProvenance
@@ -37,7 +61,10 @@ export function DraftComparison({ drafts }: DraftComparisonProps) {
                   <button
                     type="button"
                     aria-label={`Copy draft ${index + 1}`}
-                    onClick={() => void copyDraftText(draft.text)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void copyDraftText(draft.text);
+                    }}
                     className="rounded-sm border border-slate-800 px-2 py-1 text-slate-300 text-xs transition hover:border-sky-400/70 hover:text-slate-100"
                   >
                     Copy
@@ -45,15 +72,32 @@ export function DraftComparison({ drafts }: DraftComparisonProps) {
                   <button
                     type="button"
                     aria-label={`Show visible rationale for draft ${index + 1}`}
-                    className="rounded-sm border border-slate-800 px-2 py-1 text-slate-300 text-xs transition hover:border-sky-400/70 hover:text-slate-100"
+                    onClick={(event) => event.stopPropagation()}
+                    className="rounded-sm border border-slate-800 px-2 py-1 text-slate-300 text-xs opacity-0 transition hover:border-sky-400/70 hover:text-slate-100 hover:opacity-100 focus:opacity-100 group-hover:opacity-100"
                   >
                     Rationale
                   </button>
                 </div>
               </div>
-              <p className="whitespace-pre-wrap px-2 pb-3 text-base text-slate-100 leading-7 sm:text-lg sm:leading-8">
-                {draft.text}
-              </p>
+              {editingDraftId === draft.id ? (
+                <textarea
+                  aria-label={`Edit draft ${index + 1}`}
+                  value={draft.text}
+                  onChange={(event) =>
+                    onDraftTextChange(draft.id, event.target.value)
+                  }
+                  className="min-h-48 w-full resize-y whitespace-pre-wrap rounded-sm border border-transparent bg-transparent px-2 pb-3 text-base text-slate-100 leading-7 outline-none transition focus:border-slate-800 focus:ring-2 focus:ring-sky-400/20 sm:text-lg sm:leading-8"
+                />
+              ) : (
+                <button
+                  type="button"
+                  aria-label={`Edit draft ${index + 1}`}
+                  onClick={() => setEditingDraftId(draft.id)}
+                  className="whitespace-pre-wrap px-2 pb-3 text-left text-base text-slate-100 leading-7 outline-none transition focus:text-sky-100 sm:text-lg sm:leading-8"
+                >
+                  {draft.text}
+                </button>
+              )}
             </article>
           ) : (
             <article
@@ -64,7 +108,10 @@ export function DraftComparison({ drafts }: DraftComparisonProps) {
               <button
                 type="button"
                 aria-label={`Expand draft ${index + 1}`}
-                onClick={() => setExpandedDraftId(draft.id)}
+                onClick={() => {
+                  setExpandedDraftId(draft.id);
+                  setEditingDraftId(null);
+                }}
                 className="grid w-full gap-3 p-3 text-left transition hover:bg-slate-900/70 sm:p-4"
               >
                 <p className="line-clamp-3 text-slate-300 text-sm leading-6">

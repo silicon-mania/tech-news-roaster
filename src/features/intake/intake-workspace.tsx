@@ -51,12 +51,20 @@ export function IntakeWorkspace({
   onStartGenerationRun,
   savedRunStore = indexedDbSavedRunStore,
 }: IntakeWorkspaceProps) {
+  const initialActiveRun =
+    initialRuns.find((run) => run.id === initialActiveRunId) ??
+    initialRuns.at(0) ??
+    null;
   const runSequence = useRef(initialRuns.length);
-  const [sourceTweetUrl, setSourceTweetUrl] = useState("");
-  const [usersDirection, setUsersDirection] = useState("");
+  const [sourceTweetUrl, setSourceTweetUrl] = useState(
+    initialActiveRun?.sourceTweetUrl ?? "",
+  );
+  const [usersDirection, setUsersDirection] = useState(
+    initialActiveRun?.usersDirection ?? "",
+  );
   const [runs, setRuns] = useState<GenerationRun[]>(initialRuns);
   const [activeRunId, setActiveRunId] = useState<string | null>(
-    initialActiveRunId ?? initialRuns.at(0)?.id ?? null,
+    initialActiveRun?.id ?? null,
   );
   const [isRunsDrawerOpen, setIsRunsDrawerOpen] = useState(false);
   const [isDirectionPanelOpen, setIsDirectionPanelOpen] = useState(false);
@@ -64,6 +72,9 @@ export function IntakeWorkspace({
     kind: "idle",
   });
   const generationEventSources = useRef<Map<string, GenerationEventSource>>(
+    new Map(),
+  );
+  const autosaveTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
   );
 
@@ -74,6 +85,12 @@ export function IntakeWorkspace({
       }
 
       generationEventSources.current.clear();
+
+      for (const timeout of autosaveTimeouts.current.values()) {
+        clearTimeout(timeout);
+      }
+
+      autosaveTimeouts.current.clear();
     };
   }, []);
 
@@ -104,9 +121,18 @@ export function IntakeWorkspace({
   }, [savedRunStore]);
 
   const activeRun = runs.find((run) => run.id === activeRunId) ?? null;
+  const activeRunSourceTweetUrl = activeRun?.sourceTweetUrl;
   const hasRunningRun = runs.some((run) => run.status === "running");
   const hasRuns = runs.length > 0;
   const hasUsersDirection = usersDirection.trim().length > 0;
+
+  useEffect(() => {
+    if (!activeRunSourceTweetUrl) {
+      return;
+    }
+
+    setSourceTweetUrl(activeRunSourceTweetUrl);
+  }, [activeRunSourceTweetUrl]);
 
   function submitIntake(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -134,6 +160,7 @@ export function IntakeWorkspace({
       usersDirection: usersDirection.trim(),
     };
 
+    setSourceTweetUrl(parsedSourceTweetUrl.url);
     runSequence.current += 1;
     const runId = `run-${runSequence.current}`;
     const runningRun: GenerationRun = {
@@ -273,6 +300,52 @@ export function IntakeWorkspace({
     }
   }
 
+  function updateDraftText(draftId: string, text: string) {
+    if (activeRun?.status !== "completed") {
+      return;
+    }
+
+    const editedRun: GenerationRun = {
+      ...activeRun,
+      drafts: activeRun.drafts.map((draft) => {
+        if (draft.id !== draftId) {
+          return draft;
+        }
+
+        return {
+          ...draft,
+          text,
+        };
+      }),
+    };
+
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => {
+        if (run.id !== editedRun.id) {
+          return run;
+        }
+
+        return editedRun;
+      }),
+    );
+    scheduleRunAutosave(editedRun);
+  }
+
+  function scheduleRunAutosave(run: GenerationRun) {
+    const currentTimeout = autosaveTimeouts.current.get(run.id);
+
+    if (currentTimeout) {
+      clearTimeout(currentTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      autosaveTimeouts.current.delete(run.id);
+      void savedRunStore.save(run).catch(() => undefined);
+    }, 350);
+
+    autosaveTimeouts.current.set(run.id, timeout);
+  }
+
   function reopenRun(runId: string) {
     const run = runs.find((candidateRun) => candidateRun.id === runId);
 
@@ -327,7 +400,10 @@ export function IntakeWorkspace({
           onSubmit={submitIntake}
         />
 
-        <ActiveRunPanel activeRun={activeRun} />
+        <ActiveRunPanel
+          activeRun={activeRun}
+          onDraftTextChange={updateDraftText}
+        />
       </div>
 
       {isRunsDrawerOpen ? (

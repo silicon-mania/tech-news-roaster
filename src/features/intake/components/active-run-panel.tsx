@@ -3,9 +3,13 @@ import { DraftComparison } from "./draft-comparison";
 
 type ActiveRunPanelProps = {
   activeRun: GenerationRun | null;
+  onDraftTextChange: (draftId: string, text: string) => void;
 };
 
-export function ActiveRunPanel({ activeRun }: ActiveRunPanelProps) {
+export function ActiveRunPanel({
+  activeRun,
+  onDraftTextChange,
+}: ActiveRunPanelProps) {
   if (!activeRun) {
     return (
       <section
@@ -43,7 +47,10 @@ export function ActiveRunPanel({ activeRun }: ActiveRunPanelProps) {
       className="mx-auto grid w-full max-w-5xl gap-3 self-start"
     >
       {sourceTweetPreview}
-      <DraftComparison drafts={activeRun.drafts} />
+      <DraftComparison
+        drafts={activeRun.drafts}
+        onDraftTextChange={onDraftTextChange}
+      />
     </section>
   );
 }
