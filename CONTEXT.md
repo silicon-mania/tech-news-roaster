@@ -48,6 +48,10 @@ _Avoid_: Multi-page flow, wizard, separate editor
 The single run currently shown in the center workspace. Selecting another run replaces it rather than opening multiple workspaces at once.
 _Avoid_: Tab, secondary workspace, side-by-side run
 
+**Draft Stack**:
+The vertical set of three drafts inside the active run where one draft is expanded for full reading and editing while the others stay collapsed as compact previews.
+_Avoid_: Three-column board, equal cards grid, side-by-side comparison
+
 **Draft**:
 A publishable candidate tweet produced within a generation run and intended for direct comparison, editing, and eventual posting as a quote tweet.
 _Avoid_: Output, completion, response

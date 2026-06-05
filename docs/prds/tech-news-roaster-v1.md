@@ -86,36 +86,64 @@ The interface shows a unified runs list, one active run in the center workspace,
 ## Implementation Decisions
 
 - The product is a single-page workspace built with the latest Next.js App Router, TypeScript, Tailwind CSS, and a dark minimalist UI. shadcn/ui may be used selectively, but the overall experience should remain restrained.
-- The product uses one active run at a time in the center workspace and a unified runs list in a side panel. The runs list includes both running runs and completed saved runs, but the UI does not teach that distinction explicitly beyond a visible running state.
+- The product uses one active run at a time in a draft-first center workspace. On desktop, the drafts own the main canvas by default, while the unified runs list is available from a secondary drawer instead of a persistent side panel. The same hidden-panel pattern carries to mobile.
+- The same draft stack interaction model is used on desktop and mobile. Mobile does not introduce a different draft navigation pattern; it keeps the vertical stack while moving secondary controls such as the runs list and user's direction behind compact icon-triggered panels.
 - The source tweet is the only valid primary input in v1, and it must be a direct X/Twitter status URL.
-- The user's direction remains a single freeform field. There are no explicit tone, length, or angle presets in the UI.
+- The source tweet field remains visible by default in the main workspace header, while the user's direction remains a single optional freeform field revealed through a compact expand action rather than occupying permanent space. There are no explicit tone, length, or angle presets in the UI.
+- After a run starts or a saved run is reopened, the source tweet input remains populated with that active run's source rather than clearing immediately.
 - The publish mode in v1 is quote tweet only.
 - Every generation run targets exactly three drafts.
 - The completed result is normally one draft per connected provider: OpenAI, Anthropic, and Google through the Vercel AI Gateway path.
 - When provider failure prevents a one-per-provider result, provider fallback may substitute another successful provider draft to preserve a complete run, with angle diversity preferred over cosmetic provenance symmetry.
 - The client sees model provenance on each draft and a lightweight notice when provider fallback caused duplicated provenance.
 - The source tweet remains the anchor of the product even when outside-X enrichment is used.
+- When a run is open, the source tweet preview stays visible by default as a slim docked strip above the drafts, so the user can judge the outputs against the anchor without giving up canvas space.
+- The source tweet preview should render only the actual source tweet text in a compact truncated form rather than falling back to a raw URL-style reference or additional author chrome.
+- The source tweet preview stays fixed as one compact truncated strip and does not expand into a second reading surface.
 - Replies and outside-X enrichment are internal inputs to editorial interpretation and are not shown as first-class user-facing research panels in v1.
-- Visible rationale is optional, hidden by default, expandable per draft, and must stay short and human-readable.
-- Drafts are plain-text editable surfaces with preserved line breaks and per-draft local edited state.
+- Visible rationale is optional, hidden by default behind a subtle icon inside the expanded draft, and must stay short and human-readable.
+- In an expanded draft, the always-visible copy action and the subtle visible-rationale icon sit together in a tiny top-right control cluster.
+- The active run presents drafts as a single-open draft stack rather than a three-column board. One draft is expanded for full reading and editing, while the other drafts remain visible as compact previews that can be opened with one tap or click.
+- In the draft stack, a collapsed draft shows only a short two-to-three-line text preview and a compact model provenance signature anchored at the lower left, using the provider logo plus model name.
+- An expanded draft opens in a calm reading view first. A second click on that already-expanded draft enters plain-text editing with preserved line breaks and per-draft local edited state, without introducing a visible edit button.
+- An expanded draft is content-sized rather than forced to fill the viewport. The workspace should give it generous room, but its height should follow the amount of text instead of simulating a full-screen editor.
+- The expanded draft should use a very light, almost boundary-less container so the text feels primary and the workspace avoids a boxed dashboard look.
 - Copy operates per draft, not per run.
+- The only always-visible draft action is copy. Navigation between drafts happens by directly clicking another draft in the stack, which collapses the current one and expands the selected one.
 - Completed runs persist in browser-only storage on the current device. There is no account system, no server persistence, and no cross-device continuity in v1.
 - IndexedDB is the default persistence layer for saved runs because runs are structured client-owned records that can accumulate over time.
 - Saved run records include the source tweet, user's direction, model provenance, date, latest edited draft content, and related metadata needed to reopen the run.
 - Running runs appear in the runs list before completion so the user can see and reopen the in-flight object in the single-page workspace.
+- A running run is communicated primarily in the main canvas. The runs drawer may acknowledge it quietly, but the drawer should not become the primary place where generation progress demands attention.
+- Each row in the runs drawer shows only the run label and a relative date such as minutes ago or weeks ago, with any running/completed state kept visually subtle.
+- The run label belongs primarily to the runs drawer. The main canvas should omit it or keep it extremely subtle if implementation requires it.
 - Completed runs are saved automatically when all three drafts are available.
 - Draft edits autosave with a short debounce and no manual save action.
+- Autosave feedback remains completely invisible in the UI. There is no saved or saving indicator during draft editing.
 - Saved runs never regenerate. Reopening a saved run restores the last edited state only.
 - Reusing the same source tweet later creates a new independent generation run.
-- Deleting a run is immediate and permanent in v1, with no confirmation and no undo.
+- Deleting a run is immediate and permanent in v1, with no confirmation and no undo. In the runs drawer, the trash action is revealed only on hover for desktop saved-run rows and is omitted on mobile.
 - Only one in-flight run is allowed at a time.
 - The tweet retrieval service is server-side and provider-agnostic. The product should not be tightly shaped around the official X API.
 - The generation orchestrator is server-side behind Next.js route handlers. It is responsible for calling providers, applying prompt strategy, tracking provider progress, applying provider fallback, and producing complete generation runs.
 - Progressive run updates should be streamed to the client via SSE so the UI can show progress counts, update the run label when the first provider response arrives, and flip the running run to a completed saved run once the set is ready.
+- While generation is running, the main canvas uses a dedicated minimalist waiting state rather than exposing a partial draft stack. The draft stack appears only once the complete set is ready for review.
+- That waiting state shows the exact draft progress count, but almost nothing else beyond a restrained live visual treatment.
 - The app should keep generation, retrieval, and validation concerns distinct at the route/service level even if all of them live inside Next.js route handlers.
 - The client data model should treat saved runs as client-owned IndexedDB-backed state, while TanStack Query coordinates server interactions and transient async state.
 - Zod should define important runtime contracts end-to-end, including URL validation, retrieved source tweet shape, generation progress events, completed run payloads, and IndexedDB record shape.
 - The generation language and all UI copy in v1 are English only.
+- The product wordmark is `TECH NEWS ROASTER`, shown in a restrained way at the centered top of the page and not as a sticky header.
+- The source tweet input sits directly below the centered wordmark as the primary horizontal control on the page, with the run action attached to that bar and secondary controls expressed as compact icons rather than separate labeled panels.
+- The primary action is a compact `Run` button paired with an icon. It remains the only prominent text-labeled control in the top intake bar.
+- Secondary drawer and expand icons remain visible at all times so the top control layout stays stable instead of changing based on input state.
+- The runs drawer and the user's direction panel open from opposite sides of the screen, giving each secondary control a distinct spatial meaning.
+- When the user's direction contains content, its icon shows a tiny filled state after the panel closes so the hidden steer remains discoverable without adding text.
+- The main surface avoids visible field labels and explanatory helper copy. It relies on placeholder text, iconography, spacing, and motion for clarity, while keeping accessible field names in the underlying markup.
+- Validation errors are an exception: the source tweet bar may show one short inline error message beneath itself when the URL is invalid.
+- Before any run exists, the main canvas stays almost empty aside from the restrained wordmark, intake bar, and a very quiet visual treatment. It should not depend on onboarding sentences to explain itself.
+- Once a run exists, the intake bar remains visible for quick reuse but compresses slightly so the active run and draft stack keep more vertical breathing room.
+- The wordmark stays narrow and centered, while the intake bar widens to align with the active draft content area once content is present.
 
 ## Testing Decisions
 
@@ -148,4 +176,11 @@ The interface shows a unified runs list, one active run in the center workspace,
 - The source tweet preview should feel minimalist and cool, but it must remain secondary to the draft editing surface.
 - The product should optimize for immediacy at every interaction point: fast validation, immediate run creation in the list, progressive streaming feedback, autosave, and quick run switching.
 - The “magic sauce” of the product includes reply analysis and outside-X enrichment, but that value should mostly surface through better drafts and short visible rationales rather than research-heavy UI.
+- The visual direction should feel like a sleek editorial tool: near-monochrome overall, restrained by default, and carried by a single accent color rather than multiple loud highlights or glow-heavy effects.
+- The single accent color is reserved for high-value interactive moments such as run, copy, focus, and active states, while the rest of the interface remains neutral.
+- The accent color should be a muted electric blue.
+- Typography should combine sharp editorial serif accents with a clean sans-serif body so the product feels authored and distinctive without sacrificing clarity in controls and draft text.
+- Iconography should be ultra-thin and elegant rather than heavy or geometric.
+- Motion should feel polished but restrained, using subtle drawer slides, calm draft expansion, and a minimal waiting animation rather than showy effects.
+- The page background should carry only a very subtle atmospheric treatment rather than staying perfectly flat or becoming a decorative scene.
 - The current glossary in `CONTEXT.md` and ADRs in `docs/adr/` are part of the source of truth for future issue breakdown and implementation planning.
