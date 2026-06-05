@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import {
@@ -11,6 +11,7 @@ import {
   type GenerationRun,
   IntakeWorkspace,
 } from "./intake-workspace";
+import type { SavedRunStore } from "./types";
 
 class FakeGenerationEventSource {
   readonly listeners = new Map<
@@ -43,16 +44,22 @@ class FakeGenerationEventSource {
 
 function renderWorkspace({
   generationEventSources = [],
+  isDesktop = false,
   initialActiveRunId,
   initialRuns,
   onStartGenerationRun = vi.fn(),
+  savedRunStore,
 }: {
   generationEventSources?: FakeGenerationEventSource[];
+  isDesktop?: boolean;
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
   onStartGenerationRun?: (intake: GenerationIntake) => void;
+  savedRunStore?: SavedRunStore;
 } = {}) {
   const generationStreamUrls: string[] = [];
+
+  stubDesktopMediaQuery(isDesktop);
 
   render(
     <IntakeWorkspace
@@ -67,6 +74,7 @@ function renderWorkspace({
       initialActiveRunId={initialActiveRunId}
       initialRuns={initialRuns}
       onStartGenerationRun={onStartGenerationRun}
+      savedRunStore={savedRunStore}
     />,
   );
 
@@ -74,6 +82,70 @@ function renderWorkspace({
     sourceTweetUrlInput: screen.getByLabelText(/source tweet url/i),
     generateButton: screen.getByRole("button", { name: /^run$/i }),
     generationStreamUrls,
+  };
+}
+
+function createMemorySavedRunStore(initialRuns: GenerationRun[] = []) {
+  const savedRuns = new Map(initialRuns.map((run) => [run.id, run]));
+  const save = vi.fn(async (run: GenerationRun) => {
+    savedRuns.set(run.id, run);
+  });
+  const deleteRun = vi.fn(async (runId: string) => {
+    savedRuns.delete(runId);
+  });
+  const store = {
+    savedRuns,
+    list: async () =>
+      Array.from(savedRuns.values()).sort((left, right) => {
+        const leftSavedAt = Date.parse(left.savedAt ?? "");
+        const rightSavedAt = Date.parse(right.savedAt ?? "");
+
+        return rightSavedAt - leftSavedAt;
+      }),
+    save,
+    delete: deleteRun,
+  };
+
+  return store;
+}
+
+function stubDesktopMediaQuery(matches: boolean) {
+  vi.stubGlobal("matchMedia", () => ({
+    matches,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+}
+
+function buildCompletedRun(
+  overrides: Partial<GenerationRun> = {},
+): GenerationRun {
+  return {
+    id: "saved-run",
+    label: "Saved run",
+    sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
+    usersDirection: "Keep it dry.",
+    status: "completed",
+    draftCount: 3,
+    draftTarget: 3,
+    drafts: [
+      {
+        id: "draft-openai",
+        text: "Quote-tweet draft: first saved draft.",
+        modelProvenance: "OpenAI stub model",
+      },
+      {
+        id: "draft-anthropic",
+        text: "Quote-tweet draft: second saved draft.",
+        modelProvenance: "Anthropic stub model",
+      },
+      {
+        id: "draft-google",
+        text: "Quote-tweet draft: third saved draft.",
+        modelProvenance: "Google stub model",
+      },
+    ],
+    ...overrides,
   };
 }
 
@@ -143,9 +215,10 @@ describe("IntakeWorkspace", () => {
     );
     expect(
       screen.getByRole("button", {
-        name: /new generation run.*running.*0\/3 drafts/i,
+        name: /new generation run.*just now/i,
       }),
     ).toBeInTheDocument();
+    expect(screen.getByTitle("running")).toBeInTheDocument();
     expect(generateButton).toBeDisabled();
   });
 
@@ -266,9 +339,10 @@ describe("IntakeWorkspace", () => {
     );
     expect(
       screen.getByRole("button", {
-        name: /new generation run.*running.*0\/3 drafts/i,
+        name: /new generation run.*just now/i,
       }),
     ).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTitle("running")).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: /generation waiting state/i }),
     ).toHaveTextContent("0/3");
@@ -370,9 +444,10 @@ describe("IntakeWorkspace", () => {
     );
     expect(
       screen.getByRole("button", {
-        name: /drafts for 1234567890.*running.*1\/3 drafts/i,
+        name: /drafts for 1234567890.*just now/i,
       }),
     ).toBeInTheDocument();
+    expect(screen.getByTitle("running")).toBeInTheDocument();
     await user.click(
       screen.getByRole("button", { name: /close runs drawer/i }),
     );
@@ -403,9 +478,10 @@ describe("IntakeWorkspace", () => {
     );
     expect(
       screen.getByRole("button", {
-        name: /drafts for 1234567890.*complete.*3\/3 drafts/i,
+        name: /drafts for 1234567890.*just now/i,
       }),
     ).toBeInTheDocument();
+    expect(screen.getByTitle("completed")).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: /completed draft comparison/i }),
     ).toBeInTheDocument();
@@ -439,5 +515,212 @@ describe("IntakeWorkspace", () => {
     expect(generationStreamUrls).toEqual([
       "/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F13579&usersDirection=Challenge+the+premise.",
     ]);
+  });
+
+  test("automatically saves every completed Generation Run", async () => {
+    const user = userEvent.setup();
+    const generationEventSources: FakeGenerationEventSource[] = [];
+    const savedRunStore = createMemorySavedRunStore();
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      generationEventSources,
+      savedRunStore,
+    });
+
+    await user.type(
+      sourceTweetUrlInput,
+      "https://x.com/siliconmania/status/1234567890",
+    );
+    await user.click(generateButton);
+
+    const events = buildStubbedGenerationEvents({
+      sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
+      usersDirection: "",
+    });
+
+    act(() => {
+      for (const event of events) {
+        generationEventSources[0]?.emit(event);
+      }
+    });
+
+    await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
+    expect(savedRunStore.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "run-1",
+        label: "Drafts for 1234567890",
+        sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
+        status: "completed",
+        draftCount: 3,
+        savedAt: expect.any(String),
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
+    );
+    expect(
+      screen.getByRole("button", {
+        name: /drafts for 1234567890.*just now/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test("reopens Saved Runs from the drawer without regenerating", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore([
+      buildCompletedRun({ label: "Previously saved run" }),
+    ]);
+    const { generationStreamUrls, sourceTweetUrlInput } = renderWorkspace({
+      savedRunStore,
+    });
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /open runs drawer, 1 runs/i,
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /previously saved run.*just now/i,
+      }),
+    );
+
+    expect(generationStreamUrls).toEqual([]);
+    expect(sourceTweetUrlInput).toHaveValue(
+      "https://x.com/siliconmania/status/1234567890",
+    );
+    expect(
+      screen.getByRole("region", { name: /completed draft comparison/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
+  });
+
+  test("reusing the same source tweet creates an independent Saved Run", async () => {
+    const user = userEvent.setup();
+    const generationEventSources: FakeGenerationEventSource[] = [];
+    const savedRunStore = createMemorySavedRunStore([
+      buildCompletedRun({ id: "original-saved-run" }),
+    ]);
+    const { generateButton, sourceTweetUrlInput } = renderWorkspace({
+      generationEventSources,
+      savedRunStore,
+    });
+
+    await screen.findByRole("button", {
+      name: /open runs drawer, 1 runs/i,
+    });
+    await user.clear(sourceTweetUrlInput);
+    await user.type(
+      sourceTweetUrlInput,
+      "https://x.com/siliconmania/status/1234567890",
+    );
+    await user.click(generateButton);
+
+    const events = buildStubbedGenerationEvents({
+      sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
+      usersDirection: "Keep it dry.",
+    });
+
+    act(() => {
+      for (const event of events) {
+        generationEventSources[0]?.emit(event);
+      }
+    });
+
+    await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
+    expect(savedRunStore.savedRuns.has("original-saved-run")).toBe(true);
+    expect(savedRunStore.savedRuns.has("run-1")).toBe(true);
+    expect(savedRunStore.savedRuns.get("run-1")).toEqual(
+      expect.objectContaining({
+        sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
+        usersDirection: "",
+      }),
+    );
+  });
+
+  test("renders saved-run relative dates", async () => {
+    const dateNow = vi
+      .spyOn(Date, "now")
+      .mockReturnValue(new Date("2026-06-05T12:00:00.000Z").getTime());
+    const savedRunStore = createMemorySavedRunStore([
+      buildCompletedRun({
+        label: "Three weeks old",
+        savedAt: "2026-05-15T12:00:00.000Z",
+      }),
+    ]);
+
+    renderWorkspace({ savedRunStore });
+
+    const user = userEvent.setup();
+    expect(
+      await screen.findByRole("button", {
+        name: /open runs drawer, 1 runs/i,
+      }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
+    );
+    expect(
+      screen.getByRole("button", {
+        name: /three weeks old.*3 weeks ago/i,
+      }),
+    ).toBeInTheDocument();
+
+    dateNow.mockRestore();
+  });
+
+  test("deletes saved runs through a desktop hover affordance", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore([
+      buildCompletedRun({ label: "Disposable run" }),
+    ]);
+
+    renderWorkspace({ isDesktop: true, savedRunStore });
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /open runs drawer, 1 runs/i,
+      }),
+    );
+    await user.hover(
+      screen.getByRole("button", {
+        name: /disposable run.*just now/i,
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /delete saved run: disposable run/i,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(savedRunStore.delete).toHaveBeenCalledWith("saved-run"),
+    );
+    expect(
+      screen.queryByRole("button", {
+        name: /disposable run/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("omits the delete affordance on mobile", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore([
+      buildCompletedRun({ label: "Mobile saved run" }),
+    ]);
+
+    renderWorkspace({ isDesktop: false, savedRunStore });
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /open runs drawer, 1 runs/i,
+      }),
+    );
+
+    expect(
+      screen.queryByRole("button", {
+        name: /delete saved run: mobile saved run/i,
+      }),
+    ).not.toBeInTheDocument();
   });
 });

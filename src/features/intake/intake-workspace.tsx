@@ -17,12 +17,14 @@ import {
   RunsList,
   WorkspaceHeader,
 } from "./components";
+import { indexedDbSavedRunStore } from "./saved-runs-store";
 import { parseSourceTweetUrl } from "./source-tweet-url";
 import type {
   GenerationEventSource,
   GenerationEventSourceFactory,
   GenerationIntake,
   GenerationRun,
+  SavedRunStore,
   SubmissionState,
 } from "./types";
 
@@ -33,6 +35,7 @@ type IntakeWorkspaceProps = {
   initialRuns?: GenerationRun[];
   generationEventSourceFactory?: GenerationEventSourceFactory;
   onStartGenerationRun?: (intake: GenerationIntake) => void | Promise<void>;
+  savedRunStore?: SavedRunStore;
 };
 
 const genericRunningRunLabel = "New generation run";
@@ -46,6 +49,7 @@ export function IntakeWorkspace({
   initialActiveRunId,
   initialRuns = [],
   onStartGenerationRun,
+  savedRunStore = indexedDbSavedRunStore,
 }: IntakeWorkspaceProps) {
   const runSequence = useRef(initialRuns.length);
   const [sourceTweetUrl, setSourceTweetUrl] = useState("");
@@ -72,6 +76,32 @@ export function IntakeWorkspace({
       generationEventSources.current.clear();
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void savedRunStore
+      .list()
+      .then((savedRuns) => {
+        if (!isMounted || savedRuns.length === 0) {
+          return;
+        }
+
+        setRuns((currentRuns) => mergeRuns(currentRuns, savedRuns));
+        setActiveRunId((currentActiveRunId) => {
+          if (currentActiveRunId) {
+            return currentActiveRunId;
+          }
+
+          return savedRuns.at(0)?.id ?? null;
+        });
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [savedRunStore]);
 
   const activeRun = runs.find((run) => run.id === activeRunId) ?? null;
   const hasRunningRun = runs.some((run) => run.status === "running");
@@ -168,22 +198,29 @@ export function IntakeWorkspace({
         return;
       }
 
+      const completedRun: GenerationRun = {
+        id: runId,
+        label: event.run.label,
+        sourceTweetUrl: intake.sourceTweetUrl,
+        usersDirection: intake.usersDirection,
+        status: "completed",
+        draftCount: event.run.drafts.length,
+        draftTarget,
+        drafts: event.run.drafts,
+        savedAt: new Date().toISOString(),
+      };
+
       setRuns((currentRuns) =>
         currentRuns.map((run) => {
           if (run.id !== runId) {
             return run;
           }
 
-          return {
-            ...run,
-            status: "completed",
-            label: event.run.label,
-            draftCount: event.run.drafts.length,
-            drafts: event.run.drafts,
-          };
+          return completedRun;
         }),
       );
 
+      void savedRunStore.save(completedRun).catch(() => undefined);
       eventSource.close();
       generationEventSources.current.delete(runId);
     });
@@ -201,6 +238,38 @@ export function IntakeWorkspace({
     if (submissionState.kind === "accepted") {
       setSubmissionState({ kind: "idle" });
     }
+  }
+
+  function reopenRun(runId: string) {
+    const run = runs.find((candidateRun) => candidateRun.id === runId);
+
+    if (!run) {
+      return;
+    }
+
+    setActiveRunId(run.id);
+    setSourceTweetUrl(run.sourceTweetUrl);
+    setUsersDirection(run.usersDirection);
+    setSubmissionState({ kind: "idle" });
+    setIsRunsDrawerOpen(false);
+  }
+
+  function deleteSavedRun(runId: string) {
+    setRuns((currentRuns) => {
+      const nextRuns = currentRuns.filter((run) => run.id !== runId);
+
+      if (runId === activeRunId) {
+        const nextActiveRun = nextRuns.at(0) ?? null;
+
+        setActiveRunId(nextActiveRun?.id ?? null);
+        setSourceTweetUrl(nextActiveRun?.sourceTweetUrl ?? "");
+        setUsersDirection(nextActiveRun?.usersDirection ?? "");
+      }
+
+      return nextRuns;
+    });
+
+    void savedRunStore.delete(runId).catch(() => undefined);
   }
 
   return (
@@ -237,10 +306,8 @@ export function IntakeWorkspace({
           <RunsList
             activeRunId={activeRunId}
             runs={runs}
-            onSelectRun={(runId) => {
-              setActiveRunId(runId);
-              setIsRunsDrawerOpen(false);
-            }}
+            onDeleteRun={deleteSavedRun}
+            onSelectRun={reopenRun}
           />
         </PanelOverlay>
       ) : null}
@@ -259,6 +326,13 @@ export function IntakeWorkspace({
       ) : null}
     </main>
   );
+}
+
+function mergeRuns(currentRuns: GenerationRun[], savedRuns: GenerationRun[]) {
+  const currentRunIds = new Set(currentRuns.map((run) => run.id));
+  const unseenSavedRuns = savedRuns.filter((run) => !currentRunIds.has(run.id));
+
+  return [...currentRuns, ...unseenSavedRuns];
 }
 
 type PanelOverlayProps = {

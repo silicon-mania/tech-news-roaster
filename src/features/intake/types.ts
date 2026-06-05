@@ -14,6 +14,7 @@ export type GenerationRun = {
   draftCount: number;
   draftTarget: number;
   drafts: QuoteTweetDraft[];
+  savedAt?: string;
 };
 
 type GenerationEventListener = (message: MessageEvent<string>) => void;
@@ -35,3 +36,9 @@ export type SubmissionState =
   | { kind: "invalid"; message: string }
   | { kind: "accepted" }
   | { kind: "blocked"; message: string };
+
+export type SavedRunStore = {
+  list(): Promise<GenerationRun[]>;
+  save(run: GenerationRun): Promise<void>;
+  delete(runId: string): Promise<void>;
+};
