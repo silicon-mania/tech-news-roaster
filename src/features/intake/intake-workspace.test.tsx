@@ -3,9 +3,11 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import {
+  buildGenerationFailureEvent,
   buildStubbedGenerationEvents,
   type GenerationStreamEvent,
 } from "@/features/generation/generation-events";
+import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
 import {
   type GenerationIntake,
   type GenerationRun,
@@ -15,13 +17,13 @@ import type { SavedRunStore } from "./types";
 
 class FakeGenerationEventSource {
   readonly listeners = new Map<
-    "progress" | "completed",
+    "progress" | "completed" | "failed",
     ((message: MessageEvent<string>) => void)[]
   >();
   closed = false;
 
   addEventListener(
-    type: "progress" | "completed",
+    type: "progress" | "completed" | "failed",
     listener: (message: MessageEvent<string>) => void,
   ) {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
@@ -120,6 +122,10 @@ function stubDesktopMediaQuery(matches: boolean) {
 function buildCompletedRun(
   overrides: Partial<GenerationRun> = {},
 ): GenerationRun {
+  const tweetContext = buildFixtureTweetContext(
+    "https://x.com/siliconmania/status/1234567890",
+  );
+
   return {
     id: "saved-run",
     label: "Saved run",
@@ -128,6 +134,7 @@ function buildCompletedRun(
     status: "completed",
     draftCount: 3,
     draftTarget: 3,
+    sourceTweet: tweetContext.sourceTweet,
     drafts: [
       {
         id: "draft-openai",
@@ -147,6 +154,22 @@ function buildCompletedRun(
     ],
     ...overrides,
   };
+}
+
+function buildGenerationEvents({
+  sourceTweetUrl,
+  usersDirection = "",
+}: {
+  sourceTweetUrl: string;
+  usersDirection?: string;
+}) {
+  const tweetContext = buildFixtureTweetContext(sourceTweetUrl);
+
+  return buildStubbedGenerationEvents({
+    sourceTweet: tweetContext.sourceTweet,
+    sourceTweetUrl,
+    usersDirection,
+  });
 }
 
 describe("IntakeWorkspace", () => {
@@ -428,7 +451,7 @@ describe("IntakeWorkspace", () => {
     );
     await user.click(generateButton);
 
-    const events = buildStubbedGenerationEvents({
+    const events = buildGenerationEvents({
       sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
       usersDirection: "Keep the joke dry.",
     });
@@ -451,6 +474,13 @@ describe("IntakeWorkspace", () => {
     await user.click(
       screen.getByRole("button", { name: /close runs drawer/i }),
     );
+    const sourceTweetPreview = screen.getByRole("complementary", {
+      name: /source tweet preview/i,
+    });
+
+    expect(sourceTweetPreview).toHaveTextContent("agent workspace");
+    expect(sourceTweetPreview).not.toHaveTextContent("https://x.com");
+    expect(sourceTweetPreview).not.toHaveTextContent("Silicon Mania");
     expect(
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
@@ -532,7 +562,7 @@ describe("IntakeWorkspace", () => {
     );
     await user.click(generateButton);
 
-    const events = buildStubbedGenerationEvents({
+    const events = buildGenerationEvents({
       sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
       usersDirection: "",
     });
@@ -551,6 +581,9 @@ describe("IntakeWorkspace", () => {
         sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
         status: "completed",
         draftCount: 3,
+        sourceTweet: expect.objectContaining({
+          text: expect.stringContaining("agent workspace"),
+        }),
         savedAt: expect.any(String),
       }),
     );
@@ -592,7 +625,51 @@ describe("IntakeWorkspace", () => {
     expect(
       screen.getByRole("region", { name: /completed draft stack/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", {
+        name: /source tweet preview/i,
+      }),
+    ).toHaveTextContent("agent workspace");
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
+  });
+
+  test("shows retrieval failure feedback without saving a completed run", async () => {
+    const user = userEvent.setup();
+    const generationEventSources: FakeGenerationEventSource[] = [];
+    const savedRunStore = createMemorySavedRunStore();
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      generationEventSources,
+      savedRunStore,
+    });
+
+    await user.type(
+      sourceTweetUrlInput,
+      "https://x.com/siliconmania/status/1234567890",
+    );
+    await user.click(generateButton);
+
+    act(() => {
+      generationEventSources[0]?.emit(
+        buildGenerationFailureEvent("Source tweet could not be retrieved."),
+      );
+    });
+
+    expect(generationEventSources[0]?.closed).toBe(true);
+    expect(
+      screen.getByRole("region", { name: /generation failure state/i }),
+    ).toHaveTextContent("Source tweet could not be retrieved.");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Source tweet could not be retrieved.",
+    );
+    expect(savedRunStore.save).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("region", { name: /completed draft stack/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
+    );
+    expect(screen.getByTitle("failed")).toBeInTheDocument();
   });
 
   test("renders completed drafts as a single-open stack with provider provenance and controls", async () => {
@@ -689,7 +766,7 @@ describe("IntakeWorkspace", () => {
     );
     await user.click(generateButton);
 
-    const events = buildStubbedGenerationEvents({
+    const events = buildGenerationEvents({
       sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
       usersDirection: "Keep it dry.",
     });

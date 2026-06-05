@@ -184,6 +184,7 @@ export function IntakeWorkspace({
             drafts: [...run.drafts, event.draft],
             label:
               run.label === genericRunningRunLabel ? event.label : run.label,
+            sourceTweet: event.sourceTweet,
           };
         }),
       );
@@ -207,6 +208,7 @@ export function IntakeWorkspace({
         draftCount: event.run.drafts.length,
         draftTarget,
         drafts: event.run.drafts,
+        sourceTweet: event.run.sourceTweet,
         savedAt: new Date().toISOString(),
       };
 
@@ -221,6 +223,37 @@ export function IntakeWorkspace({
       );
 
       void savedRunStore.save(completedRun).catch(() => undefined);
+      eventSource.close();
+      generationEventSources.current.delete(runId);
+    });
+
+    eventSource.addEventListener("failed", (message) => {
+      const event = parseGenerationStreamEvent(
+        JSON.parse((message as MessageEvent<string>).data),
+      );
+
+      if (event.type !== "failed") {
+        return;
+      }
+
+      setRuns((currentRuns) =>
+        currentRuns.map((run) => {
+          if (run.id !== runId) {
+            return run;
+          }
+
+          return {
+            ...run,
+            failureMessage: event.message,
+            label: "Source tweet unavailable",
+            status: "failed",
+          };
+        }),
+      );
+      setSubmissionState({
+        kind: "blocked",
+        message: event.message,
+      });
       eventSource.close();
       generationEventSources.current.delete(runId);
     });

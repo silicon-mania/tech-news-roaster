@@ -108,7 +108,9 @@ function isGenerationRun(run: unknown): run is GenerationRun {
     typeof candidate.label === "string" &&
     typeof candidate.sourceTweetUrl === "string" &&
     typeof candidate.usersDirection === "string" &&
-    (candidate.status === "running" || candidate.status === "completed") &&
+    (candidate.status === "running" ||
+      candidate.status === "completed" ||
+      candidate.status === "failed") &&
     typeof candidate.draftCount === "number" &&
     typeof candidate.draftTarget === "number" &&
     Array.isArray(candidate.drafts)

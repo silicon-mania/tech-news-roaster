@@ -46,9 +46,9 @@ export function RunsList({
                 <span
                   aria-hidden="true"
                   title={run.status}
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    run.status === "running" ? "bg-sky-300" : "bg-slate-700"
-                  }`}
+                  className={`h-1.5 w-1.5 rounded-full ${getStatusDotClass(
+                    run.status,
+                  )}`}
                 />
               </button>
               {isDesktop && run.status === "completed" ? (
@@ -89,6 +89,18 @@ function useIsDesktop() {
   }, []);
 
   return isDesktop;
+}
+
+function getStatusDotClass(status: GenerationRun["status"]) {
+  if (status === "running") {
+    return "bg-sky-300";
+  }
+
+  if (status === "failed") {
+    return "bg-rose-400/70";
+  }
+
+  return "bg-slate-700";
 }
 
 function formatRelativeDate(savedAt: string | undefined) {

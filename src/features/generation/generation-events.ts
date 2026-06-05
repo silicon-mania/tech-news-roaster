@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { retrievedSourceTweetSchema } from "@/features/tweet-retrieval/tweet-retrieval";
 
 export const draftTarget = 3;
 
@@ -11,6 +12,7 @@ const quoteTweetDraftSchema = z.object({
 const completedGenerationRunPayloadSchema = z
   .object({
     label: z.string().min(1),
+    sourceTweet: retrievedSourceTweetSchema,
     drafts: z
       .array(quoteTweetDraftSchema)
       .length(
@@ -24,6 +26,7 @@ const generationProgressEventSchema = z
   .object({
     type: z.literal("progress"),
     label: z.string().min(1),
+    sourceTweet: retrievedSourceTweetSchema,
     draft: quoteTweetDraftSchema,
     draftCount: z.number().int().min(1).max(draftTarget),
     draftTarget: z.literal(draftTarget),
@@ -37,9 +40,17 @@ const generationCompletedEventSchema = z
   })
   .strict();
 
+const generationFailedEventSchema = z
+  .object({
+    type: z.literal("failed"),
+    message: z.string().min(1),
+  })
+  .strict();
+
 const generationStreamEventSchema = z.discriminatedUnion("type", [
   generationProgressEventSchema,
   generationCompletedEventSchema,
+  generationFailedEventSchema,
 ]);
 
 export type QuoteTweetDraft = z.infer<typeof quoteTweetDraftSchema>;
@@ -50,6 +61,7 @@ export type GenerationStreamEvent = z.infer<typeof generationStreamEventSchema>;
 
 type StubbedGenerationInput = {
   sourceTweetUrl: string;
+  sourceTweet: z.infer<typeof retrievedSourceTweetSchema>;
   usersDirection: string;
 };
 
@@ -66,6 +78,7 @@ export function parseCompletedGenerationRunPayload(
 }
 
 export function buildStubbedGenerationEvents({
+  sourceTweet,
   sourceTweetUrl,
   usersDirection,
 }: StubbedGenerationInput): GenerationStreamEvent[] {
@@ -95,6 +108,7 @@ export function buildStubbedGenerationEvents({
     generationStreamEventSchema.parse({
       type: "progress",
       label: runLabel,
+      sourceTweet,
       draft,
       draftCount: index + 1,
       draftTarget,
@@ -107,10 +121,20 @@ export function buildStubbedGenerationEvents({
       type: "completed",
       run: {
         label: runLabel,
+        sourceTweet,
         drafts,
       },
     }),
   ];
+}
+
+export function buildGenerationFailureEvent(
+  message: string,
+): GenerationStreamEvent {
+  return generationStreamEventSchema.parse({
+    type: "failed",
+    message,
+  });
 }
 
 function buildStubbedRunLabel(sourceTweetUrl: string) {
