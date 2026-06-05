@@ -452,9 +452,9 @@ describe("IntakeWorkspace", () => {
       screen.getByRole("button", { name: /close runs drawer/i }),
     );
     expect(
-      screen.queryByRole("region", { name: /completed draft comparison/i }),
+      screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText(/Model Provenance:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/OpenAI stub model/i)).not.toBeInTheDocument();
 
     act(() => {
       generationEventSources[0]?.emit(events[1]);
@@ -465,7 +465,7 @@ describe("IntakeWorkspace", () => {
       screen.getByRole("region", { name: /generation waiting state/i }),
     ).toHaveTextContent("3/3");
     expect(
-      screen.queryByRole("region", { name: /completed draft comparison/i }),
+      screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
 
     act(() => {
@@ -483,10 +483,10 @@ describe("IntakeWorkspace", () => {
     ).toBeInTheDocument();
     expect(screen.getByTitle("completed")).toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: /completed draft comparison/i }),
+      screen.getByRole("region", { name: /completed draft stack/i }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
-    expect(screen.getAllByText(/Model Provenance:/)).toHaveLength(3);
+    expect(screen.getAllByText(/stub model/i)).toHaveLength(3);
   });
 
   test("opens the generation stream with the accepted intake", async () => {
@@ -590,9 +590,82 @@ describe("IntakeWorkspace", () => {
       "https://x.com/siliconmania/status/1234567890",
     );
     expect(
-      screen.getByRole("region", { name: /completed draft comparison/i }),
+      screen.getByRole("region", { name: /completed draft stack/i }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
+  });
+
+  test("renders completed drafts as a single-open stack with provider provenance and controls", async () => {
+    const user = userEvent.setup();
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [buildCompletedRun()],
+    });
+
+    const draftStack = screen.getByRole("region", {
+      name: /completed draft stack/i,
+    });
+    const expandedFirstDraft = within(draftStack).getByRole("article", {
+      name: /expanded draft 1/i,
+    });
+    const collapsedSecondDraft = within(draftStack).getByRole("article", {
+      name: /collapsed draft 2/i,
+    });
+
+    expect(within(draftStack).queryByText("Saved run")).not.toBeInTheDocument();
+    expect(
+      within(expandedFirstDraft).getByRole("button", {
+        name: /copy draft 1/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(expandedFirstDraft).getByRole("button", {
+        name: /show visible rationale for draft 1/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(collapsedSecondDraft).getByText(
+        "Quote-tweet draft: second saved draft.",
+      ),
+    ).toHaveClass("line-clamp-3");
+    expect(
+      within(draftStack).getByRole("img", {
+        name: /chatgpt provider icon/i,
+      }),
+    ).toHaveAttribute("src", expect.stringContaining("chatgpt.png"));
+    expect(
+      within(draftStack).getByRole("img", {
+        name: /claude provider icon/i,
+      }),
+    ).toHaveAttribute("src", expect.stringContaining("claude.png"));
+    expect(
+      within(draftStack).getByRole("img", {
+        name: /gemini provider icon/i,
+      }),
+    ).toHaveAttribute("src", expect.stringContaining("gemini.png"));
+
+    await user.click(
+      within(collapsedSecondDraft).getByRole("button", {
+        name: /expand draft 2/i,
+      }),
+    );
+
+    expect(
+      within(draftStack).getByRole("article", {
+        name: /expanded draft 2/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(draftStack).getByRole("article", {
+        name: /collapsed draft 1/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(draftStack).getByRole("button", {
+        name: /copy draft 2/i,
+      }),
+    ).toBeInTheDocument();
   });
 
   test("reusing the same source tweet creates an independent Saved Run", async () => {
