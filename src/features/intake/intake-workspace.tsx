@@ -1,6 +1,12 @@
 "use client";
 
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   draftTarget,
   parseGenerationStreamEvent,
@@ -48,6 +54,8 @@ export function IntakeWorkspace({
   const [activeRunId, setActiveRunId] = useState<string | null>(
     initialActiveRunId ?? initialRuns.at(0)?.id ?? null,
   );
+  const [isRunsDrawerOpen, setIsRunsDrawerOpen] = useState(false);
+  const [isDirectionPanelOpen, setIsDirectionPanelOpen] = useState(false);
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
     kind: "idle",
   });
@@ -67,6 +75,8 @@ export function IntakeWorkspace({
 
   const activeRun = runs.find((run) => run.id === activeRunId) ?? null;
   const hasRunningRun = runs.some((run) => run.status === "running");
+  const hasRuns = runs.length > 0;
+  const hasUsersDirection = usersDirection.trim().length > 0;
 
   function submitIntake(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -194,29 +204,119 @@ export function IntakeWorkspace({
   }
 
   return (
-    <main className="min-h-screen px-5 py-5 text-slate-100 sm:px-8 lg:px-10">
-      <div className="mx-auto grid min-h-[calc(100vh-2.5rem)] w-full max-w-6xl grid-rows-[auto_1fr] gap-6">
+    <main className="min-h-screen overflow-hidden px-4 py-5 text-slate-100 sm:px-8 lg:px-10">
+      <div
+        className={`mx-auto grid min-h-[calc(100vh-2.5rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] transition-[gap] duration-300 ${
+          hasRuns ? "gap-5 sm:gap-6" : "gap-8 sm:gap-10"
+        }`}
+      >
         <WorkspaceHeader />
 
-        <section className="grid content-start gap-5 lg:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[17rem_minmax(0,1fr)_22rem]">
+        <IntakeForm
+          hasRunningRun={hasRunningRun}
+          hasRuns={hasRuns}
+          hasUsersDirection={hasUsersDirection}
+          runsCount={runs.length}
+          sourceTweetUrl={sourceTweetUrl}
+          submissionState={submissionState}
+          onOpenDirectionPanel={() => setIsDirectionPanelOpen(true)}
+          onOpenRunsDrawer={() => setIsRunsDrawerOpen(true)}
+          onSourceTweetUrlChange={updateSourceTweetUrl}
+          onSubmit={submitIntake}
+        />
+
+        <ActiveRunPanel activeRun={activeRun} />
+      </div>
+
+      {isRunsDrawerOpen ? (
+        <PanelOverlay
+          label="Runs drawer"
+          side="left"
+          onClose={() => setIsRunsDrawerOpen(false)}
+        >
           <RunsList
             activeRunId={activeRunId}
             runs={runs}
-            onSelectRun={setActiveRunId}
+            onSelectRun={(runId) => {
+              setActiveRunId(runId);
+              setIsRunsDrawerOpen(false);
+            }}
           />
-          <ActiveRunPanel activeRun={activeRun} />
-          <IntakeForm
-            hasRunningRun={hasRunningRun}
-            sourceTweetUrl={sourceTweetUrl}
-            submissionState={submissionState}
+        </PanelOverlay>
+      ) : null}
+
+      {isDirectionPanelOpen ? (
+        <PanelOverlay
+          label="User's direction panel"
+          side="right"
+          onClose={() => setIsDirectionPanelOpen(false)}
+        >
+          <UsersDirectionPanel
             usersDirection={usersDirection}
-            onSourceTweetUrlChange={updateSourceTweetUrl}
-            onSubmit={submitIntake}
             onUsersDirectionChange={updateUsersDirection}
           />
-        </section>
-      </div>
+        </PanelOverlay>
+      ) : null}
     </main>
+  );
+}
+
+type PanelOverlayProps = {
+  children: ReactNode;
+  label: string;
+  side: "left" | "right";
+  onClose: () => void;
+};
+
+function PanelOverlay({ children, label, onClose, side }: PanelOverlayProps) {
+  const sideClass = side === "left" ? "left-0" : "right-0";
+
+  return (
+    <div className="fixed inset-0 z-40">
+      <button
+        type="button"
+        aria-label={`Close ${label.toLowerCase()}`}
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-slate-950/62"
+      />
+      <aside
+        aria-label={label}
+        className={`absolute ${sideClass} top-0 grid h-full w-[min(25rem,calc(100vw-2rem))] content-start overflow-y-auto border-slate-800 bg-slate-950/95 p-5 shadow-2xl shadow-black/40 sm:p-6 ${
+          side === "left" ? "border-r" : "border-l"
+        }`}
+      >
+        {children}
+      </aside>
+    </div>
+  );
+}
+
+type UsersDirectionPanelProps = {
+  usersDirection: string;
+  onUsersDirectionChange: (usersDirection: string) => void;
+};
+
+function UsersDirectionPanel({
+  usersDirection,
+  onUsersDirectionChange,
+}: UsersDirectionPanelProps) {
+  return (
+    <div className="grid gap-4">
+      <div>
+        <p className="font-medium text-slate-200 text-sm">
+          User&apos;s Direction
+        </p>
+        <p className="mt-1 text-slate-500 text-sm">Optional</p>
+      </div>
+      <textarea
+        aria-label="User's Direction"
+        name="usersDirection"
+        value={usersDirection}
+        onChange={(event) => onUsersDirectionChange(event.target.value)}
+        placeholder="Add context to respect, a constraint, or a line you want challenged."
+        className="min-h-52 w-full resize-y rounded-lg border border-slate-800 bg-slate-900/70 px-4 py-3 text-base text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-400/25"
+      />
+    </div>
   );
 }
 

@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import {
@@ -72,26 +72,57 @@ function renderWorkspace({
 
   return {
     sourceTweetUrlInput: screen.getByLabelText(/source tweet url/i),
-    usersDirectionInput: screen.getByLabelText(/user's direction/i),
-    generateButton: screen.getByRole("button", { name: /generate drafts/i }),
+    generateButton: screen.getByRole("button", { name: /^run$/i }),
     generationStreamUrls,
   };
 }
 
 describe("IntakeWorkspace", () => {
+  test("renders an almost empty draft-first shell before any run exists", () => {
+    renderWorkspace();
+
+    expect(
+      screen.getByRole("heading", { name: "TECH NEWS ROASTER" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /primary intake bar/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /empty draft canvas/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("complementary", { name: /runs drawer/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: /^user's direction$/i }),
+    ).not.toBeInTheDocument();
+  });
+
   test("submits a valid direct Source Tweet URL with optional User's Direction", async () => {
     const user = userEvent.setup();
     const startGenerationRun = vi.fn();
-    const { sourceTweetUrlInput, usersDirectionInput, generateButton } =
-      renderWorkspace({ onStartGenerationRun: startGenerationRun });
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      onStartGenerationRun: startGenerationRun,
+    });
 
     await user.type(
       sourceTweetUrlInput,
       " https://x.com/siliconmania/status/1234567890 ",
     );
+    await user.click(
+      screen.getByRole("button", { name: /open user's direction panel/i }),
+    );
+    const usersDirectionInput = screen.getByRole("textbox", {
+      name: /^user's direction$/i,
+    });
     await user.type(
       usersDirectionInput,
       "Make it sharper about platform risk.",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /close user's direction panel/i,
+      }),
     );
     await user.click(generateButton);
 
@@ -101,15 +132,19 @@ describe("IntakeWorkspace", () => {
     });
     expect(screen.getByRole("status")).toHaveTextContent("Intake accepted.");
     expect(
+      screen.getByRole("region", { name: /compressed intake bar/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /generation waiting state/i }),
+    ).toHaveTextContent("0/3");
+
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
+    );
+    expect(
       screen.getByRole("button", {
         name: /new generation run.*running.*0\/3 drafts/i,
       }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "New generation run" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Tracking provider drafts as they arrive."),
     ).toBeInTheDocument();
     expect(generateButton).toBeDisabled();
   });
@@ -125,7 +160,10 @@ describe("IntakeWorkspace", () => {
     await user.click(generateButton);
 
     expect(startGenerationRun).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    const intakeBar = screen.getByRole("region", {
+      name: /primary intake bar/i,
+    });
+    expect(within(intakeBar).getByRole("alert")).toHaveTextContent(
       "Use a direct x.com or twitter.com status URL.",
     );
     expect(sourceTweetUrlInput).toHaveAttribute("aria-invalid", "true");
@@ -163,6 +201,53 @@ describe("IntakeWorkspace", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   });
 
+  test("opens the runs drawer and User's Direction panel from opposite sides on desktop and mobile-sized viewports", async () => {
+    const user = userEvent.setup();
+
+    vi.stubGlobal("innerWidth", 1280);
+    renderWorkspace();
+
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 0 runs/i }),
+    );
+    expect(
+      screen.getByRole("complementary", { name: /runs drawer/i }),
+    ).toHaveClass("left-0");
+
+    await user.click(
+      screen.getByRole("button", { name: /close runs drawer/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /open user's direction panel/i }),
+    );
+    expect(
+      screen.getByRole("complementary", {
+        name: /user's direction panel/i,
+      }),
+    ).toHaveClass("right-0");
+
+    await user.type(
+      screen.getByRole("textbox", { name: /^user's direction$/i }),
+      "Respect the SEC angle.",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /close user's direction panel/i,
+      }),
+    );
+    expect(
+      screen.getByTitle("User's Direction has content"),
+    ).toBeInTheDocument();
+
+    vi.stubGlobal("innerWidth", 390);
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 0 runs/i }),
+    );
+    expect(
+      screen.getByRole("complementary", { name: /runs drawer/i }),
+    ).toBeInTheDocument();
+  });
+
   test("keeps the running run inspectable and prevents another in-flight run", async () => {
     const user = userEvent.setup();
     const startGenerationRun = vi.fn();
@@ -176,12 +261,17 @@ describe("IntakeWorkspace", () => {
     );
     await user.click(generateButton);
 
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
+    );
     expect(
       screen.getByRole("button", {
         name: /new generation run.*running.*0\/3 drafts/i,
       }),
     ).toHaveAttribute("aria-current", "true");
-    expect(screen.getByText("0/3")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /generation waiting state/i }),
+    ).toHaveTextContent("0/3");
     expect(generateButton).toBeDisabled();
 
     await user.click(generateButton);
@@ -220,33 +310,48 @@ describe("IntakeWorkspace", () => {
     });
 
     expect(
-      screen.getByRole("heading", { name: "First run" }),
+      screen.getByRole("region", { name: /compressed intake bar/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /generation waiting state/i }),
+    ).toHaveTextContent("0/3");
 
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 2 runs/i }),
+    );
     await user.click(screen.getByRole("button", { name: /second run/i }));
 
     expect(
-      screen.getByRole("heading", { name: "Second run" }),
-    ).toBeInTheDocument();
+      screen.getByRole("region", { name: /generation waiting state/i }),
+    ).toHaveTextContent("1/3");
     expect(
-      screen.getByText("https://x.com/siliconmania/status/222"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Lean into the business model."),
-    ).toBeInTheDocument();
+      screen.queryByRole("complementary", { name: /runs drawer/i }),
+    ).not.toBeInTheDocument();
   });
 
   test("receives progressive SSE updates and reveals exactly three completed drafts", async () => {
     const user = userEvent.setup();
     const generationEventSources: FakeGenerationEventSource[] = [];
-    const { sourceTweetUrlInput, usersDirectionInput, generateButton } =
-      renderWorkspace({ generationEventSources });
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      generationEventSources,
+    });
 
     await user.type(
       sourceTweetUrlInput,
       "https://x.com/siliconmania/status/1234567890",
     );
+    await user.click(
+      screen.getByRole("button", { name: /open user's direction panel/i }),
+    );
+    const usersDirectionInput = screen.getByRole("textbox", {
+      name: /^user's direction$/i,
+    });
     await user.type(usersDirectionInput, "Keep the joke dry.");
+    await user.click(
+      screen.getByRole("button", {
+        name: /close user's direction panel/i,
+      }),
+    );
     await user.click(generateButton);
 
     const events = buildStubbedGenerationEvents({
@@ -260,11 +365,17 @@ describe("IntakeWorkspace", () => {
       generationEventSources[0]?.emit(events[0]);
     });
 
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
+    );
     expect(
       screen.getByRole("button", {
         name: /drafts for 1234567890.*running.*1\/3 drafts/i,
       }),
     ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /close runs drawer/i }),
+    );
     expect(
       screen.queryByRole("region", { name: /completed draft comparison/i }),
     ).not.toBeInTheDocument();
@@ -275,7 +386,9 @@ describe("IntakeWorkspace", () => {
       generationEventSources[0]?.emit(events[2]);
     });
 
-    expect(screen.getByText("3/3")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /generation waiting state/i }),
+    ).toHaveTextContent("3/3");
     expect(
       screen.queryByRole("region", { name: /completed draft comparison/i }),
     ).not.toBeInTheDocument();
@@ -285,6 +398,9 @@ describe("IntakeWorkspace", () => {
     });
 
     expect(generationEventSources[0]?.closed).toBe(true);
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
+    );
     expect(
       screen.getByRole("button", {
         name: /drafts for 1234567890.*complete.*3\/3 drafts/i,
@@ -299,18 +415,25 @@ describe("IntakeWorkspace", () => {
 
   test("opens the generation stream with the accepted intake", async () => {
     const user = userEvent.setup();
-    const {
-      sourceTweetUrlInput,
-      usersDirectionInput,
-      generateButton,
-      generationStreamUrls,
-    } = renderWorkspace();
+    const { sourceTweetUrlInput, generateButton, generationStreamUrls } =
+      renderWorkspace();
 
     await user.type(
       sourceTweetUrlInput,
       "https://x.com/siliconmania/status/13579",
     );
+    await user.click(
+      screen.getByRole("button", { name: /open user's direction panel/i }),
+    );
+    const usersDirectionInput = screen.getByRole("textbox", {
+      name: /^user's direction$/i,
+    });
     await user.type(usersDirectionInput, "Challenge the premise.");
+    await user.click(
+      screen.getByRole("button", {
+        name: /close user's direction panel/i,
+      }),
+    );
     await user.click(generateButton);
 
     expect(generationStreamUrls).toEqual([

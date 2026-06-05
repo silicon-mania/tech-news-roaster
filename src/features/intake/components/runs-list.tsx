@@ -9,26 +9,23 @@ type RunsListProps = {
 
 export function RunsList({ activeRunId, runs, onSelectRun }: RunsListProps) {
   return (
-    <aside
-      aria-label="Unified runs list"
-      className="rounded-lg border border-slate-800 bg-slate-950/60 p-4"
-    >
+    <section aria-label="Unified runs list" className="grid gap-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-medium text-slate-200 text-sm">Runs</h2>
         <span className="text-slate-500 text-xs">{runs.length}</span>
       </div>
 
       {runs.length === 0 ? (
-        <p className="mt-4 text-slate-500 text-sm">No runs yet.</p>
+        <p className="text-slate-500 text-sm">No runs yet.</p>
       ) : (
-        <ul className="mt-4 grid gap-2">
+        <ul className="grid gap-1.5">
           {runs.map((run) => (
             <li key={run.id}>
               <button
                 type="button"
                 onClick={() => onSelectRun(run.id)}
                 aria-current={run.id === activeRunId ? "true" : undefined}
-                className="grid w-full gap-2 rounded-md border border-slate-800 bg-slate-900/70 p-3 text-left transition hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-400/30 aria-current:border-sky-400/70 aria-current:bg-sky-400/10"
+                className="grid w-full gap-1 rounded-md border border-transparent bg-transparent p-3 text-left transition hover:border-slate-800 hover:bg-slate-900/55 focus:outline-none focus:ring-2 focus:ring-sky-400/25 aria-current:border-sky-400/40 aria-current:bg-sky-400/8"
               >
                 <span className="flex items-center justify-between gap-3">
                   <span className="truncate font-medium text-slate-100 text-sm">
@@ -44,6 +41,6 @@ export function RunsList({ activeRunId, runs, onSelectRun }: RunsListProps) {
           ))}
         </ul>
       )}
-    </aside>
+    </section>
   );
 }
