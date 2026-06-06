@@ -15,6 +15,7 @@ export type GenerationRun = {
   draftCount: number;
   draftTarget: number;
   drafts: QuoteTweetDraft[];
+  fallbackDisclosure?: string;
   sourceTweet?: RetrievedSourceTweet;
   failureMessage?: string;
   savedAt?: string;

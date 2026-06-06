@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { GenerationRun } from "../types";
 import { DraftComparison } from "./draft-comparison";
 
@@ -14,7 +15,7 @@ export function ActiveRunPanel({
     return (
       <section
         aria-label="Empty draft canvas"
-        className="min-h-[18rem] sm:min-h-[22rem]"
+        className="min-h-72 sm:min-h-88"
       />
     );
   }
@@ -49,6 +50,7 @@ export function ActiveRunPanel({
       {sourceTweetPreview}
       <DraftComparison
         drafts={activeRun.drafts}
+        fallbackDisclosure={activeRun.fallbackDisclosure}
         onDraftTextChange={onDraftTextChange}
       />
     </section>
@@ -59,9 +61,26 @@ function SourceTweetPreview({ text }: { text: string }) {
   return (
     <aside
       aria-label="Source Tweet Preview"
-      className="sticky top-3 z-10 rounded-sm border border-slate-800/80 bg-slate-950/88 px-3 py-2 shadow-lg shadow-black/20 backdrop-blur"
+      className="top-2 z-10 px-3.5 mb-6 shadow-lg shadow-black/30 backdrop-blur-sm max-w-3xl mx-auto"
     >
-      <p className="line-clamp-2 text-slate-400 text-sm leading-6">{text}</p>
+      <div className="flex items-start gap-3">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-white/10 bg-slate-950/90 p-1.5">
+          <Image
+            alt=""
+            aria-hidden
+            className="h-full w-full object-contain"
+            height={28}
+            src="/assets/x-light.png"
+            width={28}
+          />
+        </span>
+        <div className="grid min-w-0 gap-1">
+          <p className="text-xs text-slate-500">Source post</p>
+          <p className="line-clamp-2 wrap-break-word text-slate-200 text-sm leading-6">
+            {text}
+          </p>
+        </div>
+      </div>
     </aside>
   );
 }
@@ -71,13 +90,15 @@ function GenerationWaitingState({ run }: { run: GenerationRun }) {
     <section
       aria-label="Generation waiting state"
       aria-live="polite"
-      className="grid min-h-[20rem] place-items-center sm:min-h-[24rem]"
+      className="grid min-h-80 place-items-center sm:min-h-96"
     >
       <div className="grid justify-items-center gap-3 text-center">
-        <p className="font-semibold text-5xl text-slate-100 tracking-normal sm:text-6xl">
+        <p className="editorial-serif text-6xl text-slate-100 tracking-normal sm:text-7xl">
           {run.draftCount}/{run.draftTarget}
         </p>
-        <p className="text-slate-500 text-sm">drafts</p>
+        <p className="text-slate-500 text-xs uppercase tracking-[0.18em]">
+          drafts
+        </p>
       </div>
     </section>
   );

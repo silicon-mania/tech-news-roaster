@@ -2,16 +2,17 @@
 
 :root {
   color-scheme: dark;
-  --background: #080b0f;
-  --foreground: #f1f5f9;
-  --muted: #94a3b8;
-  --panel: #10151d;
-  --panel-strong: #161d27;
-  --line: #273244;
-  --accent: #38bdf8;
-  --accent-strong: #f59e0b;
+  --background: #08090c;
+  --foreground: #f3f6f8;
+  --muted: #8b98a8;
+  --panel: #0d1116;
+  --panel-strong: #121720;
+  --line: #252c38;
+  --accent: #67c8ff;
+  --accent-strong: #9bdcff;
   --success: #34d399;
   --danger: #fb7185;
+  --font-editorial-serif: Georgia, "Times New Roman", serif;
 }
 
 * {
@@ -27,16 +28,19 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    linear-gradient(145deg, rgba(56, 189, 248, 0.12), transparent 34rem),
-    radial-gradient(
-      circle at 92% 8%,
-      rgba(245, 158, 11, 0.1),
-      transparent 18rem
+    linear-gradient(180deg, rgba(103, 200, 255, 0.08), transparent 18rem),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.025) 0,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 7rem
     ),
     var(--background);
   color: var(--foreground);
   font-family:
     var(--font-geist-sans), "Geist", ui-sans-serif, system-ui, sans-serif;
+  text-rendering: geometricPrecision;
 }
 
 button,
@@ -45,6 +49,21 @@ textarea {
   font: inherit;
 }
 
+.editorial-serif {
+  font-family: var(--font-editorial-serif);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+}
+
 ::selection {
-  background: rgba(56, 189, 248, 0.35);
+  background: rgba(103, 200, 255, 0.35);
 }

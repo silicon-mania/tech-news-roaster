@@ -1,5 +1,9 @@
+import { AlignLeft, ArrowRight, Menu } from "lucide-react";
 import { type FormEvent, useId } from "react";
 import type { SubmissionState } from "../types";
+
+const iconButtonClassName =
+  "inline-flex items-center justify-center rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20";
 
 type IntakeFormProps = {
   hasRunningRun: boolean;
@@ -48,15 +52,15 @@ export function IntakeForm({
       <form
         noValidate
         onSubmit={onSubmit}
-        className="grid grid-cols-[2.75rem_minmax(0,1fr)_auto_2.75rem] items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/82 p-2 shadow-2xl shadow-black/25 sm:grid-cols-[3rem_minmax(0,1fr)_auto_3rem]"
+        className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2 rounded-sm border border-slate-800/90 bg-slate-950/84 p-2 shadow-2xl shadow-black/25 backdrop-blur sm:grid-cols-[3rem_minmax(0,1fr)_auto_3rem]"
       >
         <button
           type="button"
           aria-label={`Open runs drawer, ${runsCount} runs`}
           onClick={onOpenRunsDrawer}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-slate-800 text-slate-400 transition hover:border-slate-600 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/25"
+          className={iconButtonClassName}
         >
-          <RunsIcon />
+          <Menu aria-hidden className="size-3.5" strokeWidth={1.75} />
         </button>
 
         <div className="min-w-0">
@@ -71,16 +75,16 @@ export function IntakeForm({
             aria-describedby={sourceTweetUrlDescription || undefined}
             aria-invalid={submissionState.kind === "invalid"}
             placeholder="https://x.com/handle/status/1234567890"
-            className="h-11 w-full min-w-0 rounded-md border border-transparent bg-slate-900/80 px-3 text-base text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/25 aria-invalid:border-rose-400 aria-invalid:focus:border-rose-400 aria-invalid:focus:ring-rose-400/25 sm:px-4"
+            className="h-11 w-full min-w-0 rounded-sm border border-transparent bg-slate-900/70 px-3 text-base text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-sky-300/70 focus:ring-2 focus:ring-sky-300/20 aria-invalid:border-rose-400 aria-invalid:focus:border-rose-400 aria-invalid:focus:ring-rose-400/25 sm:px-4"
           />
         </div>
 
         <button
           type="submit"
           disabled={hasRunningRun}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-sky-300 px-3 font-semibold text-slate-950 text-sm transition hover:bg-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500 sm:px-4"
+          className="col-span-3 row-start-2 inline-flex h-11 items-center justify-center gap-2 rounded-sm bg-sky-300 px-3 font-semibold text-slate-950 text-sm transition hover:bg-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500 sm:col-auto sm:row-auto sm:px-4"
         >
-          <RunIcon />
+          <ArrowRight aria-hidden className="size-4" strokeWidth={1.75} />
           <span>Run</span>
         </button>
 
@@ -88,13 +92,13 @@ export function IntakeForm({
           type="button"
           aria-label="Open user's direction panel"
           onClick={onOpenDirectionPanel}
-          className="relative inline-flex h-11 w-11 items-center justify-center rounded-md border border-slate-800 text-slate-400 transition hover:border-slate-600 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/25"
+          className={`relative col-start-3 row-start-1 sm:col-auto sm:row-auto ${iconButtonClassName}`}
         >
-          <DirectionIcon />
+          <AlignLeft aria-hidden className="size-3.5" strokeWidth={1.75} />
           {hasUsersDirection ? (
             <span
               title="User's Direction has content"
-              className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-sky-300"
+              className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-sky-300"
             />
           ) : null}
         </button>
@@ -105,7 +109,7 @@ export function IntakeForm({
           <p
             id={sourceTweetUrlErrorId}
             role="alert"
-            className="text-center text-rose-300 text-sm"
+            className="text-center text-rose-300 text-sm leading-5"
           >
             {submissionState.message}
           </p>
@@ -115,7 +119,7 @@ export function IntakeForm({
             id={statusId}
             role="status"
             aria-live="polite"
-            className="text-center text-emerald-300 text-sm"
+            className="text-center text-emerald-300 text-sm leading-5"
           >
             Intake accepted.
           </p>
@@ -124,68 +128,12 @@ export function IntakeForm({
           <p
             id={statusId}
             role="status"
-            className="text-center text-slate-400 text-sm"
+            className="text-center text-slate-400 text-sm leading-5"
           >
             {submissionState.message}
           </p>
         ) : null}
       </div>
     </section>
-  );
-}
-
-function RunsIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.7"
-    >
-      <path d="M5 7h14" />
-      <path d="M5 12h14" />
-      <path d="M5 17h14" />
-    </svg>
-  );
-}
-
-function DirectionIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.7"
-    >
-      <path d="M5 6h14" />
-      <path d="M5 12h9" />
-      <path d="M5 18h6" />
-    </svg>
-  );
-}
-
-function RunIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-    >
-      <path d="M5 12h13" />
-      <path d="m13 6 6 6-6 6" />
-    </svg>
   );
 }

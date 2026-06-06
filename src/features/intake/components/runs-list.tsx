@@ -19,12 +19,12 @@ export function RunsList({
   return (
     <section aria-label="Unified runs list" className="grid gap-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-medium text-slate-200 text-sm">Runs</h2>
+        <h2 className="editorial-serif text-slate-100 text-xl">Runs</h2>
         <span className="text-slate-500 text-xs">{runs.length}</span>
       </div>
 
       {runs.length === 0 ? (
-        <p className="text-slate-500 text-sm">No runs yet.</p>
+        <p className="text-slate-500 text-sm leading-6">No runs yet.</p>
       ) : (
         <ul className="grid gap-1.5">
           {runs.map((run) => (
@@ -33,13 +33,13 @@ export function RunsList({
                 type="button"
                 onClick={() => onSelectRun(run.id)}
                 aria-current={run.id === activeRunId ? "true" : undefined}
-                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-transparent bg-transparent p-3 pr-10 text-left transition hover:border-slate-800 hover:bg-slate-900/55 focus:outline-none focus:ring-2 focus:ring-sky-400/25 aria-current:border-sky-400/40 aria-current:bg-sky-400/8"
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-sm border border-transparent bg-transparent p-3 text-left transition hover:border-slate-800 hover:bg-slate-900/55 focus:outline-none focus:ring-2 focus:ring-sky-300/20 aria-current:border-sky-300/40 aria-current:bg-sky-300/8 sm:pr-10"
               >
                 <span className="grid min-w-0 gap-1">
-                  <span className="truncate font-medium text-slate-100 text-sm">
+                  <span className="truncate font-medium text-slate-100 text-sm leading-5">
                     {run.label}
                   </span>
-                  <span className="text-slate-500 text-xs">
+                  <span className="truncate text-slate-500 text-xs">
                     {formatRelativeDate(run.savedAt)}
                   </span>
                 </span>
@@ -56,7 +56,7 @@ export function RunsList({
                   type="button"
                   aria-label={`Delete saved run: ${run.label}`}
                   onClick={() => onDeleteRun(run.id)}
-                  className="-translate-y-1/2 absolute top-1/2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-slate-500 opacity-0 transition hover:border-rose-400/30 hover:bg-rose-400/10 hover:text-rose-200 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-rose-300/25 group-hover:opacity-100"
+                  className="-translate-y-1/2 absolute top-1/2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-sm border border-transparent text-slate-500 opacity-0 transition hover:border-rose-400/30 hover:bg-rose-400/10 hover:text-rose-200 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-rose-300/25 group-hover:opacity-100"
                 >
                   <TrashIcon />
                 </button>
@@ -150,7 +150,7 @@ function TrashIcon() {
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth="1.7"
+      strokeWidth="1.3"
     >
       <path d="M4 7h16" />
       <path d="M10 11v6" />

@@ -7,14 +7,25 @@ import { retrievedSourceTweetSchema } from "@/features/tweet-retrieval/tweet-ret
 
 export const draftTarget = 3;
 
+export const generationProviderIds = ["openai", "anthropic", "google"] as const;
+
+export type GenerationProviderId = (typeof generationProviderIds)[number];
+
+const generationProviderIdSchema = z.enum(generationProviderIds);
+
 const quoteTweetDraftSchema = z.object({
   id: z.string().min(1),
+  angle: z.string().min(1),
+  fallbackForProvider: generationProviderIdSchema.optional(),
   text: z.string().min(1),
   modelProvenance: z.string().min(1),
+  provider: generationProviderIdSchema,
+  visibleRationale: z.string().min(1),
 });
 
 const completedGenerationRunPayloadSchema = z
   .object({
+    fallbackDisclosure: z.string().min(1).optional(),
     label: z.string().min(1),
     sourceTweet: retrievedSourceTweetSchema,
     drafts: z
@@ -71,6 +82,10 @@ type StubbedGenerationInput = {
   usersDirection: string;
 };
 
+type CompletedGenerationRunEventsInput = {
+  run: CompletedGenerationRunPayload;
+};
+
 export function parseGenerationStreamEvent(
   event: unknown,
 ): GenerationStreamEvent {
@@ -105,27 +120,52 @@ export function buildStubbedGenerationEvents({
   const contextClause = `${directionClause}${replySignalClause}${enrichmentClause}`;
   const drafts: QuoteTweetDraft[] = [
     {
+      angle: "platform leverage",
       id: "draft-openai",
       text: `Quote-tweet draft: The real story is not the launch, it is the leverage. This update turns one product move into a pressure test for every platform trying to own the next interface.${contextClause}`,
-      modelProvenance: "OpenAI stub model",
+      modelProvenance: "OpenAI local draft model",
+      provider: "openai",
+      visibleRationale:
+        "Frames the news around platform leverage and interface ownership.",
     },
     {
+      angle: "incentive shift",
       id: "draft-anthropic",
       text: `Quote-tweet draft: Useful tech news usually hides in the incentives. If this works, the winner is not just the team shipping faster, but the company that makes everyone else adapt around it.${contextClause}`,
-      modelProvenance: "Anthropic stub model",
+      modelProvenance: "Anthropic local draft model",
+      provider: "anthropic",
+      visibleRationale:
+        "Emphasizes incentives, adaptation pressure, and the strategic second-order effect.",
     },
     {
+      angle: "distribution bet",
       id: "draft-google",
       text: `Quote-tweet draft: This looks like a feature, but it behaves like a distribution bet. Watch who gets access first, who gets priced out, and who suddenly has to explain their roadmap.${contextClause}`,
-      modelProvenance: "Google stub model",
+      modelProvenance: "Google local draft model",
+      provider: "google",
+      visibleRationale:
+        "Treats the update as a distribution bet with pricing and access consequences.",
     },
   ];
 
-  const progressEvents = drafts.map((draft, index) =>
-    generationStreamEventSchema.parse({
-      type: "progress",
+  return buildCompletedGenerationRunEvents({
+    run: {
       label: runLabel,
       sourceTweet,
+      drafts,
+    },
+  });
+}
+
+export function buildCompletedGenerationRunEvents({
+  run,
+}: CompletedGenerationRunEventsInput): GenerationStreamEvent[] {
+  const validatedRun = parseCompletedGenerationRunPayload(run);
+  const progressEvents = validatedRun.drafts.map((draft, index) =>
+    generationStreamEventSchema.parse({
+      type: "progress",
+      label: validatedRun.label,
+      sourceTweet: validatedRun.sourceTweet,
       draft,
       draftCount: index + 1,
       draftTarget,
@@ -136,11 +176,7 @@ export function buildStubbedGenerationEvents({
     ...progressEvents,
     generationStreamEventSchema.parse({
       type: "completed",
-      run: {
-        label: runLabel,
-        sourceTweet,
-        drafts,
-      },
+      run: validatedRun,
     }),
   ];
 }

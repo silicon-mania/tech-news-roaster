@@ -43,9 +43,19 @@ describe("generation event contracts", () => {
           text: expect.stringContaining("agent workspace"),
         }),
         drafts: expect.arrayContaining([
-          expect.objectContaining({ modelProvenance: "OpenAI stub model" }),
-          expect.objectContaining({ modelProvenance: "Anthropic stub model" }),
-          expect.objectContaining({ modelProvenance: "Google stub model" }),
+          expect.objectContaining({
+            modelProvenance: "OpenAI local draft model",
+            provider: "openai",
+            visibleRationale: expect.stringContaining("platform leverage"),
+          }),
+          expect.objectContaining({
+            modelProvenance: "Anthropic local draft model",
+            provider: "anthropic",
+          }),
+          expect.objectContaining({
+            modelProvenance: "Google local draft model",
+            provider: "google",
+          }),
         ]),
       },
     });
@@ -62,9 +72,12 @@ describe("generation event contracts", () => {
         sourceTweet: tweetContext.sourceTweet,
         drafts: [
           {
+            angle: "incomplete",
             id: "one",
             text: "Quote-tweet draft: One draft is not a completed comparison.",
-            modelProvenance: "OpenAI stub model",
+            modelProvenance: "OpenAI local draft model",
+            provider: "openai",
+            visibleRationale: "This should still fail because it is alone.",
           },
         ],
       }),

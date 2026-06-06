@@ -6,7 +6,9 @@ import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import {
   buildGenerationFailureEvent,
   buildStubbedGenerationEvents,
+  type GenerationProviderId,
   type GenerationStreamEvent,
+  type QuoteTweetDraft,
 } from "@/features/generation/generation-events";
 import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
 import {
@@ -137,23 +139,48 @@ function buildCompletedRun(
     draftTarget: 3,
     sourceTweet: tweetContext.sourceTweet,
     drafts: [
-      {
+      buildSavedDraft({
         id: "draft-openai",
+        provider: "openai",
         text: "Quote-tweet draft: first saved draft.",
-        modelProvenance: "OpenAI stub model",
-      },
-      {
+      }),
+      buildSavedDraft({
         id: "draft-anthropic",
+        provider: "anthropic",
         text: "Quote-tweet draft: second saved draft.",
-        modelProvenance: "Anthropic stub model",
-      },
-      {
+      }),
+      buildSavedDraft({
         id: "draft-google",
+        provider: "google",
         text: "Quote-tweet draft: third saved draft.",
-        modelProvenance: "Google stub model",
-      },
+      }),
     ],
     ...overrides,
+  };
+}
+
+function buildSavedDraft({
+  id,
+  provider,
+  text,
+}: {
+  id: string;
+  provider: GenerationProviderId;
+  text: string;
+}): QuoteTweetDraft {
+  const providerNames: Record<GenerationProviderId, string> = {
+    anthropic: "Anthropic",
+    google: "Google",
+    openai: "OpenAI",
+  };
+
+  return {
+    angle: `${provider} angle`,
+    id,
+    modelProvenance: `${providerNames[provider]} local draft model`,
+    provider,
+    text,
+    visibleRationale: `${providerNames[provider]} rationale.`,
   };
 }
 
@@ -486,7 +513,9 @@ describe("IntakeWorkspace", () => {
     expect(
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText(/OpenAI stub model/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/OpenAI local draft model/i),
+    ).not.toBeInTheDocument();
 
     act(() => {
       generationEventSources[0]?.emit(events[1]);
@@ -518,7 +547,7 @@ describe("IntakeWorkspace", () => {
       screen.getByRole("region", { name: /completed draft stack/i }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
-    expect(screen.getAllByText(/stub model/i)).toHaveLength(3);
+    expect(screen.getAllByText(/local draft model/i)).toHaveLength(3);
   });
 
   test("opens the generation stream with the accepted intake", async () => {
@@ -754,21 +783,21 @@ describe("IntakeWorkspace", () => {
     const user = userEvent.setup();
     const completedRun = buildCompletedRun({
       drafts: [
-        {
+        buildSavedDraft({
           id: "draft-openai",
+          provider: "openai",
           text: "First line.\nSecond line.",
-          modelProvenance: "OpenAI stub model",
-        },
-        {
+        }),
+        buildSavedDraft({
           id: "draft-anthropic",
+          provider: "anthropic",
           text: "Quote-tweet draft: second saved draft.",
-          modelProvenance: "Anthropic stub model",
-        },
-        {
+        }),
+        buildSavedDraft({
           id: "draft-google",
+          provider: "google",
           text: "Quote-tweet draft: third saved draft.",
-          modelProvenance: "Google stub model",
-        },
+        }),
       ],
     });
 
@@ -869,21 +898,21 @@ describe("IntakeWorkspace", () => {
         label: "Other saved run",
         sourceTweetUrl: "https://x.com/siliconmania/status/222",
         drafts: [
-          {
+          buildSavedDraft({
             id: "other-openai",
+            provider: "openai",
             text: "Other first draft.",
-            modelProvenance: "OpenAI stub model",
-          },
-          {
+          }),
+          buildSavedDraft({
             id: "other-anthropic",
+            provider: "anthropic",
             text: "Other second draft.",
-            modelProvenance: "Anthropic stub model",
-          },
-          {
+          }),
+          buildSavedDraft({
             id: "other-google",
+            provider: "google",
             text: "Other third draft.",
-            modelProvenance: "Google stub model",
-          },
+          }),
         ],
       }),
     ]);

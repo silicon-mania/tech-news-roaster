@@ -235,6 +235,7 @@ export function IntakeWorkspace({
         draftCount: event.run.drafts.length,
         draftTarget,
         drafts: event.run.drafts,
+        fallbackDisclosure: event.run.fallbackDisclosure,
         sourceTweet: event.run.sourceTweet,
         savedAt: new Date().toISOString(),
       };
@@ -379,10 +380,10 @@ export function IntakeWorkspace({
   }
 
   return (
-    <main className="min-h-screen overflow-hidden px-4 py-5 text-slate-100 sm:px-8 lg:px-10">
+    <main className="min-h-screen overflow-hidden px-3 py-4 text-slate-100 sm:px-8 sm:py-6 lg:px-10">
       <div
-        className={`mx-auto grid min-h-[calc(100vh-2.5rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] transition-[gap] duration-300 ${
-          hasRuns ? "gap-5 sm:gap-6" : "gap-8 sm:gap-10"
+        className={`mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] transition-[gap] duration-300 sm:min-h-[calc(100vh-3rem)] ${
+          hasRuns ? "gap-4 sm:gap-6" : "gap-7 sm:gap-10"
         }`}
       >
         <WorkspaceHeader />
@@ -458,19 +459,46 @@ function PanelOverlay({ children, label, onClose, side }: PanelOverlayProps) {
     <div className="fixed inset-0 z-40">
       <button
         type="button"
-        aria-label={`Close ${label.toLowerCase()}`}
+        aria-hidden="true"
+        tabIndex={-1}
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-slate-950/62"
+        className="absolute inset-0 cursor-default bg-slate-950/70 backdrop-blur-[2px]"
       />
       <aside
         aria-label={label}
-        className={`absolute ${sideClass} top-0 grid h-full w-[min(25rem,calc(100vw-2rem))] content-start overflow-y-auto border-slate-800 bg-slate-950/95 p-5 shadow-2xl shadow-black/40 sm:p-6 ${
+        className={`absolute ${sideClass} top-0 grid h-full w-[min(26rem,100vw)] content-start overflow-y-auto border-slate-800/80 bg-[#08090c]/96 p-4 shadow-2xl shadow-black/45 sm:w-[min(26rem,calc(100vw-2rem))] sm:p-6 ${
           side === "left" ? "border-r" : "border-l"
         }`}
       >
+        <button
+          type="button"
+          aria-label={`Close ${label.toLowerCase()}`}
+          onClick={onClose}
+          className="mb-5 ml-auto inline-flex h-9 w-9 items-center justify-center rounded-sm border border-slate-800 text-slate-500 transition hover:border-slate-600 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
+        >
+          <CloseIcon />
+        </button>
         {children}
       </aside>
     </div>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.3"
+    >
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
+    </svg>
   );
 }
 
@@ -486,10 +514,12 @@ function UsersDirectionPanel({
   return (
     <div className="grid gap-4">
       <div>
-        <p className="font-medium text-slate-200 text-sm">
+        <p className="editorial-serif text-slate-100 text-xl">
           User&apos;s Direction
         </p>
-        <p className="mt-1 text-slate-500 text-sm">Optional</p>
+        <p className="mt-1 text-slate-500 text-xs uppercase tracking-[0.16em]">
+          Optional
+        </p>
       </div>
       <textarea
         aria-label="User's Direction"
@@ -497,7 +527,7 @@ function UsersDirectionPanel({
         value={usersDirection}
         onChange={(event) => onUsersDirectionChange(event.target.value)}
         placeholder="Add context to respect, a constraint, or a line you want challenged."
-        className="min-h-52 w-full resize-y rounded-lg border border-slate-800 bg-slate-900/70 px-4 py-3 text-base text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-400/25"
+        className="min-h-52 w-full resize-y rounded-sm border border-slate-800/90 bg-slate-950/70 px-4 py-3 text-base text-slate-100 leading-7 outline-none transition focus:border-sky-300/70 focus:ring-2 focus:ring-sky-300/20"
       />
     </div>
   );

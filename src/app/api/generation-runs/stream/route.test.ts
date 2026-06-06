@@ -56,9 +56,21 @@ describe("generation stream route", () => {
           text: expect.stringContaining("agent workspace"),
         }),
         drafts: expect.arrayContaining([
-          expect.objectContaining({ modelProvenance: "OpenAI stub model" }),
-          expect.objectContaining({ modelProvenance: "Anthropic stub model" }),
-          expect.objectContaining({ modelProvenance: "Google stub model" }),
+          expect.objectContaining({
+            modelProvenance: "OpenAI local draft model",
+            provider: "openai",
+            visibleRationale: expect.any(String),
+          }),
+          expect.objectContaining({
+            modelProvenance: "Anthropic local draft model",
+            provider: "anthropic",
+            visibleRationale: expect.any(String),
+          }),
+          expect.objectContaining({
+            modelProvenance: "Google local draft model",
+            provider: "google",
+            visibleRationale: expect.any(String),
+          }),
         ]),
       },
     });
@@ -197,6 +209,80 @@ describe("generation stream route", () => {
 
     expect(enrichmentRequests).toEqual([]);
     expect(await response.text()).toContain(sufficientContext.sourceTweet.text);
+  });
+
+  test("streams fallback disclosure and complete draft metadata", async () => {
+    const tweetContext = buildFixtureTweetContext(
+      "https://x.com/siliconmania/status/2468",
+    );
+    const response = await streamGenerationRun(
+      new Request(
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F2468",
+      ),
+      {
+        orchestrateGeneration: async () => ({
+          fallbackDisclosure:
+            "Provider fallback used for Anthropic; duplicate model provenance is shown on affected drafts.",
+          label: "Drafts for 2468",
+          sourceTweet: tweetContext.sourceTweet,
+          drafts: [
+            {
+              angle: "platform leverage",
+              id: "draft-openai",
+              modelProvenance: "OpenAI test-model",
+              provider: "openai",
+              text: "Quote-tweet draft: OpenAI draft.",
+              visibleRationale: "OpenAI rationale.",
+            },
+            {
+              angle: "operator pressure",
+              fallbackForProvider: "anthropic",
+              id: "draft-openai-fallback-anthropic",
+              modelProvenance: "OpenAI test-model (fallback for Anthropic)",
+              provider: "openai",
+              text: "Quote-tweet draft: fallback draft.",
+              visibleRationale: "Fallback rationale.",
+            },
+            {
+              angle: "distribution bet",
+              id: "draft-google",
+              modelProvenance: "Google test-model",
+              provider: "google",
+              text: "Quote-tweet draft: Google draft.",
+              visibleRationale: "Google rationale.",
+            },
+          ],
+        }),
+        retrieveTweetContext: async () => tweetContext,
+      },
+    );
+    const events = await readStreamEvents(response);
+
+    expect(events.map((event) => event.type)).toEqual([
+      "progress",
+      "progress",
+      "progress",
+      "completed",
+    ]);
+    expect(events[1]).toMatchObject({
+      type: "progress",
+      draft: {
+        fallbackForProvider: "anthropic",
+        provider: "openai",
+        visibleRationale: "Fallback rationale.",
+      },
+    });
+    expect(events[3]).toMatchObject({
+      type: "completed",
+      run: {
+        fallbackDisclosure: expect.stringContaining("Anthropic"),
+        drafts: expect.arrayContaining([
+          expect.objectContaining({
+            modelProvenance: "OpenAI test-model (fallback for Anthropic)",
+          }),
+        ]),
+      },
+    });
   });
 });
 
