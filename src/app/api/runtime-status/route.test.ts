@@ -8,9 +8,9 @@ describe("runtime status route", () => {
         NODE_ENV: "production",
       },
       fetcher: buildModelCatalogFetcher([
-        "anthropic/claude-3-5-sonnet",
-        "google/gemini-1.5-pro",
-        "openai/gpt-4.1-mini",
+        "anthropic/claude-sonnet-4.6",
+        "google/gemini-3-flash",
+        "openai/gpt-5.4-mini",
       ]),
     });
     const status = await response.json();

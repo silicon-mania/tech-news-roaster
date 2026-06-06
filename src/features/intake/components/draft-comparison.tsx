@@ -196,9 +196,7 @@ function ProviderProvenance({
           width={72}
         />
       </span>
-      <span className="truncate">
-        {provider.name} - {modelProvenance}
-      </span>
+      <span className="truncate">{modelProvenance}</span>
     </p>
   );
 }

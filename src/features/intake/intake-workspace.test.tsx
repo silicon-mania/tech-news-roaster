@@ -204,15 +204,15 @@ function buildRuntimeStatus(
         models: {
           anthropic: {
             available: false,
-            id: "anthropic/claude-3-5-sonnet",
+            id: "anthropic/claude-sonnet-4.6",
           },
           google: {
             available: false,
-            id: "google/gemini-1.5-pro",
+            id: "google/gemini-3-flash",
           },
           openai: {
             available: false,
-            id: "openai/gpt-4.1-mini",
+            id: "openai/gpt-5.4-mini",
           },
         },
       },
@@ -658,9 +658,7 @@ describe("IntakeWorkspace", () => {
     expect(
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/OpenAI local draft model/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/local draft model/i)).not.toBeInTheDocument();
 
     act(() => {
       generationEventSources[0]?.emit(events[1]);

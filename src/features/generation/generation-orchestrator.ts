@@ -5,6 +5,10 @@ import type {
 } from "@/features/enrichment/outside-x-enrichment";
 import type { RetrievedSourceTweet } from "@/features/tweet-retrieval/tweet-retrieval";
 import {
+  readConfiguredAiGatewayModels,
+  readEnvValue,
+} from "./ai-gateway-models";
+import {
   type CompletedGenerationRunPayload,
   type GenerationProviderId,
   generationProviderIds,
@@ -194,29 +198,29 @@ export async function orchestrateThreeProviderGeneration(
 }
 
 function createDefaultGenerationProviders(): GenerationProvider[] {
-  const gatewayKey =
-    process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_AI_GATEWAY_API_KEY;
+  const gatewayKey = readAiGatewayApiKey();
 
   if (!gatewayKey && process.env.NODE_ENV !== "production") {
     return createLocalGenerationProviders();
   }
 
+  const configuredModels = readConfiguredAiGatewayModels(process.env);
+
   return [
     createGatewayGenerationProvider({
       displayName: "OpenAI",
       id: "openai",
-      model: process.env.AI_GATEWAY_OPENAI_MODEL ?? "openai/gpt-4.1-mini",
+      model: configuredModels.openai,
     }),
     createGatewayGenerationProvider({
       displayName: "Anthropic",
       id: "anthropic",
-      model:
-        process.env.AI_GATEWAY_ANTHROPIC_MODEL ?? "anthropic/claude-3-5-sonnet",
+      model: configuredModels.anthropic,
     }),
     createGatewayGenerationProvider({
       displayName: "Google",
       id: "google",
-      model: process.env.AI_GATEWAY_GOOGLE_MODEL ?? "google/gemini-1.5-pro",
+      model: configuredModels.google,
     }),
   ];
 }
@@ -251,8 +255,7 @@ function createGatewayGenerationProvider({
     id,
     model,
     async generate(input) {
-      const apiKey =
-        process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_AI_GATEWAY_API_KEY;
+      const apiKey = readAiGatewayApiKey();
 
       if (!apiKey) {
         throw new Error("AI Gateway credentials are not configured.");
@@ -326,7 +329,7 @@ function buildDraft({
     id: fallbackForProvider
       ? `draft-${provider.id}-fallback-${fallbackForProvider}`
       : `draft-${provider.id}`,
-    modelProvenance: `${provider.displayName} ${output.model}${fallbackClause}`,
+    modelProvenance: `${output.model}${fallbackClause}`,
     provider: provider.id,
     text: output.text,
     visibleRationale: output.visibleRationale,
@@ -449,4 +452,11 @@ function truncateAtWordBoundary(value: string, maxCharacters: number) {
 
 function enforceAttentionLength(value: string) {
   return truncateAtWordBoundary(value, 280);
+}
+
+function readAiGatewayApiKey() {
+  return (
+    readEnvValue(process.env.AI_GATEWAY_API_KEY) ??
+    readEnvValue(process.env.VERCEL_AI_GATEWAY_API_KEY)
+  );
 }

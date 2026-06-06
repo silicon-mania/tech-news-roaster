@@ -123,7 +123,7 @@ export function buildStubbedGenerationEvents({
       angle: "platform leverage",
       id: "draft-openai",
       text: `Quote-tweet draft: The real story is not the launch, it is the leverage. This update turns one product move into a pressure test for every platform trying to own the next interface.${contextClause}`,
-      modelProvenance: "OpenAI local draft model",
+      modelProvenance: "local draft model",
       provider: "openai",
       visibleRationale:
         "Frames the news around platform leverage and interface ownership.",
@@ -132,7 +132,7 @@ export function buildStubbedGenerationEvents({
       angle: "incentive shift",
       id: "draft-anthropic",
       text: `Quote-tweet draft: Useful tech news usually hides in the incentives. If this works, the winner is not just the team shipping faster, but the company that makes everyone else adapt around it.${contextClause}`,
-      modelProvenance: "Anthropic local draft model",
+      modelProvenance: "local draft model",
       provider: "anthropic",
       visibleRationale:
         "Emphasizes incentives, adaptation pressure, and the strategic second-order effect.",
@@ -141,7 +141,7 @@ export function buildStubbedGenerationEvents({
       angle: "distribution bet",
       id: "draft-google",
       text: `Quote-tweet draft: This looks like a feature, but it behaves like a distribution bet. Watch who gets access first, who gets priced out, and who suddenly has to explain their roadmap.${contextClause}`,
-      modelProvenance: "Google local draft model",
+      modelProvenance: "local draft model",
       provider: "google",
       visibleRationale:
         "Treats the update as a distribution bet with pricing and access consequences.",

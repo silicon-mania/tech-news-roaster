@@ -57,17 +57,17 @@ describe("generation stream route", () => {
         }),
         drafts: expect.arrayContaining([
           expect.objectContaining({
-            modelProvenance: "OpenAI local draft model",
+            modelProvenance: "local draft model",
             provider: "openai",
             visibleRationale: expect.any(String),
           }),
           expect.objectContaining({
-            modelProvenance: "Anthropic local draft model",
+            modelProvenance: "local draft model",
             provider: "anthropic",
             visibleRationale: expect.any(String),
           }),
           expect.objectContaining({
-            modelProvenance: "Google local draft model",
+            modelProvenance: "local draft model",
             provider: "google",
             visibleRationale: expect.any(String),
           }),
@@ -229,7 +229,7 @@ describe("generation stream route", () => {
             {
               angle: "platform leverage",
               id: "draft-openai",
-              modelProvenance: "OpenAI test-model",
+              modelProvenance: "test-model",
               provider: "openai",
               text: "Quote-tweet draft: OpenAI draft.",
               visibleRationale: "OpenAI rationale.",
@@ -238,7 +238,7 @@ describe("generation stream route", () => {
               angle: "operator pressure",
               fallbackForProvider: "anthropic",
               id: "draft-openai-fallback-anthropic",
-              modelProvenance: "OpenAI test-model (fallback for Anthropic)",
+              modelProvenance: "test-model (fallback for Anthropic)",
               provider: "openai",
               text: "Quote-tweet draft: fallback draft.",
               visibleRationale: "Fallback rationale.",
@@ -246,7 +246,7 @@ describe("generation stream route", () => {
             {
               angle: "distribution bet",
               id: "draft-google",
-              modelProvenance: "Google test-model",
+              modelProvenance: "test-model",
               provider: "google",
               text: "Quote-tweet draft: Google draft.",
               visibleRationale: "Google rationale.",
@@ -278,7 +278,7 @@ describe("generation stream route", () => {
         fallbackDisclosure: expect.stringContaining("Anthropic"),
         drafts: expect.arrayContaining([
           expect.objectContaining({
-            modelProvenance: "OpenAI test-model (fallback for Anthropic)",
+            modelProvenance: "test-model (fallback for Anthropic)",
           }),
         ]),
       },

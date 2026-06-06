@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+  readConfiguredAiGatewayModels,
+  readEnvValue,
+} from "@/features/generation/ai-gateway-models";
+import {
   type GenerationProviderId,
   generationProviderIds,
 } from "@/features/generation/generation-events";
@@ -44,11 +48,6 @@ export type RuntimeStatus = {
 };
 
 const defaultAiGatewayBaseUrl = "https://ai-gateway.vercel.sh/v1";
-const defaultAiGatewayModels: Record<GenerationProviderId, string> = {
-  anthropic: "anthropic/claude-3-5-sonnet",
-  google: "google/gemini-1.5-pro",
-  openai: "openai/gpt-4.1-mini",
-};
 
 const aiGatewayModelCatalogSchema = z
   .object({
@@ -70,7 +69,7 @@ export async function readRuntimeStatus({
   const aiGatewayApiKey =
     hasEnvValue(env.AI_GATEWAY_API_KEY) ||
     hasEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
-  const configuredModelIds = readConfiguredModelIds(env);
+  const configuredModelIds = readConfiguredAiGatewayModels(env);
   const modelCatalog = await readAiGatewayModelCatalog({
     baseUrl: env.AI_GATEWAY_BASE_URL,
     fetcher,
@@ -118,20 +117,6 @@ export async function readRuntimeStatus({
   };
 }
 
-function readConfiguredModelIds(env: RuntimeStatusEnvironment) {
-  return {
-    anthropic:
-      readEnvValue(env.AI_GATEWAY_ANTHROPIC_MODEL) ??
-      defaultAiGatewayModels.anthropic,
-    google:
-      readEnvValue(env.AI_GATEWAY_GOOGLE_MODEL) ??
-      defaultAiGatewayModels.google,
-    openai:
-      readEnvValue(env.AI_GATEWAY_OPENAI_MODEL) ??
-      defaultAiGatewayModels.openai,
-  } satisfies Record<GenerationProviderId, string>;
-}
-
 async function readAiGatewayModelCatalog({
   baseUrl,
   fetcher,
@@ -171,10 +156,4 @@ function buildModelCatalogUrl(baseUrl?: string) {
 
 function hasEnvValue(value: string | undefined) {
   return Boolean(readEnvValue(value));
-}
-
-function readEnvValue(value: string | undefined) {
-  const trimmedValue = value?.trim();
-
-  return trimmedValue ? trimmedValue : undefined;
 }
