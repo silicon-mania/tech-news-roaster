@@ -6,9 +6,13 @@ const iconButtonClassName =
   "inline-flex items-center justify-center rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20";
 
 type IntakeFormProps = {
-  hasRunningRun: boolean;
   hasRuns: boolean;
   hasUsersDirection: boolean;
+  isRunDisabled: boolean;
+  runtimeNotice?: {
+    kind: "blocked" | "warning";
+    message: string;
+  };
   runsCount: number;
   sourceTweetUrl: string;
   submissionState: SubmissionState;
@@ -19,9 +23,10 @@ type IntakeFormProps = {
 };
 
 export function IntakeForm({
-  hasRunningRun,
   hasRuns,
   hasUsersDirection,
+  isRunDisabled,
+  runtimeNotice,
   runsCount,
   sourceTweetUrl,
   submissionState,
@@ -33,11 +38,15 @@ export function IntakeForm({
   const sourceTweetUrlId = useId();
   const sourceTweetUrlErrorId = `${sourceTweetUrlId}-error`;
   const statusId = `${sourceTweetUrlId}-status`;
+  const runtimeNoticeId = `${sourceTweetUrlId}-runtime-notice`;
+  const visibleRuntimeNotice =
+    submissionState.kind === "idle" ? runtimeNotice : undefined;
   const sourceTweetUrlDescription = [
     submissionState.kind === "invalid" ? sourceTweetUrlErrorId : null,
     submissionState.kind === "accepted" || submissionState.kind === "blocked"
       ? statusId
       : null,
+    visibleRuntimeNotice ? runtimeNoticeId : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -81,7 +90,8 @@ export function IntakeForm({
 
         <button
           type="submit"
-          disabled={hasRunningRun}
+          aria-describedby={visibleRuntimeNotice ? runtimeNoticeId : undefined}
+          disabled={isRunDisabled}
           className="col-span-3 row-start-2 inline-flex h-11 items-center justify-center gap-2 rounded-sm bg-sky-300 px-3 font-semibold text-slate-950 text-sm transition hover:bg-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500 sm:col-auto sm:row-auto sm:px-4"
         >
           <ArrowRight aria-hidden className="size-4" strokeWidth={1.75} />
@@ -131,6 +141,21 @@ export function IntakeForm({
             className="text-center text-slate-400 text-sm leading-5"
           >
             {submissionState.message}
+          </p>
+        ) : null}
+        {visibleRuntimeNotice ? (
+          <p
+            id={runtimeNoticeId}
+            role={
+              visibleRuntimeNotice.kind === "blocked" ? "status" : undefined
+            }
+            className={`text-center text-sm leading-5 ${
+              visibleRuntimeNotice.kind === "warning"
+                ? "text-amber-200"
+                : "text-slate-400"
+            }`}
+          >
+            {visibleRuntimeNotice.message}
           </p>
         ) : null}
       </div>

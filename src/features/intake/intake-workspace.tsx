@@ -11,6 +11,7 @@ import {
   draftTarget,
   parseGenerationStreamEvent,
 } from "@/features/generation/generation-events";
+import type { RuntimeStatus } from "@/features/runtime-status/runtime-status";
 import {
   ActiveRunPanel,
   IntakeForm,
@@ -34,21 +35,41 @@ type IntakeWorkspaceProps = {
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
   generationEventSourceFactory?: GenerationEventSourceFactory;
+  initialRuntimeStatus?: RuntimeStatus;
   onStartGenerationRun?: (intake: GenerationIntake) => void | Promise<void>;
+  runtimeEnvironment?: "development" | "production";
+  runtimeStatusFetcher?: () => Promise<RuntimeStatus>;
   savedRunStore?: SavedRunStore;
 };
 
 const genericRunningRunLabel = "New generation run";
+const liveApiWarningMessage = "Live APIs enabled. Runs may use paid quota.";
+const productionNotReadyMessage = "Live integrations are not configured.";
 
 function createGenerationEventSource(url: string) {
   return new EventSource(url);
+}
+
+async function fetchRuntimeStatus() {
+  const response = await fetch("/api/runtime-status");
+
+  if (!response.ok) {
+    throw new Error("Runtime status could not be read.");
+  }
+
+  return (await response.json()) as RuntimeStatus;
 }
 
 export function IntakeWorkspace({
   generationEventSourceFactory = createGenerationEventSource,
   initialActiveRunId,
   initialRuns = [],
+  initialRuntimeStatus,
   onStartGenerationRun,
+  runtimeEnvironment = process.env.NODE_ENV === "production"
+    ? "production"
+    : "development",
+  runtimeStatusFetcher = fetchRuntimeStatus,
   savedRunStore = indexedDbSavedRunStore,
 }: IntakeWorkspaceProps) {
   const initialActiveRun =
@@ -71,6 +92,9 @@ export function IntakeWorkspace({
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
     kind: "idle",
   });
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(
+    initialRuntimeStatus ?? null,
+  );
   const generationEventSources = useRef<Map<string, GenerationEventSource>>(
     new Map(),
   );
@@ -93,6 +117,30 @@ export function IntakeWorkspace({
       autosaveTimeouts.current.clear();
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (initialRuntimeStatus) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    void runtimeStatusFetcher()
+      .then((status) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setRuntimeStatus(status);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialRuntimeStatus, runtimeStatusFetcher]);
 
   useEffect(() => {
     let isMounted = true;
@@ -125,6 +173,26 @@ export function IntakeWorkspace({
   const hasRunningRun = runs.some((run) => run.status === "running");
   const hasRuns = runs.length > 0;
   const hasUsersDirection = usersDirection.trim().length > 0;
+  const productionRunDisabled =
+    runtimeEnvironment === "production" &&
+    runtimeStatus?.productionReady !== true;
+  const liveApisEnabled = runtimeStatus
+    ? runtimeStatus.retrieval.credentials.twitterApiIoApiKey ||
+      runtimeStatus.generation.credentials.aiGatewayApiKey
+    : false;
+  const runtimeNotice =
+    runtimeEnvironment === "development" && liveApisEnabled
+      ? {
+          kind: "warning" as const,
+          message: liveApiWarningMessage,
+        }
+      : runtimeEnvironment === "production" &&
+          runtimeStatus?.productionReady === false
+        ? {
+            kind: "blocked" as const,
+            message: productionNotReadyMessage,
+          }
+        : undefined;
 
   useEffect(() => {
     if (!activeRunSourceTweetUrl) {
@@ -141,6 +209,14 @@ export function IntakeWorkspace({
       setSubmissionState({
         kind: "blocked",
         message: "Wait for the running Generation Run to finish first.",
+      });
+      return;
+    }
+
+    if (productionRunDisabled) {
+      setSubmissionState({
+        kind: "blocked",
+        message: productionNotReadyMessage,
       });
       return;
     }
@@ -389,9 +465,10 @@ export function IntakeWorkspace({
         <WorkspaceHeader />
 
         <IntakeForm
-          hasRunningRun={hasRunningRun}
           hasRuns={hasRuns}
           hasUsersDirection={hasUsersDirection}
+          isRunDisabled={hasRunningRun || productionRunDisabled}
+          runtimeNotice={runtimeNotice}
           runsCount={runs.length}
           sourceTweetUrl={sourceTweetUrl}
           submissionState={submissionState}

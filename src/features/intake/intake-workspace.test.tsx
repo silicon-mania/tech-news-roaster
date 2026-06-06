@@ -10,6 +10,7 @@ import {
   type GenerationStreamEvent,
   type QuoteTweetDraft,
 } from "@/features/generation/generation-events";
+import type { RuntimeStatus } from "@/features/runtime-status/runtime-status";
 import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
 import {
   type GenerationIntake,
@@ -52,14 +53,18 @@ function renderWorkspace({
   isDesktop = false,
   initialActiveRunId,
   initialRuns,
+  initialRuntimeStatus,
   onStartGenerationRun = vi.fn(),
+  runtimeEnvironment,
   savedRunStore,
 }: {
   generationEventSources?: FakeGenerationEventSource[];
   isDesktop?: boolean;
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
+  initialRuntimeStatus?: RuntimeStatus;
   onStartGenerationRun?: (intake: GenerationIntake) => void;
+  runtimeEnvironment?: "development" | "production";
   savedRunStore?: SavedRunStore;
 } = {}) {
   const generationStreamUrls: string[] = [];
@@ -78,7 +83,9 @@ function renderWorkspace({
       }}
       initialActiveRunId={initialActiveRunId}
       initialRuns={initialRuns}
+      initialRuntimeStatus={initialRuntimeStatus}
       onStartGenerationRun={onStartGenerationRun}
+      runtimeEnvironment={runtimeEnvironment}
       savedRunStore={savedRunStore}
     />,
   );
@@ -181,6 +188,55 @@ function buildSavedDraft({
     provider,
     text,
     visibleRationale: `${providerNames[provider]} rationale.`,
+  };
+}
+
+function buildRuntimeStatus(
+  overrides: Partial<RuntimeStatus> = {},
+): RuntimeStatus {
+  const status: RuntimeStatus = {
+    enrichment: {
+      mode: "off",
+    },
+    generation: {
+      aiGateway: {
+        catalogReachable: false,
+        models: {
+          anthropic: {
+            available: false,
+            id: "anthropic/claude-3-5-sonnet",
+          },
+          google: {
+            available: false,
+            id: "google/gemini-1.5-pro",
+          },
+          openai: {
+            available: false,
+            id: "openai/gpt-4.1-mini",
+          },
+        },
+      },
+      credentials: {
+        aiGatewayApiKey: false,
+      },
+      mode: "local",
+    },
+    productionCredentials: {
+      aiGatewayApiKey: false,
+      twitterApiIoApiKey: false,
+    },
+    productionReady: false,
+    retrieval: {
+      credentials: {
+        twitterApiIoApiKey: false,
+      },
+      mode: "fixture",
+    },
+  };
+
+  return {
+    ...status,
+    ...overrides,
   };
 }
 
@@ -309,6 +365,95 @@ describe("IntakeWorkspace", () => {
 
     expect(startGenerationRun).toHaveBeenCalledWith({
       sourceTweetUrl: "https://twitter.com/siliconmania/status/987654321",
+      usersDirection: "",
+    });
+  });
+
+  test("warns in development when live APIs are enabled but still allows runs", async () => {
+    const user = userEvent.setup();
+    const startGenerationRun = vi.fn();
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      initialRuntimeStatus: buildRuntimeStatus({
+        generation: {
+          ...buildRuntimeStatus().generation,
+          credentials: {
+            aiGatewayApiKey: true,
+          },
+          mode: "live",
+        },
+      }),
+      onStartGenerationRun: startGenerationRun,
+      runtimeEnvironment: "development",
+    });
+
+    expect(
+      screen.getByText("Live APIs enabled. Runs may use paid quota."),
+    ).toBeInTheDocument();
+    expect(generateButton).toBeEnabled();
+
+    await user.type(
+      sourceTweetUrlInput,
+      "https://x.com/siliconmania/status/1234567890",
+    );
+    await user.click(generateButton);
+
+    expect(startGenerationRun).toHaveBeenCalledWith({
+      sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
+      usersDirection: "",
+    });
+  });
+
+  test("disables Run in production when live integrations are not ready", async () => {
+    const user = userEvent.setup();
+    const startGenerationRun = vi.fn();
+    const { sourceTweetUrlInput, generateButton, generationStreamUrls } =
+      renderWorkspace({
+        initialRuntimeStatus: buildRuntimeStatus({
+          productionReady: false,
+        }),
+        onStartGenerationRun: startGenerationRun,
+        runtimeEnvironment: "production",
+      });
+
+    expect(generateButton).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Live integrations are not configured.",
+    );
+
+    await user.type(
+      sourceTweetUrlInput,
+      "https://x.com/siliconmania/status/1234567890",
+    );
+    await user.click(generateButton);
+
+    expect(startGenerationRun).not.toHaveBeenCalled();
+    expect(generationStreamUrls).toEqual([]);
+  });
+
+  test("allows production runs when live integrations are ready", async () => {
+    const user = userEvent.setup();
+    const startGenerationRun = vi.fn();
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      initialRuntimeStatus: buildRuntimeStatus({
+        productionReady: true,
+      }),
+      onStartGenerationRun: startGenerationRun,
+      runtimeEnvironment: "production",
+    });
+
+    expect(generateButton).toBeEnabled();
+    expect(
+      screen.queryByText("Live integrations are not configured."),
+    ).not.toBeInTheDocument();
+
+    await user.type(
+      sourceTweetUrlInput,
+      "https://x.com/siliconmania/status/1234567890",
+    );
+    await user.click(generateButton);
+
+    expect(startGenerationRun).toHaveBeenCalledWith({
+      sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
       usersDirection: "",
     });
   });
