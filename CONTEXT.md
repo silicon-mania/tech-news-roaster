@@ -68,6 +68,10 @@ _Avoid_: Comments, thread noise
 The inferred patterns, tensions, and recurring interpretations extracted from replies to help identify stronger editorial angles.
 _Avoid_: Sentiment, reply summary
 
+**Outside-X Enrichment**:
+Supporting context gathered beyond X when the source tweet and replies are too thin to clearly recover the underlying news, while keeping the source tweet as the anchor.
+_Avoid_: Research panel, external source of truth
+
 **Editorial Interpretation**:
 The system's overall reading of the source tweet, replies, and surrounding context that it uses to choose an angle and a draft's tone.
 _Avoid_: Analysis, reasoning, understanding
