@@ -17,10 +17,12 @@ describe("tweet retrieval", () => {
 
   test("normalizes TwitterAPI.io tweet and replies payloads into the internal contract", async () => {
     const requestedUrls: string[] = [];
-    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+    const requestHeaders: Headers[] = [];
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init) => {
       const url = String(input);
 
       requestedUrls.push(url);
+      requestHeaders.push(new Headers(init?.headers));
 
       if (url.includes("/twitter/tweet/replies/v2")) {
         return Response.json({
@@ -82,6 +84,13 @@ describe("tweet retrieval", () => {
     expect(requestedUrls[1]).toContain(
       "https://api.twitterapi.io/twitter/tweet/replies/v2?tweetId=2062195681947971840",
     );
+    expect(requestHeaders).toHaveLength(2);
+    for (const headers of requestHeaders) {
+      expect(headers.get("x-api-key")).toBe("twitterapi-secret");
+      expect(
+        [...headers.entries()].filter(([key]) => key === "x-api-key"),
+      ).toHaveLength(1);
+    }
     expect(context.sourceTweet).toMatchObject({
       id: "2062195681947971840",
       text: "Real source tweet text from TwitterAPI.io.",

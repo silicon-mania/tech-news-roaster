@@ -750,7 +750,7 @@ describe("IntakeWorkspace", () => {
     await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
     expect(savedRunStore.save).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: "run-1",
+        id: expect.stringMatching(/^run-/),
         label: "Drafts for 1234567890",
         sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
         status: "completed",
@@ -1149,9 +1149,13 @@ describe("IntakeWorkspace", () => {
 
     await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
     expect(savedRunStore.savedRuns.has("original-saved-run")).toBe(true);
-    expect(savedRunStore.savedRuns.has("run-1")).toBe(true);
-    expect(savedRunStore.savedRuns.get("run-1")).toEqual(
+    const newSavedRun = [...savedRunStore.savedRuns.values()].find(
+      (savedRun) => savedRun.id !== "original-saved-run",
+    );
+
+    expect(newSavedRun).toEqual(
       expect.objectContaining({
+        id: expect.stringMatching(/^run-/),
         sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
         usersDirection: "",
       }),

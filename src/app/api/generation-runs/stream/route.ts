@@ -125,7 +125,9 @@ async function buildGenerationRunEvents({
     return buildCompletedGenerationRunEvents({
       run: completedRun,
     });
-  } catch {
+  } catch (error) {
+    console.error("Generation orchestration failed.", error);
+
     return [
       buildGenerationFailureEvent(
         "Draft providers could not complete a three-draft run.",

@@ -70,11 +70,15 @@ const gatewayResponseSchema = z.object({
 
 const providerJsonOutputSchema = z
   .object({
-    angle: z.string().min(1),
-    text: z.string().min(1).max(280),
-    visibleRationale: z.string().min(1),
+    angle: z.string().min(1).optional(),
+    draft: z.string().min(1).optional(),
+    rationale: z.string().min(1).optional(),
+    text: z.string().min(1).optional(),
+    tweet: z.string().min(1).optional(),
+    visible_rationale: z.string().min(1).optional(),
+    visibleRationale: z.string().min(1).optional(),
   })
-  .strict();
+  .passthrough();
 
 const providerDisplayNames: Record<
   GenerationProviderId,
@@ -144,6 +148,10 @@ export async function orchestrateThreeProviderGeneration(
     }
 
     failedProviderIds.push(providerId);
+    console.warn(
+      `${providerDisplayNames[providerId]} generation failed before fallback.`,
+      result.reason,
+    );
   });
 
   for (const [index, failedProviderId] of failedProviderIds.entries()) {
@@ -279,7 +287,6 @@ function createGatewayGenerationProvider({
               },
             ],
             model,
-            response_format: { type: "json_object" },
             temperature: 0.8,
           }),
           headers: {
@@ -291,19 +298,46 @@ function createGatewayGenerationProvider({
       );
 
       if (!response.ok) {
-        throw new Error(`${displayName} generation failed.`);
+        throw new Error(
+          `${displayName} generation failed (${response.status}): ${await readGatewayError(
+            response,
+          )}`,
+        );
       }
 
       const payload = gatewayResponseSchema.parse(await response.json());
-      const parsedOutput = providerJsonOutputSchema.parse(
-        JSON.parse(stripJsonFences(payload.choices[0].message.content)),
+      const parsedOutput = parseProviderJsonOutput(
+        payload.choices[0].message.content,
+        input.angle,
       );
 
       return {
         ...parsedOutput,
         model,
+        text: enforceAttentionLength(parsedOutput.text),
       };
     },
+  };
+}
+
+function parseProviderJsonOutput(content: string, fallbackAngle: string) {
+  const output = providerJsonOutputSchema.parse(
+    JSON.parse(extractJsonObject(content)),
+  );
+  const text = output.text ?? output.draft ?? output.tweet;
+  const visibleRationale =
+    output.visibleRationale ?? output.visible_rationale ?? output.rationale;
+
+  if (!text) {
+    throw new Error("Gateway response did not include draft text.");
+  }
+
+  return {
+    angle: output.angle ?? fallbackAngle,
+    text,
+    visibleRationale:
+      visibleRationale ??
+      `Explores the ${output.angle ?? fallbackAngle} angle from the retrieved context.`,
   };
 }
 
@@ -436,6 +470,26 @@ function stripJsonFences(value: string) {
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "");
+}
+
+function extractJsonObject(value: string) {
+  const strippedValue = stripJsonFences(value);
+  const objectStart = strippedValue.indexOf("{");
+  const objectEnd = strippedValue.lastIndexOf("}");
+
+  if (objectStart === -1 || objectEnd === -1 || objectEnd < objectStart) {
+    return strippedValue;
+  }
+
+  return strippedValue.slice(objectStart, objectEnd + 1);
+}
+
+async function readGatewayError(response: Response) {
+  try {
+    return truncateAtWordBoundary(await response.text(), 500);
+  } catch {
+    return "No error body returned.";
+  }
 }
 
 function truncateAtWordBoundary(value: string, maxCharacters: number) {

@@ -102,6 +102,12 @@ describe("generation orchestrator", () => {
             : undefined,
         ),
       ).toEqual(["openai/launch", "anthropic/launch", "google/launch"]);
+      expect(
+        gatewayBodies.every(
+          (body) =>
+            typeof body === "object" && body && !("response_format" in body),
+        ),
+      ).toBe(true);
     } finally {
       restoreEnvValue("AI_GATEWAY_API_KEY", previousEnv.AI_GATEWAY_API_KEY);
       restoreEnvValue(
@@ -116,6 +122,60 @@ describe("generation orchestrator", () => {
         "AI_GATEWAY_GOOGLE_MODEL",
         previousEnv.AI_GATEWAY_GOOGLE_MODEL,
       );
+      restoreEnvValue(
+        "VERCEL_AI_GATEWAY_API_KEY",
+        previousEnv.VERCEL_AI_GATEWAY_API_KEY,
+      );
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("extracts fenced gateway JSON and trims overlong draft text", async () => {
+    const previousEnv = {
+      AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
+      VERCEL_AI_GATEWAY_API_KEY: process.env.VERCEL_AI_GATEWAY_API_KEY,
+    };
+    const previousFetch = globalThis.fetch;
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        choices: [
+          {
+            message: {
+              content: `Here is the draft:\n\n\`\`\`json\n${JSON.stringify({
+                angle: "long but usable",
+                draft: `Quote-tweet draft: ${"sharp ".repeat(80)}`,
+                editorial_note: "Extra provider field should be ignored.",
+                visible_rationale: "Keeps the output contract stable.",
+              })}\n\`\`\``,
+            },
+          },
+        ],
+      }),
+    );
+    const tweetContext = buildFixtureTweetContext(
+      "https://x.com/siliconmania/status/2468",
+    );
+
+    process.env.AI_GATEWAY_API_KEY = "gateway-secret";
+    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    globalThis.fetch = fetcher;
+
+    try {
+      const run = await orchestrateThreeProviderGeneration({
+        replySignals: buildReplySignals(tweetContext),
+        sourceTweet: tweetContext.sourceTweet,
+        sourceTweetUrl: tweetContext.sourceTweet.url,
+        usersDirection: "",
+      });
+
+      expect(run.drafts).toHaveLength(3);
+      expect(run.drafts.every((draft) => draft.text.length <= 280)).toBe(true);
+      expect(run.drafts[0]).toMatchObject({
+        angle: "long but usable",
+        visibleRationale: "Keeps the output contract stable.",
+      });
+    } finally {
+      restoreEnvValue("AI_GATEWAY_API_KEY", previousEnv.AI_GATEWAY_API_KEY);
       restoreEnvValue(
         "VERCEL_AI_GATEWAY_API_KEY",
         previousEnv.VERCEL_AI_GATEWAY_API_KEY,

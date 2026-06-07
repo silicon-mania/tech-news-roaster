@@ -76,7 +76,6 @@ export function IntakeWorkspace({
     initialRuns.find((run) => run.id === initialActiveRunId) ??
     initialRuns.at(0) ??
     null;
-  const runSequence = useRef(initialRuns.length);
   const [sourceTweetUrl, setSourceTweetUrl] = useState(
     initialActiveRun?.sourceTweetUrl ?? "",
   );
@@ -237,8 +236,7 @@ export function IntakeWorkspace({
     };
 
     setSourceTweetUrl(parsedSourceTweetUrl.url);
-    runSequence.current += 1;
-    const runId = `run-${runSequence.current}`;
+    const runId = createRunId(runs);
     const runningRun: GenerationRun = {
       id: runId,
       label: genericRunningRunLabel,
@@ -620,4 +618,22 @@ function buildGenerationStreamUrl(intake: GenerationIntake) {
   }
 
   return `/api/generation-runs/stream?${searchParams.toString()}`;
+}
+
+function createRunId(existingRuns: GenerationRun[]) {
+  const existingRunIds = new Set(existingRuns.map((run) => run.id));
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const uniquePart =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const runId = `run-${uniquePart}`;
+
+    if (!existingRunIds.has(runId)) {
+      return runId;
+    }
+  }
+
+  return `run-${Date.now()}-${existingRunIds.size}`;
 }

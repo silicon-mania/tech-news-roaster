@@ -227,8 +227,8 @@ async function retrieveReplies(
 async function fetchJson(url: string, apiKey: string, fetcher: typeof fetch) {
   const response = await fetcher(url, {
     headers: {
-      "X-API-Key": apiKey,
       "x-api-key": apiKey,
+      Accept: "application/json",
     },
   });
 
