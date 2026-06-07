@@ -298,9 +298,9 @@ function normalizeTweetBase(record: RawRecord) {
     id: readString(record, ["id", "id_str", "tweetId"]) ?? "unknown",
     text:
       readString(record, ["text", "full_text", "tweetText", "content"]) ?? "",
-    createdAt:
-      readString(record, ["createdAt", "created_at", "created_time"]) ??
-      new Date(0).toISOString(),
+    createdAt: normalizeCreatedAt(
+      readString(record, ["createdAt", "created_at", "created_time"]),
+    ),
     author: {
       username:
         readString(author, ["username", "userName", "screen_name"]) ??
@@ -368,6 +368,20 @@ function readNumber(record: RawRecord, keys: string[]) {
   }
 
   return 0;
+}
+
+function normalizeCreatedAt(value: string | null) {
+  if (!value) {
+    return new Date(0).toISOString();
+  }
+
+  const parsedTimestamp = Date.parse(value);
+
+  if (Number.isFinite(parsedTimestamp)) {
+    return new Date(parsedTimestamp).toISOString();
+  }
+
+  return new Date(0).toISOString();
 }
 
 function isRecord(value: unknown): value is RawRecord {

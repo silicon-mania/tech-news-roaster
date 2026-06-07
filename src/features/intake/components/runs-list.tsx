@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import type { GenerationRun } from '../types';
+import { useEffect, useState } from "react";
+import type { GenerationRun } from "../types";
 
 type RunsListProps = {
   activeRunId: string | null;
@@ -27,15 +27,12 @@ export function RunsList({
         <p className="text-slate-500 text-sm leading-6">No runs yet.</p>
       ) : (
         <ul className="grid gap-1.5">
-          {runs.map((run, index) => (
-            <li
-              key={`${run.id}-${index}-${run.savedAt ?? run.sourceTweetUrl}`}
-              className="group relative"
-            >
+          {runs.map((run) => (
+            <li key={run.id} className="group relative">
               <button
                 type="button"
                 onClick={() => onSelectRun(run.id)}
-                aria-current={run.id === activeRunId ? 'true' : undefined}
+                aria-current={run.id === activeRunId ? "true" : undefined}
                 className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-sm border border-transparent bg-transparent p-3 text-left transition hover:border-slate-800 hover:bg-slate-900/55 focus:outline-none focus:ring-2 focus:ring-sky-300/20 aria-current:border-sky-300/40 aria-current:bg-sky-300/8 sm:pr-10"
               >
                 <span className="grid min-w-0 gap-1">
@@ -50,11 +47,11 @@ export function RunsList({
                   aria-hidden="true"
                   title={run.status}
                   className={`h-1.5 w-1.5 rounded-full ${getStatusDotClass(
-                    run.status
+                    run.status,
                   )}`}
                 />
               </button>
-              {isDesktop && run.status === 'completed' ? (
+              {isDesktop && run.status === "completed" ? (
                 <button
                   type="button"
                   aria-label={`Delete saved run: ${run.label}`}
@@ -76,44 +73,44 @@ function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('matchMedia' in window)) {
+    if (typeof window === "undefined" || !("matchMedia" in window)) {
       return;
     }
 
-    const mediaQuery = window.matchMedia('(min-width: 640px)');
+    const mediaQuery = window.matchMedia("(min-width: 640px)");
     const updateIsDesktop = () => setIsDesktop(mediaQuery.matches);
 
     updateIsDesktop();
-    mediaQuery.addEventListener('change', updateIsDesktop);
+    mediaQuery.addEventListener("change", updateIsDesktop);
 
     return () => {
-      mediaQuery.removeEventListener('change', updateIsDesktop);
+      mediaQuery.removeEventListener("change", updateIsDesktop);
     };
   }, []);
 
   return isDesktop;
 }
 
-function getStatusDotClass(status: GenerationRun['status']) {
-  if (status === 'running') {
-    return 'bg-sky-300';
+function getStatusDotClass(status: GenerationRun["status"]) {
+  if (status === "running") {
+    return "bg-sky-300";
   }
 
-  if (status === 'failed') {
-    return 'bg-rose-400/70';
+  if (status === "failed") {
+    return "bg-rose-400/70";
   }
 
-  return 'bg-slate-700';
+  return "bg-slate-700";
 }
 
 function formatRelativeDate(savedAt: string | undefined) {
   if (!savedAt) {
-    return 'just now';
+    return "just now";
   }
 
   const elapsedSeconds = Math.max(
     0,
-    Math.floor((Date.now() - Date.parse(savedAt)) / 1000)
+    Math.floor((Date.now() - Date.parse(savedAt)) / 1000),
   );
   const elapsedMinutes = Math.floor(elapsedSeconds / 60);
   const elapsedHours = Math.floor(elapsedMinutes / 60);
@@ -121,22 +118,22 @@ function formatRelativeDate(savedAt: string | undefined) {
   const elapsedWeeks = Math.floor(elapsedDays / 7);
 
   if (elapsedMinutes < 1) {
-    return 'just now';
+    return "just now";
   }
 
   if (elapsedMinutes < 60) {
-    return `${elapsedMinutes} ${pluralize('minute', elapsedMinutes)} ago`;
+    return `${elapsedMinutes} ${pluralize("minute", elapsedMinutes)} ago`;
   }
 
   if (elapsedHours < 24) {
-    return `${elapsedHours} ${pluralize('hour', elapsedHours)} ago`;
+    return `${elapsedHours} ${pluralize("hour", elapsedHours)} ago`;
   }
 
   if (elapsedDays < 14) {
-    return `${elapsedDays} ${pluralize('day', elapsedDays)} ago`;
+    return `${elapsedDays} ${pluralize("day", elapsedDays)} ago`;
   }
 
-  return `${elapsedWeeks} ${pluralize('week', elapsedWeeks)} ago`;
+  return `${elapsedWeeks} ${pluralize("week", elapsedWeeks)} ago`;
 }
 
 function pluralize(unit: string, count: number) {
