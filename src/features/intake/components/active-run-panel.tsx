@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import type { FormEvent, ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import Image from "next/image";
+import type { FormEvent, ReactNode } from "react";
+import { useEffect, useState } from "react";
 import type {
   ImageGenerationInput,
   NewsLinkedImage,
-} from '@/features/generation/generation-events';
+} from "@/features/generation/generation-events";
 import {
   draftTarget,
   parseImageGenerationInput,
-} from '@/features/generation/generation-events';
-import { getRunPhaseLabel } from '../run-phase';
-import type { GenerationRun } from '../types';
-import { DraftComparison } from './draft-comparison';
+} from "@/features/generation/generation-events";
+import { getRunPhaseLabel } from "../run-phase";
+import type { GenerationRun } from "../types";
+import { DraftComparison } from "./draft-comparison";
 
 type ActiveRunPanelProps = {
   activeRun: GenerationRun | null;
@@ -47,7 +47,7 @@ export function ActiveRunPanel({
     />
   ) : null;
 
-  if (activeRun.status === 'running') {
+  if (activeRun.status === "running") {
     return (
       <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
         {sourceTweetPreview}
@@ -58,7 +58,7 @@ export function ActiveRunPanel({
     );
   }
 
-  if (activeRun.status === 'failed') {
+  if (activeRun.status === "failed") {
     return (
       <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
         {sourceTweetPreview}
@@ -172,7 +172,7 @@ function NewsLinkedImageArea({
   onStartImageGeneration: (input: ImageGenerationInput) => void;
 }) {
   const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
-  const [userImagePrompt, setUserImagePrompt] = useState('');
+  const [userImagePrompt, setUserImagePrompt] = useState("");
   const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
   const trimmedUserImagePrompt = userImagePrompt.trim();
   const canStartImageGeneration =
@@ -182,7 +182,7 @@ function NewsLinkedImageArea({
     const availableImageIds = new Set(images.map((image) => image.id));
 
     setSelectedImageIds((currentImageIds) =>
-      currentImageIds.filter((imageId) => availableImageIds.has(imageId))
+      currentImageIds.filter((imageId) => availableImageIds.has(imageId)),
     );
   }, [images]);
 
@@ -191,12 +191,12 @@ function NewsLinkedImageArea({
       if (currentImageIds.includes(imageId)) {
         setSelectionMessage(null);
         return currentImageIds.filter(
-          (currentImageId) => currentImageId !== imageId
+          (currentImageId) => currentImageId !== imageId,
         );
       }
 
       if (currentImageIds.length >= 2) {
-        setSelectionMessage('Choose up to two images.');
+        setSelectionMessage("Choose up to two images.");
         return currentImageIds;
       }
 
@@ -217,7 +217,7 @@ function NewsLinkedImageArea({
         parentRunId,
         selectedImageIds,
         userImagePrompt: trimmedUserImagePrompt,
-      })
+      }),
     );
   }
 
@@ -237,14 +237,14 @@ function NewsLinkedImageArea({
               type="button"
               aria-label={`Select ${getImageTitle(
                 image,
-                index
+                index,
               )} for image generation`}
               aria-pressed={selectedImageIds.includes(image.id)}
               onClick={() => toggleImageSelection(image.id)}
               className={`grid h-full w-full gap-1.5 rounded-sm border p-1.5 text-left transition focus:outline-none focus:ring-2 focus:ring-sky-300/20 ${
                 selectedImageIds.includes(image.id)
-                  ? 'border-sky-300/60 bg-sky-300/10'
-                  : 'border-slate-800 bg-slate-950/20 hover:border-slate-700'
+                  ? "border-sky-300/60 bg-sky-300/10"
+                  : "border-slate-800 bg-slate-950/20 hover:border-slate-700"
               }`}
             >
               <span className="aspect-[4/3] overflow-hidden rounded-sm border border-slate-800 bg-slate-950">
@@ -256,6 +256,7 @@ function NewsLinkedImageArea({
                   }
                   className="h-full w-full object-cover"
                   height={240}
+                  loading={index === 0 ? "eager" : "lazy"}
                   src={getDisplayImageUrl(image, index)}
                   unoptimized
                   width={320}
@@ -305,9 +306,9 @@ function getImageTitle(image: NewsLinkedImage, index: number) {
 }
 
 function getDisplayImageUrl(image: NewsLinkedImage, index: number) {
-  if (image.url.startsWith('https://example.com/')) {
+  if (image.url.startsWith("https://example.com/")) {
     return `https://picsum.photos/seed/${encodeURIComponent(
-      image.id || `image-${index + 1}`
+      image.id || `image-${index + 1}`,
     )}/320/240`;
   }
 
@@ -322,7 +323,7 @@ function GenerationFailureState({ run }: { run: GenerationRun }) {
       className="grid min-h-[20rem] place-items-center sm:min-h-[24rem]"
     >
       <p className="max-w-sm text-center text-rose-200 text-sm leading-6">
-        {run.failureMessage ?? 'Source tweet could not be retrieved.'}
+        {run.failureMessage ?? "Source tweet could not be retrieved."}
       </p>
     </section>
   );

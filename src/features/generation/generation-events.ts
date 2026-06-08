@@ -304,8 +304,12 @@ const imageGenerationStreamEventSchema = z.discriminatedUnion("type", [
 ]);
 
 export type NewsLinkedImage = z.infer<typeof newsLinkedImageSchema>;
+export type FailedImageSet = z.infer<typeof failedImageSetSchema>;
 export type ImageGenerationInput = z.infer<typeof imageGenerationInputSchema>;
+export type ImageModelProvenance = z.infer<typeof imageModelProvenanceSchema>;
+export type ImageSet = z.infer<typeof imageSetSchema>;
 export type QuoteTweetDraft = z.infer<typeof quoteTweetDraftSchema>;
+export type SelectedImageOriginal = z.infer<typeof selectedImageOriginalSchema>;
 export type CompletedGenerationRunPayload = z.infer<
   typeof completedGenerationRunPayloadSchema
 >;
@@ -346,6 +350,20 @@ export function parseImageGenerationInput(
   input: unknown,
 ): ImageGenerationInput {
   return imageGenerationInputSchema.parse(input);
+}
+
+export function parseSelectedImageOriginal(
+  original: unknown,
+): SelectedImageOriginal {
+  return selectedImageOriginalSchema.parse(original);
+}
+
+export function parseImageSet(imageSet: unknown): ImageSet {
+  return imageSetSchema.parse(imageSet);
+}
+
+export function parseFailedImageSet(failedImageSet: unknown): FailedImageSet {
+  return failedImageSetSchema.parse(failedImageSet);
 }
 
 export function parseCompletedGenerationRunPayload(
