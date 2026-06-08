@@ -141,6 +141,54 @@ describe("image generation stream route", () => {
     ]);
   });
 
+  test("uses only the User Image Prompt to steer image generation", async () => {
+    const generateVariations = vi.fn<
+      ImageVariationProvider["generateVariations"]
+    >(async ({ original }) => [
+      {
+        url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-1.jpg`,
+      },
+      {
+        url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-2.jpg`,
+      },
+    ]);
+    const response = await streamImageGenerationRun(
+      buildRequest({
+        input: buildInput({
+          selectedImageIds: ["news-linked-image-1"],
+          userImagePrompt: "Make the visual launch-ready.",
+        }),
+        parentRun: buildParentRun({
+          imageGenerationState: {
+            status: "not-started",
+          },
+          phase: "waiting-for-image-selection",
+          usersDirection: "Make the text skeptical about platform risk.",
+        }),
+      }),
+      {
+        now: () => new Date("2026-06-05T10:20:00.000Z"),
+        prepareSelectedImageOriginal: async ({ newsLinkedImage }) =>
+          buildPreparedOriginal(newsLinkedImage),
+        provider: buildProvider({
+          generateVariations,
+        }),
+      },
+    );
+
+    await readImageGenerationStreamEvents(response);
+
+    expect(generateVariations).toHaveBeenCalledTimes(1);
+    expect(generateVariations).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userImagePrompt: "Make the visual launch-ready.",
+      }),
+    );
+    expect(JSON.stringify(generateVariations.mock.calls)).not.toContain(
+      "platform risk",
+    );
+  });
+
   test("streams failed image sets without dropping earlier successful sets", async () => {
     const generateVariations = vi
       .fn<ImageVariationProvider["generateVariations"]>()

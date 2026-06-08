@@ -1695,6 +1695,17 @@ describe("IntakeWorkspace", () => {
       savedRunStore,
     });
 
+    expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
+    expect(
+      screen.getByRole("button", {
+        name: /show visible rationale for draft 1/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /publish/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /export/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /export/i })).toBeNull();
+    expect(screen.queryByLabelText(/language/i)).not.toBeInTheDocument();
+
     await user.click(
       screen.getByRole("button", {
         name: /edit draft 1/i,

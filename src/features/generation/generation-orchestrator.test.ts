@@ -130,6 +130,80 @@ describe("generation orchestrator", () => {
     }
   });
 
+  test("passes replies and User's Direction into text provider prompts", async () => {
+    const previousEnv = {
+      AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
+      VERCEL_AI_GATEWAY_API_KEY: process.env.VERCEL_AI_GATEWAY_API_KEY,
+    };
+    const previousFetch = globalThis.fetch;
+    const gatewayPrompts: unknown[] = [];
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as {
+          messages?: Array<{ content?: string; role?: string }>;
+        };
+        const userMessage = body.messages?.find(
+          (message) => message.role === "user",
+        );
+
+        gatewayPrompts.push(JSON.parse(String(userMessage?.content)));
+
+        return Response.json({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  angle: "directional read",
+                  text: "Quote-tweet draft: direction and replies shape the read.",
+                  visibleRationale:
+                    "Uses replies and the user's direction for the text draft.",
+                }),
+              },
+            },
+          ],
+        });
+      },
+    );
+    const tweetContext = buildFixtureTweetContext(
+      "https://x.com/siliconmania/status/2468",
+    );
+
+    process.env.AI_GATEWAY_API_KEY = "gateway-secret";
+    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    globalThis.fetch = fetcher;
+
+    try {
+      await orchestrateThreeProviderGeneration({
+        replySignals: buildReplySignals(tweetContext),
+        sourceTweet: tweetContext.sourceTweet,
+        sourceTweetUrl: tweetContext.sourceTweet.url,
+        usersDirection: "Make the platform-risk angle sharper.",
+      });
+
+      expect(gatewayPrompts).toHaveLength(3);
+      expect(gatewayPrompts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            replySignals: expect.arrayContaining([
+              expect.objectContaining({
+                id: expect.any(String),
+                text: expect.any(String),
+              }),
+            ]),
+            usersDirection: "Make the platform-risk angle sharper.",
+          }),
+        ]),
+      );
+    } finally {
+      restoreEnvValue("AI_GATEWAY_API_KEY", previousEnv.AI_GATEWAY_API_KEY);
+      restoreEnvValue(
+        "VERCEL_AI_GATEWAY_API_KEY",
+        previousEnv.VERCEL_AI_GATEWAY_API_KEY,
+      );
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   test("extracts fenced gateway JSON and trims overlong draft text", async () => {
     const previousEnv = {
       AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
