@@ -9,6 +9,7 @@ import {
   buildStubbedGenerationEvents,
   type GenerationProviderId,
   type GenerationStreamEvent,
+  type ImageGenerationInput,
   type NewsLinkedImage,
   type QuoteTweetDraft,
 } from "@/features/generation/generation-events";
@@ -57,6 +58,7 @@ function renderWorkspace({
   initialRuns,
   initialRuntimeStatus,
   onStartGenerationRun = vi.fn(),
+  onStartImageGeneration = vi.fn(),
   runtimeEnvironment,
   savedRunStore,
 }: {
@@ -66,6 +68,7 @@ function renderWorkspace({
   initialRuns?: GenerationRun[];
   initialRuntimeStatus?: RuntimeStatus;
   onStartGenerationRun?: (intake: GenerationIntake) => void;
+  onStartImageGeneration?: (input: ImageGenerationInput) => void;
   runtimeEnvironment?: "development" | "production";
   savedRunStore?: SavedRunStore;
 } = {}) {
@@ -87,6 +90,7 @@ function renderWorkspace({
       initialRuns={initialRuns}
       initialRuntimeStatus={initialRuntimeStatus}
       onStartGenerationRun={onStartGenerationRun}
+      onStartImageGeneration={onStartImageGeneration}
       runtimeEnvironment={runtimeEnvironment}
       savedRunStore={savedRunStore}
     />,
@@ -263,15 +267,21 @@ function buildNewsLinkedImages(): NewsLinkedImage[] {
   return [
     {
       id: "news-linked-image-1",
-      url: "https://example.com/news-linked-images/launch.jpg",
+      url: "https://picsum.photos/seed/news-linked-image-1/320/240",
       altText: "Launch product screenshot.",
       title: "Launch visual",
     },
     {
       id: "news-linked-image-2",
-      url: "https://example.com/news-linked-images/platform.jpg",
+      url: "https://picsum.photos/seed/news-linked-image-2/320/240",
       altText: "Platform update chart.",
       title: "Platform visual",
+    },
+    {
+      id: "news-linked-image-3",
+      url: "https://picsum.photos/seed/news-linked-image-3/320/240",
+      altText: "Strategy memo excerpt.",
+      title: "Strategy visual",
     },
   ];
 }
@@ -815,6 +825,103 @@ describe("IntakeWorkspace", () => {
     await user.click(generateButton);
 
     expect(generationEventSources).toHaveLength(2);
+  });
+
+  test("gates image generation on selected image IDs and the user image prompt", async () => {
+    const user = userEvent.setup();
+    const startImageGeneration = vi.fn();
+    const savedRunStore = createMemorySavedRunStore();
+    const newsLinkedImages = buildNewsLinkedImages();
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          imageGenerationState: {
+            status: "not-started",
+          },
+          newsLinkedImages,
+          phase: "waiting-for-image-selection",
+        }),
+      ],
+      onStartImageGeneration: startImageGeneration,
+      savedRunStore,
+    });
+
+    const draftStack = screen.getByRole("region", {
+      name: /completed draft stack/i,
+    });
+    const imageGenerationArea = screen.getByRole("complementary", {
+      name: /image generation area/i,
+    });
+    const imageGenerationButton = within(imageGenerationArea).getByRole(
+      "button",
+      { name: /^image generation$/i },
+    );
+
+    expect(
+      draftStack.compareDocumentPosition(imageGenerationArea) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(imageGenerationButton).toBeDisabled();
+
+    await user.type(
+      within(imageGenerationArea).getByRole("textbox", {
+        name: /user image prompt/i,
+      }),
+      "Make it feel like a serious product launch, not a meme.",
+    );
+
+    expect(imageGenerationButton).toBeDisabled();
+
+    await user.click(
+      within(imageGenerationArea).getByRole("button", {
+        name: /select launch visual/i,
+      }),
+    );
+    await user.click(
+      within(imageGenerationArea).getByRole("button", {
+        name: /select platform visual/i,
+      }),
+    );
+    await user.click(
+      within(imageGenerationArea).getByRole("button", {
+        name: /select strategy visual/i,
+      }),
+    );
+
+    expect(imageGenerationArea).toHaveTextContent("Choose up to two images.");
+    expect(
+      within(imageGenerationArea).getByRole("button", {
+        name: /select strategy visual/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(imageGenerationButton).toBeEnabled();
+
+    await user.click(imageGenerationButton);
+
+    expect(startImageGeneration).toHaveBeenCalledWith({
+      parentRunId: "saved-run",
+      selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
+      userImagePrompt:
+        "Make it feel like a serious product launch, not a meme.",
+    });
+    expect(JSON.stringify(startImageGeneration.mock.calls[0]?.[0])).not.toMatch(
+      /picsum|Launch product screenshot|Platform update chart/i,
+    );
+    await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
+    expect(savedRunStore.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageGenerationState: expect.objectContaining({
+          selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
+          status: "running",
+          userImagePrompt:
+            "Make it feel like a serious product launch, not a meme.",
+        }),
+        newsLinkedImages: newsLinkedImages.slice(0, 2),
+        phase: "image-generation-running",
+      }),
+    );
   });
 
   test("opens the generation stream with the accepted intake", async () => {

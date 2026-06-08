@@ -147,10 +147,24 @@ function buildFixtureOutsideXEnrichment(
     newsLinkedImages: [
       {
         id: "news-linked-image-1",
-        url: `https://example.com/news-linked-images/${sourceTweet.id}.jpg`,
-        altText: "News-linked visual candidate for the source tweet.",
+        url: `https://picsum.photos/seed/${sourceTweet.id}-1/320/240`,
+        altText: "First placeholder visual candidate for the source tweet.",
         sourceUrl: sourceTweet.url,
-        title: "Source news visual",
+        title: "Source news visual 1",
+      },
+      {
+        id: "news-linked-image-2",
+        url: `https://picsum.photos/seed/${sourceTweet.id}-2/320/240`,
+        altText: "Second placeholder visual candidate for the source tweet.",
+        sourceUrl: sourceTweet.url,
+        title: "Source news visual 2",
+      },
+      {
+        id: "news-linked-image-3",
+        url: `https://picsum.photos/seed/${sourceTweet.id}-3/320/240`,
+        altText: "Third placeholder visual candidate for the source tweet.",
+        sourceUrl: sourceTweet.url,
+        title: "Source news visual 3",
       },
     ],
   });

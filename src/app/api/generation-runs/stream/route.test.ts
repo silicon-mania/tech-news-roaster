@@ -46,11 +46,20 @@ describe("generation stream route", () => {
       sourceTweet: expect.objectContaining({
         text: expect.stringContaining("agent workspace"),
       }),
-      newsLinkedImages: [
+      newsLinkedImages: expect.arrayContaining([
         expect.objectContaining({
           id: "news-linked-image-1",
+          url: "https://picsum.photos/seed/1234-1/320/240",
         }),
-      ],
+        expect.objectContaining({
+          id: "news-linked-image-2",
+          url: "https://picsum.photos/seed/1234-2/320/240",
+        }),
+        expect.objectContaining({
+          id: "news-linked-image-3",
+          url: "https://picsum.photos/seed/1234-3/320/240",
+        }),
+      ]),
     });
     expect(events[1]).toMatchObject({
       type: "progress",
