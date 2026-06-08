@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   type FormEvent,
@@ -6,20 +6,21 @@ import {
   useEffect,
   useRef,
   useState,
-} from "react";
+} from 'react';
 import {
   draftTarget,
   parseGenerationStreamEvent,
-} from "@/features/generation/generation-events";
-import type { RuntimeStatus } from "@/features/runtime-status/runtime-status";
+} from '@/features/generation/generation-events';
+import type { RuntimeStatus } from '@/features/runtime-status/runtime-status';
 import {
   ActiveRunPanel,
   IntakeForm,
   RunsList,
   WorkspaceHeader,
-} from "./components";
-import { indexedDbSavedRunStore } from "./saved-runs-store";
-import { parseSourceTweetUrl } from "./source-tweet-url";
+} from './components';
+import { isRunInFlight } from './run-phase';
+import { indexedDbSavedRunStore } from './saved-runs-store';
+import { parseSourceTweetUrl } from './source-tweet-url';
 import type {
   GenerationEventSource,
   GenerationEventSourceFactory,
@@ -27,9 +28,9 @@ import type {
   GenerationRun,
   SavedRunStore,
   SubmissionState,
-} from "./types";
+} from './types';
 
-export type { GenerationIntake, GenerationRun } from "./types";
+export type { GenerationIntake, GenerationRun } from './types';
 
 type IntakeWorkspaceProps = {
   initialActiveRunId?: string;
@@ -37,24 +38,24 @@ type IntakeWorkspaceProps = {
   generationEventSourceFactory?: GenerationEventSourceFactory;
   initialRuntimeStatus?: RuntimeStatus;
   onStartGenerationRun?: (intake: GenerationIntake) => void | Promise<void>;
-  runtimeEnvironment?: "development" | "production";
+  runtimeEnvironment?: 'development' | 'production';
   runtimeStatusFetcher?: () => Promise<RuntimeStatus>;
   savedRunStore?: SavedRunStore;
 };
 
-const genericRunningRunLabel = "New generation run";
-const liveApiWarningMessage = "Live APIs enabled. Runs may use paid quota.";
-const productionNotReadyMessage = "Live integrations are not configured.";
+const genericRunningRunLabel = 'New generation run';
+const liveApiWarningMessage = 'Live APIs enabled. Runs may use paid quota.';
+const productionNotReadyMessage = 'Live integrations are not configured.';
 
 function createGenerationEventSource(url: string) {
   return new EventSource(url);
 }
 
 async function fetchRuntimeStatus() {
-  const response = await fetch("/api/runtime-status");
+  const response = await fetch('/api/runtime-status');
 
   if (!response.ok) {
-    throw new Error("Runtime status could not be read.");
+    throw new Error('Runtime status could not be read.');
   }
 
   return (await response.json()) as RuntimeStatus;
@@ -66,9 +67,9 @@ export function IntakeWorkspace({
   initialRuns = [],
   initialRuntimeStatus,
   onStartGenerationRun,
-  runtimeEnvironment = process.env.NODE_ENV === "production"
-    ? "production"
-    : "development",
+  runtimeEnvironment = process.env.NODE_ENV === 'production'
+    ? 'production'
+    : 'development',
   runtimeStatusFetcher = fetchRuntimeStatus,
   savedRunStore = indexedDbSavedRunStore,
 }: IntakeWorkspaceProps) {
@@ -77,28 +78,34 @@ export function IntakeWorkspace({
     initialRuns.at(0) ??
     null;
   const [sourceTweetUrl, setSourceTweetUrl] = useState(
-    initialActiveRun?.sourceTweetUrl ?? "",
+    initialActiveRun?.sourceTweetUrl ?? ''
   );
   const [usersDirection, setUsersDirection] = useState(
-    initialActiveRun?.usersDirection ?? "",
+    initialActiveRun?.usersDirection ?? ''
   );
   const [runs, setRuns] = useState<GenerationRun[]>(initialRuns);
   const [activeRunId, setActiveRunId] = useState<string | null>(
-    initialActiveRun?.id ?? null,
+    initialActiveRun?.id ?? null
   );
   const [isRunsDrawerOpen, setIsRunsDrawerOpen] = useState(false);
   const [isDirectionPanelOpen, setIsDirectionPanelOpen] = useState(false);
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
-    kind: "idle",
+    kind: 'idle',
   });
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(
-    initialRuntimeStatus ?? null,
+    initialRuntimeStatus ?? null
   );
   const generationEventSources = useRef<Map<string, GenerationEventSource>>(
-    new Map(),
+    new Map()
   );
+  const enrichedRunState = useRef<
+    Map<
+      string,
+      Pick<GenerationRun, 'imageGenerationState' | 'newsLinkedImages'>
+    >
+  >(new Map());
   const autosaveTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(
-    new Map(),
+    new Map()
   );
 
   useEffect(() => {
@@ -108,6 +115,7 @@ export function IntakeWorkspace({
       }
 
       generationEventSources.current.clear();
+      enrichedRunState.current.clear();
 
       for (const timeout of autosaveTimeouts.current.values()) {
         clearTimeout(timeout);
@@ -169,29 +177,29 @@ export function IntakeWorkspace({
 
   const activeRun = runs.find((run) => run.id === activeRunId) ?? null;
   const activeRunSourceTweetUrl = activeRun?.sourceTweetUrl;
-  const hasRunningRun = runs.some((run) => run.status === "running");
+  const hasInFlightRun = runs.some(isRunInFlight);
   const hasRuns = runs.length > 0;
   const hasUsersDirection = usersDirection.trim().length > 0;
   const productionRunDisabled =
-    runtimeEnvironment === "production" &&
+    runtimeEnvironment === 'production' &&
     runtimeStatus?.productionReady !== true;
   const liveApisEnabled = runtimeStatus
     ? runtimeStatus.retrieval.credentials.twitterApiIoApiKey ||
       runtimeStatus.generation.credentials.aiGatewayApiKey
     : false;
   const runtimeNotice =
-    runtimeEnvironment === "development" && liveApisEnabled
+    runtimeEnvironment === 'development' && liveApisEnabled
       ? {
-          kind: "warning" as const,
+          kind: 'warning' as const,
           message: liveApiWarningMessage,
         }
-      : runtimeEnvironment === "production" &&
-          runtimeStatus?.productionReady === false
-        ? {
-            kind: "blocked" as const,
-            message: productionNotReadyMessage,
-          }
-        : undefined;
+      : runtimeEnvironment === 'production' &&
+        runtimeStatus?.productionReady === false
+      ? {
+          kind: 'blocked' as const,
+          message: productionNotReadyMessage,
+        }
+      : undefined;
 
   useEffect(() => {
     if (!activeRunSourceTweetUrl) {
@@ -204,17 +212,17 @@ export function IntakeWorkspace({
   function submitIntake(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (hasRunningRun) {
+    if (hasInFlightRun) {
       setSubmissionState({
-        kind: "blocked",
-        message: "Wait for the running Generation Run to finish first.",
+        kind: 'blocked',
+        message: 'Wait for the running Generation Run to finish first.',
       });
       return;
     }
 
     if (productionRunDisabled) {
       setSubmissionState({
-        kind: "blocked",
+        kind: 'blocked',
         message: productionNotReadyMessage,
       });
       return;
@@ -224,7 +232,7 @@ export function IntakeWorkspace({
 
     if (!parsedSourceTweetUrl.success) {
       setSubmissionState({
-        kind: "invalid",
+        kind: 'invalid',
         message: parsedSourceTweetUrl.message,
       });
       return;
@@ -242,7 +250,8 @@ export function IntakeWorkspace({
       label: genericRunningRunLabel,
       sourceTweetUrl: parsedSourceTweetUrl.url,
       usersDirection: usersDirection.trim(),
-      status: "running",
+      status: 'running',
+      phase: 'enrichment-running',
       draftCount: 0,
       draftTarget,
       drafts: [],
@@ -250,7 +259,7 @@ export function IntakeWorkspace({
 
     setRuns((currentRuns) => [runningRun, ...currentRuns]);
     setActiveRunId(runId);
-    setSubmissionState({ kind: "accepted" });
+    setSubmissionState({ kind: 'accepted' });
 
     void onStartGenerationRun?.(intake);
     subscribeToGenerationRun(runId, intake);
@@ -258,17 +267,52 @@ export function IntakeWorkspace({
 
   function subscribeToGenerationRun(runId: string, intake: GenerationIntake) {
     const eventSource = generationEventSourceFactory(
-      buildGenerationStreamUrl(intake),
+      buildGenerationStreamUrl(intake)
     );
 
     generationEventSources.current.set(runId, eventSource);
 
-    eventSource.addEventListener("progress", (message) => {
+    eventSource.addEventListener('enrichment-completed', (message) => {
       const event = parseGenerationStreamEvent(
-        JSON.parse((message as MessageEvent<string>).data),
+        JSON.parse((message as MessageEvent<string>).data)
       );
 
-      if (event.type !== "progress") {
+      if (event.type !== 'enrichment-completed') {
+        return;
+      }
+
+      enrichedRunState.current.set(runId, {
+        imageGenerationState: {
+          status: 'not-started',
+        },
+        newsLinkedImages: event.newsLinkedImages,
+      });
+
+      setRuns((currentRuns) =>
+        currentRuns.map((run) => {
+          if (run.id !== runId) {
+            return run;
+          }
+
+          return {
+            ...run,
+            imageGenerationState: {
+              status: 'not-started',
+            },
+            newsLinkedImages: event.newsLinkedImages,
+            phase: 'text-generation-running',
+            sourceTweet: event.sourceTweet,
+          };
+        })
+      );
+    });
+
+    eventSource.addEventListener('progress', (message) => {
+      const event = parseGenerationStreamEvent(
+        JSON.parse((message as MessageEvent<string>).data)
+      );
+
+      if (event.type !== 'progress') {
         return;
       }
 
@@ -285,33 +329,53 @@ export function IntakeWorkspace({
             drafts: [...run.drafts, event.draft],
             label:
               run.label === genericRunningRunLabel ? event.label : run.label,
+            phase: 'text-generation-running',
             sourceTweet: event.sourceTweet,
           };
-        }),
+        })
       );
     });
 
-    eventSource.addEventListener("completed", (message) => {
+    eventSource.addEventListener('completed', (message) => {
       const event = parseGenerationStreamEvent(
-        JSON.parse((message as MessageEvent<string>).data),
+        JSON.parse((message as MessageEvent<string>).data)
       );
 
-      if (event.type !== "completed") {
+      if (event.type !== 'completed') {
         return;
       }
 
+      const enrichedRun = enrichedRunState.current.get(runId);
+      const newsLinkedImages =
+        event.run.newsLinkedImages ?? enrichedRun?.newsLinkedImages;
       const completedRun: GenerationRun = {
         id: runId,
         label: event.run.label,
         sourceTweetUrl: intake.sourceTweetUrl,
         usersDirection: intake.usersDirection,
-        status: "completed",
+        status: 'completed',
         draftCount: event.run.drafts.length,
         draftTarget,
         drafts: event.run.drafts,
+        failedImageSets: event.run.failedImageSets,
         fallbackDisclosure: event.run.fallbackDisclosure,
-        sourceTweet: event.run.sourceTweet,
+        imageGenerationState:
+          event.run.imageGenerationState ??
+          enrichedRun?.imageGenerationState ??
+          (newsLinkedImages
+            ? {
+                status: 'not-started',
+              }
+            : undefined),
+        imageModelProvenance: event.run.imageModelProvenance,
+        imageSets: event.run.imageSets,
+        newsLinkedImages,
+        phase:
+          event.run.phase ??
+          (newsLinkedImages ? 'waiting-for-image-selection' : undefined),
         savedAt: new Date().toISOString(),
+        selectedImageOriginals: event.run.selectedImageOriginals,
+        sourceTweet: event.run.sourceTweet,
       };
 
       setRuns((currentRuns) =>
@@ -321,20 +385,21 @@ export function IntakeWorkspace({
           }
 
           return completedRun;
-        }),
+        })
       );
 
       void savedRunStore.save(completedRun).catch(() => undefined);
       eventSource.close();
       generationEventSources.current.delete(runId);
+      enrichedRunState.current.delete(runId);
     });
 
-    eventSource.addEventListener("failed", (message) => {
+    eventSource.addEventListener('failed', (message) => {
       const event = parseGenerationStreamEvent(
-        JSON.parse((message as MessageEvent<string>).data),
+        JSON.parse((message as MessageEvent<string>).data)
       );
 
-      if (event.type !== "failed") {
+      if (event.type !== 'failed') {
         return;
       }
 
@@ -347,36 +412,38 @@ export function IntakeWorkspace({
           return {
             ...run,
             failureMessage: event.message,
-            label: "Source tweet unavailable",
-            status: "failed",
+            label: 'Source tweet unavailable',
+            phase: 'failed',
+            status: 'failed',
           };
-        }),
+        })
       );
       setSubmissionState({
-        kind: "blocked",
+        kind: 'blocked',
         message: event.message,
       });
       eventSource.close();
       generationEventSources.current.delete(runId);
+      enrichedRunState.current.delete(runId);
     });
   }
 
   function updateSourceTweetUrl(nextSourceTweetUrl: string) {
     setSourceTweetUrl(nextSourceTweetUrl);
-    if (submissionState.kind !== "idle") {
-      setSubmissionState({ kind: "idle" });
+    if (submissionState.kind !== 'idle') {
+      setSubmissionState({ kind: 'idle' });
     }
   }
 
   function updateUsersDirection(nextUsersDirection: string) {
     setUsersDirection(nextUsersDirection);
-    if (submissionState.kind === "accepted") {
-      setSubmissionState({ kind: "idle" });
+    if (submissionState.kind === 'accepted') {
+      setSubmissionState({ kind: 'idle' });
     }
   }
 
   function updateDraftText(draftId: string, text: string) {
-    if (activeRun?.status !== "completed") {
+    if (activeRun?.status !== 'completed') {
       return;
     }
 
@@ -401,7 +468,7 @@ export function IntakeWorkspace({
         }
 
         return editedRun;
-      }),
+      })
     );
     scheduleRunAutosave(editedRun);
   }
@@ -431,7 +498,7 @@ export function IntakeWorkspace({
     setActiveRunId(run.id);
     setSourceTweetUrl(run.sourceTweetUrl);
     setUsersDirection(run.usersDirection);
-    setSubmissionState({ kind: "idle" });
+    setSubmissionState({ kind: 'idle' });
     setIsRunsDrawerOpen(false);
   }
 
@@ -443,8 +510,8 @@ export function IntakeWorkspace({
         const nextActiveRun = nextRuns.at(0) ?? null;
 
         setActiveRunId(nextActiveRun?.id ?? null);
-        setSourceTweetUrl(nextActiveRun?.sourceTweetUrl ?? "");
-        setUsersDirection(nextActiveRun?.usersDirection ?? "");
+        setSourceTweetUrl(nextActiveRun?.sourceTweetUrl ?? '');
+        setUsersDirection(nextActiveRun?.usersDirection ?? '');
       }
 
       return nextRuns;
@@ -457,7 +524,7 @@ export function IntakeWorkspace({
     <main className="min-h-screen overflow-hidden px-3 py-4 text-slate-100 sm:px-8 sm:py-6 lg:px-10">
       <div
         className={`mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] transition-[gap] duration-300 sm:min-h-[calc(100vh-3rem)] ${
-          hasRuns ? "gap-4 sm:gap-6" : "gap-7 sm:gap-10"
+          hasRuns ? 'gap-4 sm:gap-6' : 'gap-7 sm:gap-10'
         }`}
       >
         <WorkspaceHeader />
@@ -465,7 +532,7 @@ export function IntakeWorkspace({
         <IntakeForm
           hasRuns={hasRuns}
           hasUsersDirection={hasUsersDirection}
-          isRunDisabled={hasRunningRun || productionRunDisabled}
+          isRunDisabled={hasInFlightRun || productionRunDisabled}
           runtimeNotice={runtimeNotice}
           runsCount={runs.length}
           sourceTweetUrl={sourceTweetUrl}
@@ -523,12 +590,12 @@ function mergeRuns(currentRuns: GenerationRun[], savedRuns: GenerationRun[]) {
 type PanelOverlayProps = {
   children: ReactNode;
   label: string;
-  side: "left" | "right";
+  side: 'left' | 'right';
   onClose: () => void;
 };
 
 function PanelOverlay({ children, label, onClose, side }: PanelOverlayProps) {
-  const sideClass = side === "left" ? "left-0" : "right-0";
+  const sideClass = side === 'left' ? 'left-0' : 'right-0';
 
   return (
     <div className="fixed inset-0 z-40">
@@ -542,7 +609,7 @@ function PanelOverlay({ children, label, onClose, side }: PanelOverlayProps) {
       <aside
         aria-label={label}
         className={`absolute ${sideClass} top-0 grid h-full w-[min(26rem,100vw)] content-start overflow-y-auto border-slate-800/80 bg-[#08090c]/96 p-4 shadow-2xl shadow-black/45 sm:w-[min(26rem,calc(100vw-2rem))] sm:p-6 ${
-          side === "left" ? "border-r" : "border-l"
+          side === 'left' ? 'border-r' : 'border-l'
         }`}
       >
         <button
@@ -614,7 +681,7 @@ function buildGenerationStreamUrl(intake: GenerationIntake) {
   });
 
   if (intake.usersDirection) {
-    searchParams.set("usersDirection", intake.usersDirection);
+    searchParams.set('usersDirection', intake.usersDirection);
   }
 
   return `/api/generation-runs/stream?${searchParams.toString()}`;
@@ -625,7 +692,7 @@ function createRunId(existingRuns: GenerationRun[]) {
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const uniquePart =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const runId = `run-${uniquePart}`;

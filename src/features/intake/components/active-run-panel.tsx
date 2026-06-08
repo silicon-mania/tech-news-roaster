@@ -1,4 +1,8 @@
 import Image from "next/image";
+import type { ReactNode } from "react";
+import type { NewsLinkedImage } from "@/features/generation/generation-events";
+import { draftTarget } from "@/features/generation/generation-events";
+import { getRunPhaseLabel } from "../run-phase";
 import type { GenerationRun } from "../types";
 import { DraftComparison } from "./draft-comparison";
 
@@ -23,12 +27,20 @@ export function ActiveRunPanel({
   const sourceTweetPreview = activeRun.sourceTweet ? (
     <SourceTweetPreview text={activeRun.sourceTweet.text} />
   ) : null;
+  const imageGenerationArea = activeRun.newsLinkedImages?.length ? (
+    <NewsLinkedImageArea
+      images={activeRun.newsLinkedImages}
+      phaseLabel={getRunPhaseLabel(activeRun)}
+    />
+  ) : null;
 
   if (activeRun.status === "running") {
     return (
       <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
         {sourceTweetPreview}
-        <GenerationWaitingState run={activeRun} />
+        <RunWorkspaceLayout imageGenerationArea={imageGenerationArea}>
+          <GenerationWaitingState run={activeRun} />
+        </RunWorkspaceLayout>
       </section>
     );
   }
@@ -37,10 +49,15 @@ export function ActiveRunPanel({
     return (
       <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
         {sourceTweetPreview}
-        <GenerationFailureState run={activeRun} />
+        <RunWorkspaceLayout imageGenerationArea={imageGenerationArea}>
+          <GenerationFailureState run={activeRun} />
+        </RunWorkspaceLayout>
       </section>
     );
   }
+  const hasCompleteDraftStack =
+    activeRun.drafts.length === draftTarget &&
+    activeRun.draftCount === draftTarget;
 
   return (
     <section
@@ -48,12 +65,37 @@ export function ActiveRunPanel({
       className="mx-auto grid w-full max-w-5xl gap-3 self-start"
     >
       {sourceTweetPreview}
-      <DraftComparison
-        drafts={activeRun.drafts}
-        fallbackDisclosure={activeRun.fallbackDisclosure}
-        onDraftTextChange={onDraftTextChange}
-      />
+      <RunWorkspaceLayout imageGenerationArea={imageGenerationArea}>
+        {hasCompleteDraftStack ? (
+          <DraftComparison
+            drafts={activeRun.drafts}
+            fallbackDisclosure={activeRun.fallbackDisclosure}
+            onDraftTextChange={onDraftTextChange}
+          />
+        ) : (
+          <GenerationWaitingState run={activeRun} />
+        )}
+      </RunWorkspaceLayout>
     </section>
+  );
+}
+
+function RunWorkspaceLayout({
+  children,
+  imageGenerationArea,
+}: {
+  children: ReactNode;
+  imageGenerationArea: ReactNode;
+}) {
+  if (!imageGenerationArea) {
+    return children;
+  }
+
+  return (
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="min-w-0">{children}</div>
+      {imageGenerationArea}
+    </div>
   );
 }
 
@@ -99,8 +141,54 @@ function GenerationWaitingState({ run }: { run: GenerationRun }) {
         <p className="text-slate-500 text-xs uppercase tracking-[0.18em]">
           drafts
         </p>
+        <p className="text-slate-400 text-sm">{getRunPhaseLabel(run)}</p>
       </div>
     </section>
+  );
+}
+
+function NewsLinkedImageArea({
+  images,
+  phaseLabel,
+}: {
+  images: NewsLinkedImage[];
+  phaseLabel: string;
+}) {
+  return (
+    <aside
+      aria-label="Image generation area"
+      className="grid gap-3 rounded-sm border border-slate-800/80 bg-slate-950/35 p-3"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-medium text-slate-100 text-sm">Image generation</p>
+        <p className="text-slate-500 text-xs">{phaseLabel}</p>
+      </div>
+      <ul className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+        {images.map((image, index) => (
+          <li key={image.id}>
+            <figure className="grid gap-1.5">
+              <div className="aspect-[4/3] overflow-hidden rounded-sm border border-slate-800 bg-slate-950">
+                <Image
+                  alt={
+                    image.altText ??
+                    image.title ??
+                    `News-linked image ${index + 1}`
+                  }
+                  className="h-full w-full object-cover"
+                  height={240}
+                  src={image.url}
+                  unoptimized
+                  width={320}
+                />
+              </div>
+              <figcaption className="line-clamp-2 text-slate-500 text-xs leading-5">
+                {image.title ?? `News-linked image ${index + 1}`}
+              </figcaption>
+            </figure>
+          </li>
+        ))}
+      </ul>
+    </aside>
   );
 }
 

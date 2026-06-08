@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getRunPhaseLabel } from "../run-phase";
 import type { GenerationRun } from "../types";
 
 type RunsListProps = {
@@ -27,42 +28,49 @@ export function RunsList({
         <p className="text-slate-500 text-sm leading-6">No runs yet.</p>
       ) : (
         <ul className="grid gap-1.5">
-          {runs.map((run) => (
-            <li key={run.id} className="group relative">
-              <button
-                type="button"
-                onClick={() => onSelectRun(run.id)}
-                aria-current={run.id === activeRunId ? "true" : undefined}
-                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-sm border border-transparent bg-transparent p-3 text-left transition hover:border-slate-800 hover:bg-slate-900/55 focus:outline-none focus:ring-2 focus:ring-sky-300/20 aria-current:border-sky-300/40 aria-current:bg-sky-300/8 sm:pr-10"
-              >
-                <span className="grid min-w-0 gap-1">
-                  <span className="truncate font-medium text-slate-100 text-sm leading-5">
-                    {run.label}
-                  </span>
-                  <span className="truncate text-slate-500 text-xs">
-                    {formatRelativeDate(run.savedAt)}
-                  </span>
-                </span>
-                <span
-                  aria-hidden="true"
-                  title={run.status}
-                  className={`h-1.5 w-1.5 rounded-full ${getStatusDotClass(
-                    run.status,
-                  )}`}
-                />
-              </button>
-              {isDesktop && run.status === "completed" ? (
+          {runs.map((run) => {
+            const phaseLabel = getRunPhaseLabel(run);
+
+            return (
+              <li key={run.id} className="group relative">
                 <button
                   type="button"
-                  aria-label={`Delete saved run: ${run.label}`}
-                  onClick={() => onDeleteRun(run.id)}
-                  className="-translate-y-1/2 absolute top-1/2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-sm border border-transparent text-slate-500 opacity-0 transition hover:border-rose-400/30 hover:bg-rose-400/10 hover:text-rose-200 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-rose-300/25 group-hover:opacity-100"
+                  onClick={() => onSelectRun(run.id)}
+                  aria-current={run.id === activeRunId ? "true" : undefined}
+                  className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-sm border border-transparent bg-transparent p-3 text-left transition hover:border-slate-800 hover:bg-slate-900/55 focus:outline-none focus:ring-2 focus:ring-sky-300/20 aria-current:border-sky-300/40 aria-current:bg-sky-300/8 sm:pr-10"
                 >
-                  <TrashIcon />
+                  <span className="grid min-w-0 gap-1">
+                    <span className="truncate font-medium text-slate-100 text-sm leading-5">
+                      {run.label}
+                    </span>
+                    <span className="truncate text-slate-500 text-xs">
+                      {formatRelativeDate(run.savedAt)}
+                    </span>
+                    <span className="truncate text-slate-400 text-xs">
+                      {phaseLabel}
+                    </span>
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    title={phaseLabel}
+                    className={`h-1.5 w-1.5 rounded-full ${getStatusDotClass(
+                      run,
+                    )}`}
+                  />
                 </button>
-              ) : null}
-            </li>
-          ))}
+                {isDesktop && run.status === "completed" ? (
+                  <button
+                    type="button"
+                    aria-label={`Delete saved run: ${run.label}`}
+                    onClick={() => onDeleteRun(run.id)}
+                    className="-translate-y-1/2 absolute top-1/2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-sm border border-transparent text-slate-500 opacity-0 transition hover:border-rose-400/30 hover:bg-rose-400/10 hover:text-rose-200 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-rose-300/25 group-hover:opacity-100"
+                  >
+                    <TrashIcon />
+                  </button>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
@@ -91,13 +99,26 @@ function useIsDesktop() {
   return isDesktop;
 }
 
-function getStatusDotClass(status: GenerationRun["status"]) {
-  if (status === "running") {
+function getStatusDotClass(run: GenerationRun) {
+  if (
+    run.phase === "enrichment-running" ||
+    run.phase === "text-generation-running" ||
+    run.phase === "image-generation-running" ||
+    (!run.phase && run.status === "running")
+  ) {
     return "bg-sky-300";
   }
 
-  if (status === "failed") {
+  if (run.phase === "failed" || run.status === "failed") {
     return "bg-rose-400/70";
+  }
+
+  if (run.phase === "image-generation-partially-failed") {
+    return "bg-amber-300/80";
+  }
+
+  if (run.phase === "waiting-for-image-selection") {
+    return "bg-violet-300/80";
   }
 
   return "bg-slate-700";

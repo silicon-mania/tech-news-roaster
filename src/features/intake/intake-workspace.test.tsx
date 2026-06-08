@@ -4,10 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import {
+  buildEnrichmentCompletedEvent,
   buildGenerationFailureEvent,
   buildStubbedGenerationEvents,
   type GenerationProviderId,
   type GenerationStreamEvent,
+  type NewsLinkedImage,
   type QuoteTweetDraft,
 } from "@/features/generation/generation-events";
 import type { RuntimeStatus } from "@/features/runtime-status/runtime-status";
@@ -257,6 +259,23 @@ function buildGenerationEvents({
   });
 }
 
+function buildNewsLinkedImages(): NewsLinkedImage[] {
+  return [
+    {
+      id: "news-linked-image-1",
+      url: "https://example.com/news-linked-images/launch.jpg",
+      altText: "Launch product screenshot.",
+      title: "Launch visual",
+    },
+    {
+      id: "news-linked-image-2",
+      url: "https://example.com/news-linked-images/platform.jpg",
+      altText: "Platform update chart.",
+      title: "Platform visual",
+    },
+  ];
+}
+
 describe("IntakeWorkspace", () => {
   test("renders an almost empty draft-first shell before any run exists", () => {
     renderWorkspace();
@@ -326,7 +345,7 @@ describe("IntakeWorkspace", () => {
         name: /new generation run.*just now/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByTitle("running")).toBeInTheDocument();
+    expect(screen.getByTitle("Enrichment running")).toBeInTheDocument();
     expect(generateButton).toBeDisabled();
   });
 
@@ -539,7 +558,7 @@ describe("IntakeWorkspace", () => {
         name: /new generation run.*just now/i,
       }),
     ).toHaveAttribute("aria-current", "true");
-    expect(screen.getByTitle("running")).toBeInTheDocument();
+    expect(screen.getByTitle("Enrichment running")).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: /generation waiting state/i }),
     ).toHaveTextContent("0/3");
@@ -644,7 +663,7 @@ describe("IntakeWorkspace", () => {
         name: /drafts for 1234567890.*just now/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByTitle("running")).toBeInTheDocument();
+    expect(screen.getByTitle("Text generation running")).toBeInTheDocument();
     await user.click(
       screen.getByRole("button", { name: /close runs drawer/i }),
     );
@@ -685,12 +704,117 @@ describe("IntakeWorkspace", () => {
         name: /drafts for 1234567890.*just now/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByTitle("completed")).toBeInTheDocument();
+    expect(screen.getByTitle("Completed")).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: /completed draft stack/i }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
     expect(screen.getAllByText(/local draft model/i)).toHaveLength(3);
+  });
+
+  test("unlocks image selection from enrichment while text generation keeps streaming", async () => {
+    const user = userEvent.setup();
+    const generationEventSources: FakeGenerationEventSource[] = [];
+    const savedRunStore = createMemorySavedRunStore();
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      generationEventSources,
+      savedRunStore,
+    });
+    const sourceTweetUrl = "https://x.com/siliconmania/status/1234567890";
+    const tweetContext = buildFixtureTweetContext(sourceTweetUrl);
+    const newsLinkedImages = buildNewsLinkedImages();
+
+    await user.type(sourceTweetUrlInput, sourceTweetUrl);
+    await user.click(generateButton);
+
+    act(() => {
+      generationEventSources[0]?.emit(
+        buildEnrichmentCompletedEvent({
+          sourceTweet: tweetContext.sourceTweet,
+          newsLinkedImages,
+        }),
+      );
+    });
+
+    const imageGenerationArea = screen.getByRole("complementary", {
+      name: /image generation area/i,
+    });
+
+    expect(imageGenerationArea).toHaveTextContent("Launch visual");
+    expect(imageGenerationArea).toHaveTextContent("Platform visual");
+    expect(imageGenerationArea).toHaveTextContent("Text generation running");
+    expect(
+      screen.getByRole("region", { name: /generation waiting state/i }),
+    ).toHaveTextContent("0/3");
+    expect(
+      screen.queryByRole("region", { name: /completed draft stack/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
+    );
+    expect(screen.getByTitle("Text generation running")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /close runs drawer/i }),
+    );
+
+    const events = buildGenerationEvents({
+      sourceTweetUrl,
+      usersDirection: "",
+    });
+
+    act(() => {
+      generationEventSources[0]?.emit(events[0]);
+    });
+
+    expect(
+      screen.getByRole("region", { name: /generation waiting state/i }),
+    ).toHaveTextContent("1/3");
+    expect(
+      screen.getByRole("complementary", {
+        name: /image generation area/i,
+      }),
+    ).toHaveTextContent("Launch visual");
+
+    act(() => {
+      generationEventSources[0]?.emit(events[1]);
+      generationEventSources[0]?.emit(events[2]);
+    });
+
+    expect(
+      screen.getByRole("region", { name: /generation waiting state/i }),
+    ).toHaveTextContent("3/3");
+    expect(
+      screen.queryByRole("region", { name: /completed draft stack/i }),
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      generationEventSources[0]?.emit(events[3]);
+    });
+
+    expect(
+      screen.getByRole("region", { name: /completed draft stack/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", {
+        name: /image generation area/i,
+      }),
+    ).toHaveTextContent("Waiting for image selection");
+    expect(generateButton).toBeEnabled();
+    await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
+    expect(savedRunStore.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageGenerationState: {
+          status: "not-started",
+        },
+        newsLinkedImages,
+        phase: "waiting-for-image-selection",
+      }),
+    );
+
+    await user.click(generateButton);
+
+    expect(generationEventSources).toHaveLength(2);
   });
 
   test("opens the generation stream with the accepted intake", async () => {
@@ -846,7 +970,7 @@ describe("IntakeWorkspace", () => {
     await user.click(
       screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
     );
-    expect(screen.getByTitle("failed")).toBeInTheDocument();
+    expect(screen.getByTitle("Failed")).toBeInTheDocument();
   });
 
   test("renders completed drafts as a single-open stack with provider provenance and controls", async () => {
