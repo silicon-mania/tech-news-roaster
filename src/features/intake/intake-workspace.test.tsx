@@ -10,7 +10,11 @@ import {
   type GenerationProviderId,
   type GenerationStreamEvent,
   type ImageGenerationInput,
+  type ImageGenerationStreamEvent,
+  type ImageSet,
   type NewsLinkedImage,
+  parseFailedImageSet,
+  parseImageSet,
   type QuoteTweetDraft,
 } from "@/features/generation/generation-events";
 import type { RuntimeStatus } from "@/features/runtime-status/runtime-status";
@@ -53,6 +57,9 @@ class FakeGenerationEventSource {
 
 function renderWorkspace({
   generationEventSources = [],
+  imageGenerationStreamFetcher = vi.fn(
+    async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(""),
+  ),
   isDesktop = false,
   initialActiveRunId,
   initialRuns,
@@ -63,6 +70,7 @@ function renderWorkspace({
   savedRunStore,
 }: {
   generationEventSources?: FakeGenerationEventSource[];
+  imageGenerationStreamFetcher?: typeof fetch;
   isDesktop?: boolean;
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
@@ -86,6 +94,7 @@ function renderWorkspace({
 
         return eventSource;
       }}
+      imageGenerationStreamFetcher={imageGenerationStreamFetcher}
       initialActiveRunId={initialActiveRunId}
       initialRuns={initialRuns}
       initialRuntimeStatus={initialRuntimeStatus}
@@ -284,6 +293,85 @@ function buildNewsLinkedImages(): NewsLinkedImage[] {
       title: "Strategy visual",
     },
   ];
+}
+
+function buildImageSet(newsLinkedImage: NewsLinkedImage): ImageSet {
+  return parseImageSet({
+    id: `image-set-${newsLinkedImage.id}`,
+    completedAt: "2026-06-05T10:21:00.000Z",
+    imageModelProvenance: {
+      model: "mock-image-model",
+      provider: "openai",
+    },
+    selectedImageOriginal: {
+      altText: newsLinkedImage.altText,
+      id: `selected-original-${newsLinkedImage.id}`,
+      newsLinkedImageId: newsLinkedImage.id,
+      preparedAt: "2026-06-05T10:20:00.000Z",
+      sourceUrl: newsLinkedImage.sourceUrl,
+      title: newsLinkedImage.title,
+      url: newsLinkedImage.url,
+    },
+    options: [
+      {
+        altText: newsLinkedImage.altText,
+        id: `image-option-${newsLinkedImage.id}-original`,
+        kind: "original",
+        label: "Original",
+        url: newsLinkedImage.url,
+      },
+      {
+        altText: `${newsLinkedImage.title} variation 1.`,
+        id: `image-option-${newsLinkedImage.id}-variation-1`,
+        kind: "variation",
+        label: "Variation 1",
+        url: `https://example.com/${newsLinkedImage.id}-variation-1.jpg`,
+      },
+      {
+        altText: `${newsLinkedImage.title} variation 2.`,
+        id: `image-option-${newsLinkedImage.id}-variation-2`,
+        kind: "variation",
+        label: "Variation 2",
+        url: `https://example.com/${newsLinkedImage.id}-variation-2.jpg`,
+      },
+    ],
+  });
+}
+
+function buildFailedImageSet(newsLinkedImage: NewsLinkedImage) {
+  return parseFailedImageSet({
+    failedAt: "2026-06-05T10:22:00.000Z",
+    id: `failed-image-set-${newsLinkedImage.id}`,
+    message: "The configured image model failed.",
+    selectedImageId: newsLinkedImage.id,
+  });
+}
+
+function buildImageGenerationStreamResponse(
+  events: ImageGenerationStreamEvent[],
+) {
+  const encoder = new TextEncoder();
+
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        for (const event of events) {
+          controller.enqueue(
+            encoder.encode(
+              `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+            ),
+          );
+        }
+
+        controller.close();
+      },
+    }),
+    {
+      headers: {
+        "Content-Type": "text/event-stream",
+      },
+    },
+  );
 }
 
 describe("IntakeWorkspace", () => {
@@ -921,6 +1009,221 @@ describe("IntakeWorkspace", () => {
         newsLinkedImages: newsLinkedImages.slice(0, 2),
         phase: "image-generation-running",
       }),
+    );
+  });
+
+  test("renders image sets, failed image states, modal navigation, and image downloads", async () => {
+    const user = userEvent.setup();
+    const newsLinkedImages = buildNewsLinkedImages();
+    const imageSet = buildImageSet(newsLinkedImages[0]);
+    const failedImageSet = buildFailedImageSet(newsLinkedImages[1]);
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          failedImageSets: [failedImageSet],
+          imageGenerationState: {
+            completedAt: "2026-06-05T10:23:00.000Z",
+            selectedImageIds: [newsLinkedImages[0].id, newsLinkedImages[1].id],
+            startedAt: "2026-06-05T10:20:00.000Z",
+            status: "partially-failed",
+            userImagePrompt:
+              "Make it feel like a serious product launch image.",
+          },
+          imageModelProvenance: imageSet.imageModelProvenance,
+          imageSets: [imageSet],
+          newsLinkedImages: newsLinkedImages.slice(0, 2),
+          phase: "image-generation-partially-failed",
+          selectedImageOriginals: [imageSet.selectedImageOriginal],
+        }),
+      ],
+    });
+
+    const imageGenerationArea = screen.getByRole("complementary", {
+      name: /image generation area/i,
+    });
+    const imageResultsArea = within(imageGenerationArea).getByRole("region", {
+      name: /image results area/i,
+    });
+    const failedState = within(imageResultsArea).getByRole("article", {
+      name: /failed image set 1/i,
+    });
+
+    expect(within(imageResultsArea).getAllByText(/image model:/i)).toHaveLength(
+      1,
+    );
+    expect(
+      within(imageResultsArea).getByRole("article", {
+        name: /^image set 1$/i,
+      }),
+    ).toHaveTextContent("Original");
+    expect(imageResultsArea).toHaveTextContent("Variation 1");
+    expect(imageResultsArea).toHaveTextContent("Variation 2");
+    expect(failedState).toHaveTextContent("The configured image model failed.");
+    expect(within(failedState).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(failedState).queryByRole("link")).not.toBeInTheDocument();
+    expect(
+      within(imageResultsArea).getByRole("link", {
+        name: /download original from image set 1/i,
+      }),
+    ).toHaveAttribute("href", imageSet.options[0].url);
+    expect(
+      screen.getByRole("button", {
+        name: /copy draft 1/i,
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(imageResultsArea).getByRole("button", {
+        name: /open original from image set 1/i,
+      }),
+    );
+
+    const dialog = screen.getByRole("dialog", {
+      name: /original image option/i,
+    });
+
+    expect(
+      within(dialog).getByRole("link", {
+        name: /download current image option/i,
+      }),
+    ).toHaveAttribute("href", imageSet.options[0].url);
+
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: /next image option/i,
+      }),
+    );
+
+    expect(
+      screen.getByRole("dialog", {
+        name: /variation 1 image option/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: /download current image option/i,
+      }),
+    ).toHaveAttribute("href", imageSet.options[1].url);
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /previous image option/i,
+      }),
+    );
+
+    expect(
+      screen.getByRole("dialog", {
+        name: /original image option/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test("streams image generation results into the active run", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore();
+    const newsLinkedImages = buildNewsLinkedImages();
+    const imageSet = buildImageSet(newsLinkedImages[0]);
+    const failedImageSet = buildFailedImageSet(newsLinkedImages[1]);
+    const imageGenerationStreamFetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        buildImageGenerationStreamResponse([
+          {
+            type: "image-set-completed",
+            imageSet,
+          },
+          {
+            type: "image-set-failed",
+            failedImageSet,
+          },
+          {
+            type: "image-generation-completed",
+            state: {
+              completedAt: "2026-06-05T10:23:00.000Z",
+              failedImageSets: [failedImageSet],
+              imageSets: [imageSet],
+              status: "partially-failed",
+            },
+          },
+        ]),
+    );
+
+    renderWorkspace({
+      imageGenerationStreamFetcher,
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          imageGenerationState: {
+            status: "not-started",
+          },
+          newsLinkedImages,
+          phase: "waiting-for-image-selection",
+        }),
+      ],
+      savedRunStore,
+    });
+
+    const imageGenerationArea = screen.getByRole("complementary", {
+      name: /image generation area/i,
+    });
+
+    await user.click(
+      within(imageGenerationArea).getByRole("button", {
+        name: /select launch visual/i,
+      }),
+    );
+    await user.click(
+      within(imageGenerationArea).getByRole("button", {
+        name: /select platform visual/i,
+      }),
+    );
+    await user.type(
+      within(imageGenerationArea).getByRole("textbox", {
+        name: /user image prompt/i,
+      }),
+      "Make it feel like a serious product launch image.",
+    );
+    await user.click(
+      within(imageGenerationArea).getByRole("button", {
+        name: /^image generation$/i,
+      }),
+    );
+
+    expect(imageGenerationStreamFetcher).toHaveBeenCalledWith(
+      "/api/generation-runs/image-generation/stream",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    expect(
+      JSON.parse(String(imageGenerationStreamFetcher.mock.calls[0]?.[1]?.body))
+        .parentRun.imageGenerationState,
+    ).toEqual({
+      status: "not-started",
+    });
+    await waitFor(() =>
+      expect(
+        within(imageGenerationArea).getByRole("region", {
+          name: /image results area/i,
+        }),
+      ).toHaveTextContent("Variation 2"),
+    );
+    expect(imageGenerationArea).toHaveTextContent("Partial image failure");
+    expect(imageGenerationArea).toHaveTextContent(
+      "The configured image model failed.",
+    );
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          failedImageSets: [failedImageSet],
+          imageGenerationState: expect.objectContaining({
+            status: "partially-failed",
+          }),
+          imageSets: [imageSet],
+          phase: "image-generation-partially-failed",
+        }),
+      ),
     );
   });
 
