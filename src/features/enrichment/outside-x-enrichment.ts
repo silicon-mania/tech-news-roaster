@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { newsLinkedImageSchema } from "@/features/generation/generation-events";
 import type {
   RetrievedSourceTweet,
   RetrievedTweetContext,
@@ -29,12 +30,6 @@ const rawNewsLinkedImageSchema = z
     altText: z.string().min(1).optional(),
     sourceUrl: z.string().url().optional(),
     title: z.string().min(1).optional(),
-  })
-  .strict();
-
-const newsLinkedImageSchema = rawNewsLinkedImageSchema
-  .extend({
-    id: z.string().min(1),
   })
   .strict();
 

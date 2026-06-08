@@ -21,13 +21,13 @@ import type { SavedRunStore } from "./types";
 
 class FakeGenerationEventSource {
   readonly listeners = new Map<
-    "progress" | "completed" | "failed",
+    "enrichment-completed" | "progress" | "completed" | "failed",
     ((message: MessageEvent<string>) => void)[]
   >();
   closed = false;
 
   addEventListener(
-    type: "progress" | "completed" | "failed",
+    type: "enrichment-completed" | "progress" | "completed" | "failed",
     listener: (message: MessageEvent<string>) => void,
   ) {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);

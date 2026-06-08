@@ -1,3 +1,4 @@
+import { parseSavedGenerationRun } from "@/features/generation/generation-events";
 import type { GenerationRun, SavedRunStore } from "./types";
 
 const databaseName = "tech-news-roaster";
@@ -97,22 +98,10 @@ function deleteSavedRun(database: IDBDatabase, runId: string) {
 }
 
 function isGenerationRun(run: unknown): run is GenerationRun {
-  if (!run || typeof run !== "object") {
+  try {
+    parseSavedGenerationRun(run);
+    return true;
+  } catch {
     return false;
   }
-
-  const candidate = run as Partial<GenerationRun>;
-
-  return (
-    typeof candidate.id === "string" &&
-    typeof candidate.label === "string" &&
-    typeof candidate.sourceTweetUrl === "string" &&
-    typeof candidate.usersDirection === "string" &&
-    (candidate.status === "running" ||
-      candidate.status === "completed" ||
-      candidate.status === "failed") &&
-    typeof candidate.draftCount === "number" &&
-    typeof candidate.draftTarget === "number" &&
-    Array.isArray(candidate.drafts)
-  );
 }

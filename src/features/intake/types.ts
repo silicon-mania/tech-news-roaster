@@ -1,31 +1,17 @@
-import type { QuoteTweetDraft } from "@/features/generation/generation-events";
-import type { RetrievedSourceTweet } from "@/features/tweet-retrieval/tweet-retrieval";
+import type { SavedGenerationRun } from "@/features/generation/generation-events";
 
 export type GenerationIntake = {
   sourceTweetUrl: string;
   usersDirection: string;
 };
 
-export type GenerationRun = {
-  id: string;
-  label: string;
-  sourceTweetUrl: string;
-  usersDirection: string;
-  status: "running" | "completed" | "failed";
-  draftCount: number;
-  draftTarget: number;
-  drafts: QuoteTweetDraft[];
-  fallbackDisclosure?: string;
-  sourceTweet?: RetrievedSourceTweet;
-  failureMessage?: string;
-  savedAt?: string;
-};
+export type GenerationRun = SavedGenerationRun;
 
 type GenerationEventListener = (message: MessageEvent<string>) => void;
 
 export type GenerationEventSource = {
   addEventListener(
-    type: "progress" | "completed" | "failed",
+    type: "enrichment-completed" | "progress" | "completed" | "failed",
     listener: GenerationEventListener,
   ): void;
   close(): void;

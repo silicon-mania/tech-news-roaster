@@ -35,12 +35,24 @@ describe("generation stream route", () => {
       });
 
     expect(events.map((event) => event.type)).toEqual([
+      "enrichment-completed",
       "progress",
       "progress",
       "progress",
       "completed",
     ]);
     expect(events[0]).toMatchObject({
+      type: "enrichment-completed",
+      sourceTweet: expect.objectContaining({
+        text: expect.stringContaining("agent workspace"),
+      }),
+      newsLinkedImages: [
+        expect.objectContaining({
+          id: "news-linked-image-1",
+        }),
+      ],
+    });
+    expect(events[1]).toMatchObject({
       type: "progress",
       label: "Drafts for 1234",
       draftCount: 1,
@@ -48,7 +60,7 @@ describe("generation stream route", () => {
         text: expect.stringContaining("agent workspace"),
       }),
     });
-    expect(events[3]).toMatchObject({
+    expect(events[4]).toMatchObject({
       type: "completed",
       run: {
         label: "Drafts for 1234",
@@ -79,6 +91,9 @@ describe("generation stream route", () => {
         expect(event.run).not.toHaveProperty("replies");
       } else if (event.type === "progress") {
         expect(event).not.toHaveProperty("replies");
+      } else if (event.type === "enrichment-completed") {
+        expect(event).not.toHaveProperty("items");
+        expect(event).not.toHaveProperty("retrievedAt");
       }
     }
   });
@@ -219,9 +234,13 @@ describe("generation stream route", () => {
         sourceTweet: tweetContext.sourceTweet,
       },
     });
+    expect(events[0]).toMatchObject({
+      type: "enrichment-completed",
+      sourceTweet: tweetContext.sourceTweet,
+      newsLinkedImages: buildEnrichmentContext().newsLinkedImages,
+    });
     expect(JSON.stringify(events)).not.toContain("Outside report");
-    expect(JSON.stringify(events)).not.toContain("https://example.com/report");
-    expect(JSON.stringify(events)).not.toContain("enrichment");
+    expect(JSON.stringify(events)).not.toContain("broader platform shift");
   });
 
   test("emits a failed event when outside-X enrichment returns zero images", async () => {
@@ -363,12 +382,13 @@ describe("generation stream route", () => {
     const events = await readStreamEvents(response);
 
     expect(events.map((event) => event.type)).toEqual([
+      "enrichment-completed",
       "progress",
       "progress",
       "progress",
       "completed",
     ]);
-    expect(events[1]).toMatchObject({
+    expect(events[2]).toMatchObject({
       type: "progress",
       draft: {
         fallbackForProvider: "anthropic",
@@ -376,7 +396,7 @@ describe("generation stream route", () => {
         visibleRationale: "Fallback rationale.",
       },
     });
-    expect(events[3]).toMatchObject({
+    expect(events[4]).toMatchObject({
       type: "completed",
       run: {
         fallbackDisclosure: expect.stringContaining("Anthropic"),

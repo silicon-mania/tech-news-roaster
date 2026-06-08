@@ -5,6 +5,7 @@ import {
 } from "@/features/enrichment/outside-x-enrichment";
 import {
   buildCompletedGenerationRunEvents,
+  buildEnrichmentCompletedEvent,
   buildGenerationFailureEvent,
   parseGenerationStreamEvent,
 } from "@/features/generation/generation-events";
@@ -127,9 +128,15 @@ async function buildGenerationRunEvents({
       usersDirection,
     });
 
-    return buildCompletedGenerationRunEvents({
-      run: completedRun,
-    });
+    return [
+      buildEnrichmentCompletedEvent({
+        newsLinkedImages: enrichmentContext.newsLinkedImages,
+        sourceTweet: tweetContext.sourceTweet,
+      }),
+      ...buildCompletedGenerationRunEvents({
+        run: completedRun,
+      }),
+    ];
   } catch (error) {
     console.error("Generation orchestration failed.", error);
 
