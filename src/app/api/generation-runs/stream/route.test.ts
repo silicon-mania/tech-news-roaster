@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { parseGenerationStreamEvent } from "@/features/generation/generation-events";
 import {
   buildFixtureTweetContext,
@@ -136,79 +136,183 @@ describe("generation stream route", () => {
     );
   });
 
-  test("requests outside-X enrichment when source and replies are thin", async () => {
-    const thinContext = buildThinTweetContext();
+  test("requests outside-X enrichment before text generation for every run", async () => {
+    const tweetContext = buildFixtureTweetContext(
+      "https://x.com/siliconmania/status/1357",
+    );
     const enrichmentRequests: unknown[] = [];
+    const orchestrationRequests: unknown[] = [];
+    const callOrder: string[] = [];
     const response = await streamGenerationRun(
       new Request(
-        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F9999&usersDirection=Make+the+launch+risk+clear.",
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F1357&usersDirection=Make+the+launch+risk+clear.",
       ),
       {
-        retrieveOutsideXEnrichment: async (input) => {
-          enrichmentRequests.push(input);
+        orchestrateGeneration: async (input) => {
+          callOrder.push("orchestrate");
+          orchestrationRequests.push(input);
 
           return {
-            retrievedAt: "2026-06-05T10:20:00.000Z",
-            items: [
+            label: "Drafts for 1357",
+            sourceTweet: input.sourceTweet,
+            drafts: [
               {
-                title: "Outside report",
-                summary: "The launch is tied to a broader platform shift.",
-                url: "https://example.com/report",
+                angle: "platform leverage",
+                id: "draft-openai",
+                modelProvenance: "test-model",
+                provider: "openai",
+                text: "Quote-tweet draft: OpenAI draft.",
+                visibleRationale: "OpenAI rationale.",
+              },
+              {
+                angle: "incentive shift",
+                id: "draft-anthropic",
+                modelProvenance: "test-model",
+                provider: "anthropic",
+                text: "Quote-tweet draft: Anthropic draft.",
+                visibleRationale: "Anthropic rationale.",
+              },
+              {
+                angle: "distribution bet",
+                id: "draft-google",
+                modelProvenance: "test-model",
+                provider: "google",
+                text: "Quote-tweet draft: Google draft.",
+                visibleRationale: "Google rationale.",
               },
             ],
           };
         },
-        retrieveTweetContext: async () => thinContext,
+        retrieveOutsideXEnrichment: async (input) => {
+          callOrder.push("enrich");
+          enrichmentRequests.push(input);
+
+          return buildEnrichmentContext();
+        },
+        retrieveTweetContext: async () => tweetContext,
       },
     );
     const events = await readStreamEvents(response);
 
+    expect(callOrder).toEqual(["enrich", "orchestrate"]);
     expect(enrichmentRequests).toEqual([
       {
-        sourceTweet: thinContext.sourceTweet,
+        sourceTweet: tweetContext.sourceTweet,
         usersDirection: "Make the launch risk clear.",
-        replySignals: [],
+        replySignals: expect.arrayContaining([
+          expect.objectContaining({
+            id: "1357-reply-1",
+            text: expect.stringContaining("workflow lock-in"),
+          }),
+        ]),
       },
+    ]);
+    expect(orchestrationRequests).toEqual([
+      expect.objectContaining({
+        sourceTweet: tweetContext.sourceTweet,
+        enrichmentContext: buildEnrichmentContext(),
+      }),
     ]);
     expect(events.at(-1)).toMatchObject({
       type: "completed",
       run: {
-        sourceTweet: thinContext.sourceTweet,
+        sourceTweet: tweetContext.sourceTweet,
       },
     });
     expect(JSON.stringify(events)).not.toContain("Outside report");
+    expect(JSON.stringify(events)).not.toContain("https://example.com/report");
     expect(JSON.stringify(events)).not.toContain("enrichment");
   });
 
-  test("skips outside-X enrichment when source and replies are sufficient", async () => {
-    const enrichmentRequests: unknown[] = [];
-    const sufficientContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/1357",
+  test("emits a failed event when outside-X enrichment returns zero images", async () => {
+    const tweetContext = buildFixtureTweetContext(
+      "https://x.com/siliconmania/status/9999",
     );
+    const orchestrateGeneration = vi.fn();
     const response = await streamGenerationRun(
       new Request(
-        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F1357",
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F9999",
+      ),
+      {
+        orchestrateGeneration,
+        retrieveOutsideXEnrichment: async () => ({
+          retrievedAt: "2026-06-05T10:20:00.000Z",
+          items: [
+            {
+              title: "Outside report",
+              summary: "The launch is tied to a broader platform shift.",
+              url: "https://example.com/report",
+            },
+          ],
+          newsLinkedImages: [],
+        }),
+        retrieveTweetContext: async () => tweetContext,
+      },
+    );
+    const events = await readStreamEvents(response);
+
+    expect(orchestrateGeneration).not.toHaveBeenCalled();
+    expect(events).toEqual([
+      {
+        type: "failed",
+        message: "Outside-X enrichment could not provide news-linked images.",
+      },
+    ]);
+  });
+
+  test("emits a failed event when outside-X enrichment fails", async () => {
+    const tweetContext = buildFixtureTweetContext(
+      "https://x.com/siliconmania/status/9999",
+    );
+    const orchestrateGeneration = vi.fn();
+    const response = await streamGenerationRun(
+      new Request(
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F9999",
+      ),
+      {
+        orchestrateGeneration,
+        retrieveOutsideXEnrichment: async () => {
+          throw new Error("Search provider unavailable.");
+        },
+        retrieveTweetContext: async () => tweetContext,
+      },
+    );
+    const events = await readStreamEvents(response);
+
+    expect(orchestrateGeneration).not.toHaveBeenCalled();
+    expect(events).toEqual([
+      {
+        type: "failed",
+        message: "Outside-X enrichment could not provide news-linked images.",
+      },
+    ]);
+  });
+
+  test("passes mandatory outside-X enrichment through for thin sources", async () => {
+    const enrichmentRequests: unknown[] = [];
+    const thinContext = buildThinTweetContext();
+    const response = await streamGenerationRun(
+      new Request(
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F9999",
       ),
       {
         retrieveOutsideXEnrichment: async (input) => {
           enrichmentRequests.push(input);
 
-          return {
-            retrievedAt: "2026-06-05T10:20:00.000Z",
-            items: [
-              {
-                title: "Unneeded outside report",
-                summary: "This should not be requested.",
-              },
-            ],
-          };
+          return buildEnrichmentContext();
         },
-        retrieveTweetContext: async () => sufficientContext,
+        retrieveTweetContext: async () => thinContext,
       },
     );
 
-    expect(enrichmentRequests).toEqual([]);
-    expect(await response.text()).toContain(sufficientContext.sourceTweet.text);
+    expect(enrichmentRequests).toEqual([
+      {
+        sourceTweet: thinContext.sourceTweet,
+        usersDirection: "",
+        replySignals: [],
+      },
+    ]);
+    expect(await response.text()).toContain(thinContext.sourceTweet.text);
   });
 
   test("streams fallback disclosure and complete draft metadata", async () => {
@@ -318,5 +422,27 @@ function buildThinTweetContext(): RetrievedTweetContext {
       text: "Huge if true.",
     },
     replies: [],
+  };
+}
+
+function buildEnrichmentContext() {
+  return {
+    retrievedAt: "2026-06-05T10:20:00.000Z",
+    items: [
+      {
+        title: "Outside report",
+        summary: "The launch is tied to a broader platform shift.",
+        url: "https://example.com/report",
+      },
+    ],
+    newsLinkedImages: [
+      {
+        id: "news-linked-image-1",
+        url: "https://example.com/news-linked-image.jpg",
+        altText: "News-linked image candidate.",
+        sourceUrl: "https://example.com/report",
+        title: "News-linked product image",
+      },
+    ],
   };
 }

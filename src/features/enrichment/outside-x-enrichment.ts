@@ -4,9 +4,6 @@ import type {
   RetrievedTweetContext,
 } from "@/features/tweet-retrieval/tweet-retrieval";
 
-const minimumSourceTweetCharacters = 120;
-const minimumReplySignals = 2;
-const minimumReplyCharacters = 80;
 const maxReplySignals = 6;
 
 const replySignalSchema = z
@@ -25,10 +22,35 @@ const outsideXEnrichmentItemSchema = z
   })
   .strict();
 
+const rawNewsLinkedImageSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    url: z.string().url(),
+    altText: z.string().min(1).optional(),
+    sourceUrl: z.string().url().optional(),
+    title: z.string().min(1).optional(),
+  })
+  .strict();
+
+const newsLinkedImageSchema = rawNewsLinkedImageSchema
+  .extend({
+    id: z.string().min(1),
+  })
+  .strict();
+
+const rawOutsideXEnrichmentContextSchema = z
+  .object({
+    retrievedAt: z.string().datetime(),
+    items: z.array(outsideXEnrichmentItemSchema).min(1).max(5),
+    newsLinkedImages: z.array(rawNewsLinkedImageSchema).min(1).max(5),
+  })
+  .strict();
+
 const outsideXEnrichmentContextSchema = z
   .object({
     retrievedAt: z.string().datetime(),
-    items: z.array(outsideXEnrichmentItemSchema).max(5),
+    items: z.array(outsideXEnrichmentItemSchema).min(1).max(5),
+    newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5),
   })
   .strict();
 
@@ -66,23 +88,6 @@ export function buildReplySignals(
     .slice(0, maxReplySignals);
 }
 
-export function shouldEnrichOutsideX({
-  sourceTweet,
-  replies,
-}: RetrievedTweetContext) {
-  const sourceTweetCharacters = sourceTweet.text.trim().length;
-  const replyCharacters = replies.reduce(
-    (total, reply) => total + reply.text.trim().length,
-    0,
-  );
-
-  return (
-    sourceTweetCharacters < minimumSourceTweetCharacters ||
-    replies.length < minimumReplySignals ||
-    replyCharacters < minimumReplyCharacters
-  );
-}
-
 export async function retrieveOutsideXEnrichment({
   sourceTweet,
   replySignals,
@@ -91,10 +96,11 @@ export async function retrieveOutsideXEnrichment({
   const endpoint = process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
 
   if (!endpoint) {
-    return outsideXEnrichmentContextSchema.parse({
-      retrievedAt: new Date(0).toISOString(),
-      items: [],
-    });
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Outside-X enrichment endpoint is not configured.");
+    }
+
+    return buildFixtureOutsideXEnrichment(sourceTweet);
   }
 
   const response = await fetch(endpoint, {
@@ -110,11 +116,47 @@ export async function retrieveOutsideXEnrichment({
   });
 
   if (!response.ok) {
-    return outsideXEnrichmentContextSchema.parse({
-      retrievedAt: new Date(0).toISOString(),
-      items: [],
-    });
+    throw new Error(`Outside-X enrichment failed (${response.status}).`);
   }
 
-  return outsideXEnrichmentContextSchema.parse(await response.json());
+  return normalizeOutsideXEnrichmentContext(await response.json());
+}
+
+function normalizeOutsideXEnrichmentContext(
+  payload: unknown,
+): OutsideXEnrichmentContext {
+  const rawContext = rawOutsideXEnrichmentContextSchema.parse(payload);
+
+  return outsideXEnrichmentContextSchema.parse({
+    ...rawContext,
+    newsLinkedImages: rawContext.newsLinkedImages.map((image, index) => ({
+      ...image,
+      id: `news-linked-image-${index + 1}`,
+    })),
+  });
+}
+
+function buildFixtureOutsideXEnrichment(
+  sourceTweet: RetrievedSourceTweet,
+): OutsideXEnrichmentContext {
+  return outsideXEnrichmentContextSchema.parse({
+    retrievedAt: new Date(0).toISOString(),
+    items: [
+      {
+        title: "Local outside-X context",
+        summary:
+          "Local development context keeps mandatory enrichment available without an external provider.",
+        url: "https://example.com/local-outside-x-context",
+      },
+    ],
+    newsLinkedImages: [
+      {
+        id: "news-linked-image-1",
+        url: `https://example.com/news-linked-images/${sourceTweet.id}.jpg`,
+        altText: "News-linked visual candidate for the source tweet.",
+        sourceUrl: sourceTweet.url,
+        title: "Source news visual",
+      },
+    ],
+  });
 }

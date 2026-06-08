@@ -2,7 +2,6 @@ import {
   buildReplySignals,
   type OutsideXEnrichmentService,
   retrieveOutsideXEnrichment,
-  shouldEnrichOutsideX,
 } from "@/features/enrichment/outside-x-enrichment";
 import {
   buildCompletedGenerationRunEvents,
@@ -104,14 +103,20 @@ async function buildGenerationRunEvents({
   }
 
   const replySignals = buildReplySignals(tweetContext);
-  const enrichmentContext = shouldEnrichOutsideX(tweetContext)
-    ? await retrieveOptionalOutsideXEnrichment({
-        enrich,
-        replySignals,
-        sourceTweet: tweetContext.sourceTweet,
-        usersDirection,
-      })
-    : undefined;
+  const enrichmentContext = await retrieveMandatoryOutsideXEnrichment({
+    enrich,
+    replySignals,
+    sourceTweet: tweetContext.sourceTweet,
+    usersDirection,
+  });
+
+  if (!enrichmentContext) {
+    return [
+      buildGenerationFailureEvent(
+        "Outside-X enrichment could not provide news-linked images.",
+      ),
+    ];
+  }
 
   try {
     const completedRun = await orchestrate({
@@ -136,7 +141,7 @@ async function buildGenerationRunEvents({
   }
 }
 
-async function retrieveOptionalOutsideXEnrichment({
+async function retrieveMandatoryOutsideXEnrichment({
   enrich,
   replySignals,
   sourceTweet,
@@ -145,12 +150,18 @@ async function retrieveOptionalOutsideXEnrichment({
   enrich: OutsideXEnrichmentService;
 }) {
   try {
-    return await enrich({
+    const enrichmentContext = await enrich({
       replySignals,
       sourceTweet,
       usersDirection,
     });
+
+    if (enrichmentContext.newsLinkedImages.length === 0) {
+      return null;
+    }
+
+    return enrichmentContext;
   } catch {
-    return undefined;
+    return null;
   }
 }
