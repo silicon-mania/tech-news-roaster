@@ -58,6 +58,20 @@ export type ImageGenerationServiceResult = {
   selectedImageOriginals: SelectedImageOriginal[];
 };
 
+export type ImageGenerationServiceStreamEvent =
+  | {
+      type: "image-set-completed";
+      imageModelProvenance: ImageModelProvenance;
+      imageSet: ImageSet;
+      selectedImageOriginal: SelectedImageOriginal;
+    }
+  | {
+      type: "image-set-failed";
+      failedImageSet: FailedImageSet;
+      imageModelProvenance: ImageModelProvenance;
+      selectedImageOriginal?: SelectedImageOriginal;
+    };
+
 export async function generateImageSetsForRun(
   {
     input,
@@ -72,6 +86,55 @@ export async function generateImageSetsForRun(
     provider?: ImageVariationProvider;
   } = {},
 ): Promise<ImageGenerationServiceResult> {
+  const provider = options.provider ?? createDefaultImageVariationProvider();
+  const imageSets: ImageSet[] = [];
+  const failedImageSets: FailedImageSet[] = [];
+  const selectedImageOriginals: SelectedImageOriginal[] = [];
+
+  for await (const event of streamImageSetsForRun(
+    {
+      input,
+      parentRun,
+    },
+    {
+      ...options,
+      provider,
+    },
+  )) {
+    if (event.type === "image-set-completed") {
+      imageSets.push(event.imageSet);
+      selectedImageOriginals.push(event.selectedImageOriginal);
+    } else {
+      failedImageSets.push(event.failedImageSet);
+
+      if (event.selectedImageOriginal) {
+        selectedImageOriginals.push(event.selectedImageOriginal);
+      }
+    }
+  }
+
+  return {
+    failedImageSets,
+    imageModelProvenance: provider.imageModelProvenance,
+    imageSets,
+    selectedImageOriginals,
+  };
+}
+
+export async function* streamImageSetsForRun(
+  {
+    input,
+    parentRun,
+  }: {
+    input: ImageGenerationInput;
+    parentRun: ParentGenerationRunForImages;
+  },
+  options: {
+    now?: () => Date;
+    prepareSelectedImageOriginal?: SelectedImageOriginalPreparer;
+    provider?: ImageVariationProvider;
+  } = {},
+): AsyncGenerator<ImageGenerationServiceStreamEvent> {
   const parsedInput = parseImageGenerationInput(input);
 
   if (parentRun.id !== parsedInput.parentRunId) {
@@ -86,9 +149,6 @@ export async function generateImageSetsForRun(
   const prepare =
     options.prepareSelectedImageOriginal ?? prepareSelectedImageOriginal;
   const provider = options.provider ?? createDefaultImageVariationProvider();
-  const imageSets: ImageSet[] = [];
-  const failedImageSets: FailedImageSet[] = [];
-  const selectedImageOriginals: SelectedImageOriginal[] = [];
 
   for (const newsLinkedImage of selectedImages) {
     let preparedOriginal: PreparedSelectedImageOriginal | undefined;
@@ -98,7 +158,6 @@ export async function generateImageSetsForRun(
         newsLinkedImage,
         now,
       });
-      selectedImageOriginals.push(preparedOriginal.selectedImageOriginal);
 
       const variations = await provider.generateVariations({
         original: preparedOriginal,
@@ -106,33 +165,32 @@ export async function generateImageSetsForRun(
         variationCount: generatedVariationTarget,
       });
 
-      imageSets.push(
-        buildImageSet({
+      yield {
+        type: "image-set-completed",
+        imageModelProvenance: provider.imageModelProvenance,
+        imageSet: buildImageSet({
           imageModelProvenance: provider.imageModelProvenance,
           newsLinkedImage,
           now,
           selectedImageOriginal: preparedOriginal.selectedImageOriginal,
           variations,
         }),
-      );
+        selectedImageOriginal: preparedOriginal.selectedImageOriginal,
+      };
     } catch (error) {
-      failedImageSets.push(
-        buildFailedImageSet({
+      yield {
+        type: "image-set-failed",
+        failedImageSet: buildFailedImageSet({
           message: normalizeFailureMessage(error),
           newsLinkedImage,
           now,
           selectedImageOriginal: preparedOriginal?.selectedImageOriginal,
         }),
-      );
+        imageModelProvenance: provider.imageModelProvenance,
+        selectedImageOriginal: preparedOriginal?.selectedImageOriginal,
+      };
     }
   }
-
-  return {
-    failedImageSets,
-    imageModelProvenance: provider.imageModelProvenance,
-    imageSets,
-    selectedImageOriginals,
-  };
 }
 
 export async function prepareSelectedImageOriginal({
