@@ -641,25 +641,39 @@ export function IntakeWorkspace({
             run.selectedImageOriginals ?? [],
             event.imageSet.selectedImageOriginal,
           );
-
-          return {
+          const updatedRun: GenerationRun = {
             ...run,
             imageModelProvenance: event.imageSet.imageModelProvenance,
             imageSets,
             phase: "image-generation-running",
             selectedImageOriginals,
           };
+          scheduleRunAutosave(updatedRun);
+
+          return updatedRun;
         }
 
         if (event.type === "image-set-failed") {
-          return {
+          const failedImageSets = upsertById(
+            run.failedImageSets ?? [],
+            event.failedImageSet,
+          );
+          const selectedImageOriginals = event.failedImageSet
+            .selectedImageOriginal
+            ? upsertById(
+                run.selectedImageOriginals ?? [],
+                event.failedImageSet.selectedImageOriginal,
+              )
+            : run.selectedImageOriginals;
+          const updatedRun: GenerationRun = {
             ...run,
-            failedImageSets: upsertById(
-              run.failedImageSets ?? [],
-              event.failedImageSet,
-            ),
+            failedImageSets,
             phase: "image-generation-running",
+            selectedImageOriginals,
           };
+          scheduleRunAutosave(updatedRun);
+
+          return updatedRun;
         }
 
         const imageGenerationState: NonNullable<
@@ -685,9 +699,11 @@ export function IntakeWorkspace({
             event.state.status === "completed"
               ? "image-generation-complete"
               : "image-generation-partially-failed",
-          selectedImageOriginals: event.state.imageSets.map(
-            (imageSet) => imageSet.selectedImageOriginal,
-          ),
+          selectedImageOriginals: collectSelectedImageOriginals({
+            failedImageSets: event.state.failedImageSets,
+            imageSets: event.state.imageSets,
+            currentSelectedImageOriginals: run.selectedImageOriginals ?? [],
+          }),
         };
         scheduleRunAutosave(updatedRun);
 
@@ -874,6 +890,38 @@ function getImageGenerationStartedAt(run: GenerationRun) {
   }
 
   return state.startedAt;
+}
+
+function collectSelectedImageOriginals({
+  currentSelectedImageOriginals,
+  failedImageSets,
+  imageSets,
+}: {
+  currentSelectedImageOriginals: NonNullable<
+    GenerationRun["selectedImageOriginals"]
+  >;
+  failedImageSets: NonNullable<GenerationRun["failedImageSets"]>;
+  imageSets: NonNullable<GenerationRun["imageSets"]>;
+}) {
+  let selectedImageOriginals = currentSelectedImageOriginals;
+
+  for (const imageSet of imageSets) {
+    selectedImageOriginals = upsertById(
+      selectedImageOriginals,
+      imageSet.selectedImageOriginal,
+    );
+  }
+
+  for (const failedImageSet of failedImageSets) {
+    if (failedImageSet.selectedImageOriginal) {
+      selectedImageOriginals = upsertById(
+        selectedImageOriginals,
+        failedImageSet.selectedImageOriginal,
+      );
+    }
+  }
+
+  return selectedImageOriginals;
 }
 
 async function readImageGenerationErrorMessage(response: Response) {

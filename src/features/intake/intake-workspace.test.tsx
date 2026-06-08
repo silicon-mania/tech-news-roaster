@@ -1227,6 +1227,96 @@ describe("IntakeWorkspace", () => {
     );
   });
 
+  test("persists image-generation progress before the terminal stream event", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore();
+    const newsLinkedImages = buildNewsLinkedImages();
+    const imageSet = buildImageSet(newsLinkedImages[0]);
+    let streamController:
+      | ReadableStreamDefaultController<Uint8Array>
+      | undefined;
+    const encoder = new TextEncoder();
+    const imageGenerationStreamFetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              streamController = controller;
+            },
+          }),
+          {
+            headers: {
+              "Content-Type": "text/event-stream",
+            },
+          },
+        ),
+    );
+
+    renderWorkspace({
+      imageGenerationStreamFetcher,
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          imageGenerationState: {
+            status: "not-started",
+          },
+          newsLinkedImages,
+          phase: "waiting-for-image-selection",
+        }),
+      ],
+      savedRunStore,
+    });
+
+    const imageGenerationArea = screen.getByRole("complementary", {
+      name: /image generation area/i,
+    });
+
+    await user.click(
+      within(imageGenerationArea).getByRole("button", {
+        name: /select launch visual/i,
+      }),
+    );
+    await user.type(
+      within(imageGenerationArea).getByRole("textbox", {
+        name: /user image prompt/i,
+      }),
+      "Make it feel like a serious product launch image.",
+    );
+    await user.click(
+      within(imageGenerationArea).getByRole("button", {
+        name: /^image generation$/i,
+      }),
+    );
+
+    await waitFor(() => expect(streamController).toBeDefined());
+
+    act(() => {
+      streamController?.enqueue(
+        encoder.encode(
+          `event: image-set-completed\ndata: ${JSON.stringify({
+            type: "image-set-completed",
+            imageSet,
+          })}\n\n`,
+        ),
+      );
+    });
+
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          imageModelProvenance: imageSet.imageModelProvenance,
+          imageSets: [imageSet],
+          phase: "image-generation-running",
+          selectedImageOriginals: [imageSet.selectedImageOriginal],
+        }),
+      ),
+    );
+
+    act(() => {
+      streamController?.close();
+    });
+  });
+
   test("opens the generation stream with the accepted intake", async () => {
     const user = userEvent.setup();
     const { sourceTweetUrlInput, generateButton, generationStreamUrls } =
@@ -1342,6 +1432,70 @@ describe("IntakeWorkspace", () => {
       }),
     ).toHaveTextContent("agent workspace");
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
+  });
+
+  test("reopens text-successful Saved Runs with unstarted image generation still eligible", async () => {
+    const user = userEvent.setup();
+    const startImageGeneration = vi.fn();
+    const newsLinkedImages = buildNewsLinkedImages();
+    const savedRunStore = createMemorySavedRunStore([
+      buildCompletedRun({
+        imageGenerationState: {
+          status: "not-started",
+        },
+        label: "Image-ready saved run",
+        newsLinkedImages,
+        phase: "waiting-for-image-selection",
+      }),
+    ]);
+    const { generationStreamUrls } = renderWorkspace({
+      onStartImageGeneration: startImageGeneration,
+      savedRunStore,
+    });
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /open runs drawer, 1 runs/i,
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /image-ready saved run.*just now/i,
+      }),
+    );
+
+    const imageGenerationArea = screen.getByRole("complementary", {
+      name: /image generation area/i,
+    });
+
+    expect(generationStreamUrls).toEqual([]);
+    expect(imageGenerationArea).toHaveTextContent(
+      "Waiting for image selection",
+    );
+    expect(imageGenerationArea).toHaveTextContent("Launch visual");
+
+    await user.click(
+      within(imageGenerationArea).getByRole("button", {
+        name: /select launch visual/i,
+      }),
+    );
+    await user.type(
+      within(imageGenerationArea).getByRole("textbox", {
+        name: /user image prompt/i,
+      }),
+      "Make the visual feel launch-ready.",
+    );
+    await user.click(
+      within(imageGenerationArea).getByRole("button", {
+        name: /^image generation$/i,
+      }),
+    );
+
+    expect(startImageGeneration).toHaveBeenCalledWith({
+      parentRunId: "saved-run",
+      selectedImageIds: ["news-linked-image-1"],
+      userImagePrompt: "Make the visual feel launch-ready.",
+    });
   });
 
   test("shows retrieval failure feedback without saving a completed run", async () => {
@@ -1513,7 +1667,22 @@ describe("IntakeWorkspace", () => {
     const user = userEvent.setup();
     const writeText = vi.fn(async () => undefined);
     const savedRunStore = createMemorySavedRunStore();
-    const completedRun = buildCompletedRun();
+    const newsLinkedImages = buildNewsLinkedImages();
+    const imageSet = buildImageSet(newsLinkedImages[0]);
+    const completedRun = buildCompletedRun({
+      imageGenerationState: {
+        completedAt: "2026-06-05T10:23:00.000Z",
+        selectedImageIds: [newsLinkedImages[0].id],
+        startedAt: "2026-06-05T10:20:00.000Z",
+        status: "completed",
+        userImagePrompt: "Keep the image polished.",
+      },
+      imageModelProvenance: imageSet.imageModelProvenance,
+      imageSets: [imageSet],
+      newsLinkedImages: newsLinkedImages.slice(0, 1),
+      phase: "image-generation-complete",
+      selectedImageOriginals: [imageSet.selectedImageOriginal],
+    });
 
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -1552,6 +1721,10 @@ describe("IntakeWorkspace", () => {
             text: "Edited first line.\nEdited second line.",
           }),
         ]),
+        imageGenerationState: completedRun.imageGenerationState,
+        imageSets: [imageSet],
+        newsLinkedImages: newsLinkedImages.slice(0, 1),
+        selectedImageOriginals: [imageSet.selectedImageOriginal],
       }),
     );
 
