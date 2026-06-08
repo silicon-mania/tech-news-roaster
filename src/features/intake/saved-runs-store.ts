@@ -4,6 +4,24 @@ import type { GenerationRun, SavedRunStore } from "./types";
 const databaseName = "tech-news-roaster";
 const databaseVersion = 1;
 const savedRunsStoreName = "saved-runs";
+const successfulSavedRunLimit = 10;
+
+export function planSavedRunRetention(
+  runs: GenerationRun[],
+  limit = successfulSavedRunLimit,
+) {
+  const successfulRuns = runs
+    .filter((run) => run.status === "completed")
+    .sort(compareNewestSavedRunFirst);
+  const deletedRunIds = new Set(
+    successfulRuns.slice(limit).map((run) => run.id),
+  );
+
+  return {
+    deletedRunIds,
+    retainedRuns: runs.filter((run) => !deletedRunIds.has(run.id)),
+  };
+}
 
 export const indexedDbSavedRunStore: SavedRunStore = {
   async list() {
@@ -21,12 +39,7 @@ export const indexedDbSavedRunStore: SavedRunStore = {
       request.onsuccess = () => {
         const savedRuns = request.result
           .filter(isGenerationRun)
-          .sort((left, right) => {
-            const leftSavedAt = Date.parse(left.savedAt ?? "");
-            const rightSavedAt = Date.parse(right.savedAt ?? "");
-
-            return rightSavedAt - leftSavedAt;
-          });
+          .sort(compareNewestSavedRunFirst);
 
         resolve(savedRuns);
       };
@@ -81,6 +94,18 @@ function writeSavedRun(database: IDBDatabase, run: GenerationRun) {
     const store = transaction.objectStore(savedRunsStoreName);
 
     store.put(run);
+    if (run.status === "completed") {
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const savedRuns = request.result.filter(isGenerationRun);
+        const { deletedRunIds } = planSavedRunRetention(savedRuns);
+
+        for (const runId of deletedRunIds) {
+          store.delete(runId);
+        }
+      };
+    }
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
@@ -104,4 +129,21 @@ function isGenerationRun(run: unknown): run is GenerationRun {
   } catch {
     return false;
   }
+}
+
+function compareNewestSavedRunFirst(left: GenerationRun, right: GenerationRun) {
+  const leftSavedAt = getSavedRunTimestamp(left);
+  const rightSavedAt = getSavedRunTimestamp(right);
+
+  if (leftSavedAt !== rightSavedAt) {
+    return rightSavedAt - leftSavedAt;
+  }
+
+  return right.id.localeCompare(left.id);
+}
+
+function getSavedRunTimestamp(run: GenerationRun) {
+  const savedAt = Date.parse(run.savedAt ?? "");
+
+  return Number.isNaN(savedAt) ? 0 : savedAt;
 }
