@@ -1,6 +1,14 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Download, Expand, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Expand,
+  Loader2,
+  X,
+} from "lucide-react";
 import Image from "next/image";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
@@ -50,7 +58,6 @@ export function ActiveRunPanel({
   const imageGenerationArea = hasImageGenerationContent ? (
     <ImageGenerationArea
       parentRunId={activeRun.id}
-      phaseLabel={getRunPhaseLabel(activeRun)}
       run={activeRun}
       onStartImageGeneration={onStartImageGeneration}
     />
@@ -169,14 +176,84 @@ function GenerationWaitingState({ run }: { run: GenerationRun }) {
   );
 }
 
+type ImageGenerationAreaStatusKind = "loading" | "success" | "failed";
+
+function getImageGenerationAreaStatus(run: GenerationRun): {
+  kind: ImageGenerationAreaStatusKind;
+  label: string;
+} {
+  const label = getRunPhaseLabel(run);
+  const imageGenerationStatus = run.imageGenerationState?.status;
+
+  if (run.phase === "failed" || run.status === "failed") {
+    return { kind: "failed", label };
+  }
+
+  if (
+    imageGenerationStatus === "failed" ||
+    imageGenerationStatus === "partially-failed" ||
+    run.phase === "image-generation-partially-failed"
+  ) {
+    return { kind: "failed", label };
+  }
+
+  if (
+    imageGenerationStatus === "completed" ||
+    run.phase === "image-generation-complete"
+  ) {
+    return { kind: "success", label };
+  }
+
+  if (
+    imageGenerationStatus === "running" ||
+    imageGenerationStatus === "not-started" ||
+    run.phase === "image-generation-running" ||
+    run.phase === "enrichment-running" ||
+    run.phase === "text-generation-running" ||
+    run.phase === "waiting-for-image-selection" ||
+    (!run.phase && run.status === "running")
+  ) {
+    return { kind: "loading", label };
+  }
+
+  if (run.status === "completed" && (run.imageSets?.length ?? 0) > 0) {
+    return { kind: "success", label };
+  }
+
+  return { kind: "loading", label };
+}
+
+function ImageGenerationAreaStatus({ run }: { run: GenerationRun }) {
+  const { kind, label } = getImageGenerationAreaStatus(run);
+
+  return (
+    <p
+      className="inline-flex items-center gap-1.5 text-slate-500 text-xs"
+      role="status"
+    >
+      {kind === "loading" ? (
+        <Loader2
+          aria-hidden
+          className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-300"
+        />
+      ) : null}
+      {kind === "success" ? (
+        <Check aria-hidden className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+      ) : null}
+      {kind === "failed" ? (
+        <X aria-hidden className="h-3.5 w-3.5 shrink-0 text-rose-400" />
+      ) : null}
+      <span>{label}</span>
+    </p>
+  );
+}
+
 function ImageGenerationArea({
   parentRunId,
-  phaseLabel,
   run,
   onStartImageGeneration,
 }: {
   parentRunId: string;
-  phaseLabel: string;
   run: GenerationRun;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
 }) {
@@ -238,108 +315,109 @@ function ImageGenerationArea({
   }
 
   return (
-    <aside
-      aria-label="Image generation area"
-      className="grid gap-3 rounded-sm border border-slate-800/80 bg-slate-950/35 p-3"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-medium text-slate-100 text-sm">Image generation</p>
-        <p className="text-slate-500 text-xs">{phaseLabel}</p>
-      </div>
-      {imageSets.length > 0 || failedImageSets.length > 0 ? (
-        <ImageResultsArea
-          failedImageSets={failedImageSets}
-          imageModelProvenance={run.imageModelProvenance}
-          imageSets={imageSets}
-        />
-      ) : null}
-      {imageGenerationStatus === "running" ? (
-        <p className="rounded-sm border border-slate-800 bg-slate-950/40 px-3 py-2 text-slate-400 text-xs">
-          Generating image sets...
-        </p>
-      ) : null}
-      {canSelectSourceImages ? (
-        <>
-          <ul className="grid grid-cols-2 gap-2">
-            {images.map((image, index) => (
-              <li key={image.id}>
-                <button
-                  type="button"
-                  aria-label={`Select ${getImageTitle(
-                    image,
-                    index,
-                  )} for image generation`}
-                  aria-pressed={selectedImageIds.includes(image.id)}
-                  onClick={() => toggleImageSelection(image.id)}
-                  className={`grid h-full w-full gap-1.5 rounded-sm border p-1.5 text-left transition focus:outline-none focus:ring-2 focus:ring-sky-300/20 ${
-                    selectedImageIds.includes(image.id)
-                      ? "border-sky-300/60 bg-sky-300/10"
-                      : "border-slate-800 bg-slate-950/20 hover:border-slate-700"
-                  }`}
-                >
-                  <span className="aspect-[4/3] overflow-hidden rounded-sm border border-slate-800 bg-slate-950">
-                    <Image
-                      alt={
-                        image.altText ??
-                        image.title ??
-                        `News-linked image ${index + 1}`
-                      }
-                      className="h-full w-full object-cover"
-                      height={240}
-                      loading={index === 0 ? "eager" : "lazy"}
-                      src={getDisplayImageUrl(image, index)}
-                      unoptimized
-                      width={320}
-                    />
-                  </span>
-                  <span className="line-clamp-2 text-slate-500 text-xs leading-5">
-                    {getImageTitle(image, index)}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {selectionMessage ? (
-            <p className="text-slate-400 text-xs" role="status">
-              {selectionMessage}
-            </p>
-          ) : null}
-          <form className="grid gap-2" onSubmit={submitImageGeneration}>
-            <label
-              className="font-medium text-slate-300 text-xs"
-              htmlFor={`${parentRunId}-user-image-prompt`}
-            >
-              User Image Prompt
-            </label>
-            <textarea
-              id={`${parentRunId}-user-image-prompt`}
-              aria-label="User Image Prompt"
-              value={userImagePrompt}
-              onChange={(event) => setUserImagePrompt(event.target.value)}
-              className="min-h-20 resize-y rounded-sm border border-slate-800 bg-slate-950/60 px-3 py-2 text-slate-100 text-sm leading-6 outline-none transition placeholder:text-slate-600 focus:border-sky-300/50 focus:ring-2 focus:ring-sky-300/20"
-              placeholder="Describe the visual variation to generate."
-            />
-            <button
-              type="submit"
-              disabled={!canStartImageGeneration}
-              className="justify-self-start rounded-sm border border-slate-700 bg-slate-100 px-3 py-2 font-medium text-slate-950 text-sm transition hover:bg-white disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-500"
-            >
-              Image Generation
-            </button>
-          </form>
-        </>
-      ) : null}
-    </aside>
+    <>
+      <h1 className="font-medium text-slate-100 text-lg md:text-2xl">
+        Image generation
+      </h1>
+      <aside
+        aria-label="Image generation area"
+        className="grid gap-3 bg-slate-950/35 p-3"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <p className="min-w-0 truncate text-slate-500 text-xs">
+            {run.imageModelProvenance
+              ? formatImageModelProvenance(run.imageModelProvenance)
+              : null}
+          </p>
+          <ImageGenerationAreaStatus run={run} />
+        </div>
+        {imageSets.length > 0 || failedImageSets.length > 0 ? (
+          <ImageResultsArea
+            failedImageSets={failedImageSets}
+            imageSets={imageSets}
+          />
+        ) : null}
+        {canSelectSourceImages ? (
+          <>
+            <ul className="grid grid-cols-2 gap-2">
+              {images.map((image, index) => (
+                <li key={image.id}>
+                  <button
+                    type="button"
+                    aria-label={`Select ${getImageTitle(
+                      image,
+                      index,
+                    )} for image generation`}
+                    aria-pressed={selectedImageIds.includes(image.id)}
+                    onClick={() => toggleImageSelection(image.id)}
+                    className={`grid h-full w-full gap-1.5 rounded-sm border p-1.5 text-left transition focus:outline-none focus:ring-2 focus:ring-sky-300/20 ${
+                      selectedImageIds.includes(image.id)
+                        ? "border-sky-300/60 bg-sky-300/10"
+                        : "border-slate-800 bg-slate-950/20 hover:border-slate-700"
+                    }`}
+                  >
+                    <span className="aspect-[4/3] overflow-hidden rounded-sm border border-slate-800 bg-slate-950">
+                      <Image
+                        alt={
+                          image.altText ??
+                          image.title ??
+                          `News-linked image ${index + 1}`
+                        }
+                        className="h-full w-full object-cover"
+                        height={240}
+                        loading={index === 0 ? "eager" : "lazy"}
+                        src={getDisplayImageUrl(image, index)}
+                        unoptimized
+                        width={320}
+                      />
+                    </span>
+                    <span className="line-clamp-2 text-slate-500 text-xs leading-5">
+                      {getImageTitle(image, index)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {selectionMessage ? (
+              <p className="text-slate-400 text-xs" role="status">
+                {selectionMessage}
+              </p>
+            ) : null}
+            <form className="grid gap-2" onSubmit={submitImageGeneration}>
+              <label
+                className="font-medium text-slate-300 text-xs"
+                htmlFor={`${parentRunId}-user-image-prompt`}
+              >
+                User Image Prompt
+              </label>
+              <textarea
+                id={`${parentRunId}-user-image-prompt`}
+                aria-label="User Image Prompt"
+                value={userImagePrompt}
+                onChange={(event) => setUserImagePrompt(event.target.value)}
+                className="min-h-20 resize-y rounded-sm border border-slate-800 bg-slate-950/60 px-3 py-2 text-slate-100 text-sm leading-6 outline-none transition placeholder:text-slate-600 focus:border-sky-300/50 focus:ring-2 focus:ring-sky-300/20"
+                placeholder="Describe the visual variation to generate."
+              />
+              <button
+                type="submit"
+                disabled={!canStartImageGeneration}
+                className="justify-self-start rounded-sm border border-slate-700 bg-slate-100 px-3 py-2 font-medium text-slate-950 text-sm transition hover:bg-white disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-500"
+              >
+                Image Generation
+              </button>
+            </form>
+          </>
+        ) : null}
+      </aside>
+    </>
   );
 }
 
 function ImageResultsArea({
   failedImageSets,
-  imageModelProvenance,
   imageSets,
 }: {
   failedImageSets: FailedImageSet[];
-  imageModelProvenance?: ImageModelProvenance;
   imageSets: ImageSet[];
 }) {
   const [activeModal, setActiveModal] = useState<{
@@ -358,89 +436,89 @@ function ImageResultsArea({
 
   return (
     <section aria-label="Image results area" className="grid gap-3">
-      {imageModelProvenance ? (
-        <p className="text-slate-500 text-xs">
-          Image model: {formatImageModelProvenance(imageModelProvenance)}
-        </p>
-      ) : null}
-      <div className="grid gap-3">
+      <div className="grid gap-4">
         {imageSets.map((imageSet, imageSetIndex) => (
           <article
             aria-label={`Image set ${imageSetIndex + 1}`}
-            className="grid gap-2 rounded-sm border border-slate-800 bg-slate-950/45 p-2"
+            className="grid min-w-0 gap-2 rounded-sm bg-slate-950/45 p-2"
             key={imageSet.id}
           >
             <p className="font-medium text-slate-200 text-xs">
               {imageSet.selectedImageOriginal.title ??
                 `Image set ${imageSetIndex + 1}`}
             </p>
-            <ul className="grid gap-2">
-              {imageSet.options.map((option, optionIndex) => (
-                <li key={option.id}>
-                  <article className="grid gap-1.5">
-                    <button
-                      type="button"
-                      aria-label={`Open ${option.label} from image set ${
-                        imageSetIndex + 1
-                      }`}
-                      onClick={() =>
-                        setActiveModal({
-                          imageSetId: imageSet.id,
-                          optionId: option.id,
-                        })
-                      }
-                      className="group grid gap-1.5 rounded-sm border border-slate-800 bg-slate-950/60 p-1.5 text-left transition hover:border-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-                    >
-                      <span className="aspect-[4/3] overflow-hidden rounded-sm bg-slate-900">
-                        <Image
-                          alt={option.altText ?? option.label}
-                          className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-                          height={240}
-                          loading={
-                            imageSetIndex === 0 && optionIndex === 0
-                              ? "eager"
-                              : "lazy"
+            <div className="overflow-x-auto pb-2">
+              <ul className="flex w-max gap-2 pr-2">
+                {imageSet.options.map((option, optionIndex) => (
+                  <li
+                    className="w-[min(70vw,18rem)] shrink-0 lg:w-[min(18vw,300px)]"
+                    key={option.id}
+                  >
+                    <div className="group grid w-full gap-1.5 rounded-sm bg-slate-950/40 text-left transition">
+                      <div className="relative aspect-[4/3] overflow-hidden rounded-sm bg-slate-900">
+                        <button
+                          type="button"
+                          aria-label={`Open ${option.label} from image set ${
+                            imageSetIndex + 1
+                          }`}
+                          onClick={() =>
+                            setActiveModal({
+                              imageSetId: imageSet.id,
+                              optionId: option.id,
+                            })
                           }
-                          src={option.url}
-                          unoptimized
-                          width={320}
-                        />
-                      </span>
-                      <span className="text-slate-400 text-xs">
+                          className="block h-full w-full focus:outline-none focus:ring-2 focus:ring-sky-300/25"
+                        >
+                          <Image
+                            alt={option.altText ?? option.label}
+                            className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                            height={240}
+                            loading={
+                              imageSetIndex === 0 && optionIndex === 0
+                                ? "eager"
+                                : "lazy"
+                            }
+                            src={option.url}
+                            unoptimized
+                            width={320}
+                          />
+                        </button>
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 shadow-lg shadow-black/30 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                          <button
+                            type="button"
+                            aria-label={`Expand ${option.label} from image set ${
+                              imageSetIndex + 1
+                            }`}
+                            onClick={() =>
+                              setActiveModal({
+                                imageSetId: imageSet.id,
+                                optionId: option.id,
+                              })
+                            }
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-slate-950/80 text-slate-100 transition hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-300/25"
+                          >
+                            <Expand aria-hidden className="h-3.5 w-3.5" />
+                          </button>
+                          <a
+                            aria-label={`Download ${option.label} from image set ${
+                              imageSetIndex + 1
+                            }`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-slate-950/80 text-slate-100 transition hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-300/25"
+                            download={buildImageDownloadName(imageSet, option)}
+                            href={option.url}
+                          >
+                            <Download aria-hidden className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
+                      </div>
+                      <span className="px-0.5 text-slate-400 text-xs">
                         {option.label}
                       </span>
-                    </button>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <button
-                        type="button"
-                        aria-label={`Expand ${option.label} from image set ${
-                          imageSetIndex + 1
-                        }`}
-                        onClick={() =>
-                          setActiveModal({
-                            imageSetId: imageSet.id,
-                            optionId: option.id,
-                          })
-                        }
-                        className="inline-flex h-8 items-center justify-center rounded-sm border border-slate-800 text-slate-400 transition hover:border-slate-700 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-                      >
-                        <Expand aria-hidden className="h-3.5 w-3.5" />
-                      </button>
-                      <a
-                        aria-label={`Download ${option.label} from image set ${
-                          imageSetIndex + 1
-                        }`}
-                        className="inline-flex h-8 items-center justify-center rounded-sm border border-slate-800 text-slate-400 transition hover:border-slate-700 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-                        download={buildImageDownloadName(imageSet, option)}
-                        href={option.url}
-                      >
-                        <Download aria-hidden className="h-3.5 w-3.5" />
-                      </a>
                     </div>
-                  </article>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </article>
         ))}
         {failedImageSets.map((failedImageSet, failedIndex) => (
@@ -516,14 +594,24 @@ function ImageOptionModal({
             {imageSet.selectedImageOriginal.title ?? imageSet.id}
           </p>
         </div>
-        <button
-          type="button"
-          aria-label="Close image option"
-          onClick={onClose}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-slate-800 text-slate-400 transition hover:border-slate-700 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-        >
-          <X aria-hidden className="h-4 w-4" />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <a
+            aria-label="Download current image option"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-slate-100 text-slate-950 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-sky-300/20"
+            download={buildImageDownloadName(imageSet, option)}
+            href={option.url}
+          >
+            <Download aria-hidden className="h-4 w-4" />
+          </a>
+          <button
+            type="button"
+            aria-label="Close image option"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
+          >
+            <X aria-hidden className="h-4 w-4" />
+          </button>
+        </div>
       </div>
       <div className="grid min-h-0 place-items-center py-4">
         <Image
@@ -535,31 +623,22 @@ function ImageOptionModal({
           width={1200}
         />
       </div>
-      <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2">
+      <div className="grid grid-cols-2 items-center gap-2">
         <button
           type="button"
           aria-label="Previous image option"
           disabled={!canGoPrevious}
           onClick={() => onOptionIndexChange(optionIndex - 1)}
-          className="inline-flex h-10 items-center justify-center rounded-sm border border-slate-800 text-slate-300 transition hover:border-slate-700 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
+          className="inline-flex h-10 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
         >
           <ChevronLeft aria-hidden className="h-4 w-4" />
         </button>
-        <a
-          aria-label="Download current image option"
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-sm border border-slate-700 bg-slate-100 px-3 font-medium text-slate-950 text-sm transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-          download={buildImageDownloadName(imageSet, option)}
-          href={option.url}
-        >
-          <Download aria-hidden className="h-4 w-4" />
-          Download
-        </a>
         <button
           type="button"
           aria-label="Next image option"
           disabled={!canGoNext}
           onClick={() => onOptionIndexChange(optionIndex + 1)}
-          className="inline-flex h-10 items-center justify-center rounded-sm border border-slate-800 text-slate-300 transition hover:border-slate-700 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
+          className="inline-flex h-10 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
         >
           <ChevronRight aria-hidden className="h-4 w-4" />
         </button>
@@ -573,9 +652,7 @@ function getImageTitle(image: NewsLinkedImage, index: number) {
 }
 
 function formatImageModelProvenance(provenance: ImageModelProvenance) {
-  return provenance.provider
-    ? `${provenance.provider} / ${provenance.model}`
-    : provenance.model;
+  return provenance.model;
 }
 
 function buildImageDownloadName(
