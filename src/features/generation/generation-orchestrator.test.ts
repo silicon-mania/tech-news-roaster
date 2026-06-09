@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
-import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
+import { parseJokeContextSnapshot } from "./generation-events";
 import {
   createLocalGenerationProviders,
   type GenerationProvider,
@@ -13,7 +13,7 @@ describe("generation orchestrator", () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const run = await orchestrateThreeProviderGeneration(
       {
-        replySignals: buildReplySignals(tweetContext),
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
         sourceTweet: tweetContext.sourceTweet,
         sourceTweetUrl: tweetContext.sourceTweet.url,
         usersDirection: "",
@@ -74,7 +74,7 @@ describe("generation orchestrator", () => {
 
     try {
       const run = await orchestrateThreeProviderGeneration({
-        replySignals: buildReplySignals(tweetContext),
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
         sourceTweet: tweetContext.sourceTweet,
         sourceTweetUrl: tweetContext.sourceTweet.url,
         usersDirection: "",
@@ -105,7 +105,7 @@ describe("generation orchestrator", () => {
     }
   });
 
-  test("passes replies and User's Direction into text provider prompts", async () => {
+  test("passes the joke context snapshot and User's Direction into text provider prompts", async () => {
     const previousEnv = {
       AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
       VERCEL_AI_GATEWAY_API_KEY: process.env.VERCEL_AI_GATEWAY_API_KEY,
@@ -126,8 +126,8 @@ describe("generation orchestrator", () => {
             message: {
               content: JSON.stringify({
                 angle: "directional read",
-                text: "Quote-tweet draft: direction and replies shape the read.",
-                visibleRationale: "Uses replies and the user's direction for the text draft.",
+                text: "Quote-tweet draft: direction and context shape the read.",
+                visibleRationale: "Uses the snapshot and the user's direction for the text draft.",
               }),
             },
           },
@@ -142,7 +142,7 @@ describe("generation orchestrator", () => {
 
     try {
       await orchestrateThreeProviderGeneration({
-        replySignals: buildReplySignals(tweetContext),
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
         sourceTweet: tweetContext.sourceTweet,
         sourceTweetUrl: tweetContext.sourceTweet.url,
         usersDirection: "Make the platform-risk angle sharper.",
@@ -152,16 +152,16 @@ describe("generation orchestrator", () => {
       expect(gatewayPrompts).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            replySignals: expect.arrayContaining([
-              expect.objectContaining({
-                id: expect.any(String),
-                text: expect.any(String),
-              }),
-            ]),
+            jokeContextSnapshot: expect.objectContaining({
+              sourceTweetId: tweetContext.sourceTweet.id,
+            }),
             usersDirection: "Make the platform-risk angle sharper.",
           }),
         ]),
       );
+      expect(
+        gatewayPrompts.every((prompt) => !("replySignals" in (prompt as Record<string, unknown>))),
+      ).toBe(true);
     } finally {
       restoreEnvValue("AI_GATEWAY_API_KEY", previousEnv.AI_GATEWAY_API_KEY);
       restoreEnvValue("VERCEL_AI_GATEWAY_API_KEY", previousEnv.VERCEL_AI_GATEWAY_API_KEY);
@@ -199,7 +199,7 @@ describe("generation orchestrator", () => {
 
     try {
       const run = await orchestrateThreeProviderGeneration({
-        replySignals: buildReplySignals(tweetContext),
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
         sourceTweet: tweetContext.sourceTweet,
         sourceTweetUrl: tweetContext.sourceTweet.url,
         usersDirection: "",
@@ -222,7 +222,7 @@ describe("generation orchestrator", () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const run = await orchestrateThreeProviderGeneration(
       {
-        replySignals: buildReplySignals(tweetContext),
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
         sourceTweet: tweetContext.sourceTweet,
         sourceTweetUrl: tweetContext.sourceTweet.url,
         usersDirection: "Make the platform-risk angle sharper.",
@@ -241,7 +241,7 @@ describe("generation orchestrator", () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const run = await orchestrateThreeProviderGeneration(
       {
-        replySignals: buildReplySignals(tweetContext),
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
         sourceTweet: tweetContext.sourceTweet,
         sourceTweetUrl: tweetContext.sourceTweet.url,
         usersDirection: "",
@@ -302,4 +302,45 @@ function restoreEnvValue(name: string, value: string | undefined) {
   }
 
   process.env[name] = value;
+}
+
+function buildJokeContextSnapshot(sourceTweetId: string) {
+  return parseJokeContextSnapshot({
+    capturedAt: "2026-06-06T10:10:00.000Z",
+    sourceTweetId,
+    structuredContext: {
+      authorContext: {
+        authoritySignals: ["Operator is close to the launch."],
+        displayName: "Silicon Mania",
+        handle: "@siliconmania",
+        relationshipToTopic: "Announcing its own workflow launch.",
+      },
+      forbiddenAssumptions: ["Do not invent missing product details."],
+      jokeContextQuality: {
+        status: "usable" as const,
+        summary: "Enough context exists to support grounded jokes.",
+      },
+      jokeableTensions: ["The launch promises simplicity while increasing platform dependence."],
+      replySignals: {
+        representativeSnippets: [
+          {
+            authorHandle: "@replyguy",
+            replyId: `${sourceTweetId}-reply-1`,
+            signal: "Audience reads this as workflow lock-in.",
+            snippet: "Cool, now every workflow starts looking locked in.",
+          },
+        ],
+        summary: "Replies focus on workflow lock-in and operator pressure.",
+      },
+      sourceTweetClaim: "The source tweet claims the launch removes the final workflow bottleneck.",
+      sourceTweetMediaExtraction: {
+        mediaKinds: ["image"],
+        notableDetails: ["Launch card shows one-click workflow automation."],
+        summary: "The media shows a workflow automation launch card.",
+        visibleText: ["One-click workflow automation"],
+      },
+      supportingFacts: ["The rollout is framed as an operator productivity update."],
+      unknowns: ["No pricing detail is confirmed in the source tweet."],
+    },
+  });
 }

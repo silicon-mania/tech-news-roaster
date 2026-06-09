@@ -154,10 +154,9 @@ async function buildGenerationRunEvents({
     replySignals,
     sourceTweet: tweetContext.sourceTweet,
     startedAt: newsLinkedImageDiscoveryStartedAt,
-    usersDirection,
   });
   const completedRunPromise = orchestrate({
-    replySignals,
+    jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
     sourceTweet: tweetContext.sourceTweet,
     sourceTweetUrl,
     usersDirection,
@@ -198,24 +197,40 @@ async function buildGenerationRunEvents({
 
   if (generationResult.status === "rejected") {
     console.error("Generation orchestration failed.", generationResult.error);
+    const terminalGenerationResultStates = buildTerminalGenerationResultStates({
+      jokeContextResult,
+      newsLinkedImageDiscoveryResult,
+      textGeneration: {
+        failedAt: new Date().toISOString(),
+        message: "Text generation could not produce a usable draft set.",
+        startedAt: textGenerationStartedAt,
+        status: "failed",
+      },
+      visualJokeGeneration: {
+        status: "not-started",
+      },
+    });
 
     events.push(
       buildGenerationRunStateEvent({
-        generationResultStates: buildTerminalGenerationResultStates({
-          jokeContextResult,
-          newsLinkedImageDiscoveryResult,
-          textGeneration: {
-            startedAt: textGenerationStartedAt,
-            status: "running",
-          },
-          visualJokeGeneration: {
-            status: "not-started",
-          },
-        }),
+        generationResultStates: terminalGenerationResultStates,
         label: runLabel,
         sourceTweet: tweetContext.sourceTweet,
       }),
     );
+
+    if (newsLinkedImageDiscoveryResult.status === "available") {
+      const completedRun = parseCompletedGenerationRunPayload({
+        drafts: [],
+        generationResultStates: terminalGenerationResultStates,
+        jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
+        label: runLabel,
+        newsLinkedImages: newsLinkedImageDiscoveryResult.newsLinkedImages,
+        sourceTweet: tweetContext.sourceTweet,
+      });
+
+      return [...events, ...buildCompletedGenerationRunEvents({ run: completedRun })];
+    }
 
     return [
       ...events,
@@ -303,7 +318,6 @@ async function retrieveNewsLinkedImageDiscovery({
   replySignals,
   sourceTweet,
   startedAt,
-  usersDirection,
 }: Parameters<NewsLinkedImageDiscoveryService>[0] & {
   discover: NewsLinkedImageDiscoveryService;
   startedAt?: string;
@@ -327,7 +341,6 @@ async function retrieveNewsLinkedImageDiscovery({
     const discoveryResult = await discover({
       replySignals,
       sourceTweet,
-      usersDirection,
     });
 
     if (discoveryResult.newsLinkedImages.length === 0) {

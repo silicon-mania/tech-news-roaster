@@ -222,7 +222,6 @@ describe("generation stream route", () => {
     expect(discoveryRequests).toEqual([
       {
         sourceTweet: tweetContext.sourceTweet,
-        usersDirection: "Make the launch risk clear.",
         replySignals: expect.arrayContaining([
           expect.objectContaining({
             id: "1357-reply-1",
@@ -233,11 +232,7 @@ describe("generation stream route", () => {
     ]);
     expect(orchestrationRequests).toEqual([
       {
-        replySignals: expect.arrayContaining([
-          expect.objectContaining({
-            id: "1357-reply-1",
-          }),
-        ]),
+        jokeContextSnapshot: buildJokeContextSnapshot("1357"),
         sourceTweet: tweetContext.sourceTweet,
         sourceTweetUrl: "https://x.com/siliconmania/status/1357",
         usersDirection: "Make the launch risk clear.",
@@ -460,6 +455,55 @@ describe("generation stream route", () => {
     });
   });
 
+  test("preserves joke context and discovered images when text orchestration throws", async () => {
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/5150");
+    const response = await streamGenerationRun(
+      new Request(
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F5150&usersDirection=Make+the+platform+dependency+clear.",
+      ),
+      {
+        discoverNewsLinkedImages: async () => buildNewsLinkedImageDiscoveryResult(),
+        gatherJokeContext: async () => buildJokeContextSnapshot("5150"),
+        orchestrateGeneration: async () => {
+          throw new Error("Provider fanout failed.");
+        },
+        retrieveTweetContext: async () => tweetContext,
+      },
+    );
+    const events = await readStreamEvents(response);
+
+    expect(events.map((event) => event.type)).toEqual([
+      "run-state",
+      "run-state",
+      "run-state",
+      "enrichment-completed",
+      "run-state",
+      "completed",
+    ]);
+    expect(events.at(-1)).toMatchObject({
+      type: "completed",
+      run: {
+        drafts: [],
+        jokeContextSnapshot: {
+          sourceTweetId: "5150",
+        },
+        newsLinkedImages: buildNewsLinkedImageDiscoveryResult().newsLinkedImages,
+        generationResultStates: {
+          contextGathering: {
+            status: "completed",
+          },
+          newsLinkedImageDiscovery: {
+            status: "completed",
+          },
+          textGeneration: {
+            message: "Text generation could not produce a usable draft set.",
+            status: "failed",
+          },
+        },
+      },
+    });
+  });
+
   test("passes news-linked image discovery through for thin sources", async () => {
     const discoveryRequests: unknown[] = [];
     const thinContext = buildThinTweetContext();
@@ -480,7 +524,6 @@ describe("generation stream route", () => {
     expect(discoveryRequests).toEqual([
       {
         sourceTweet: thinContext.sourceTweet,
-        usersDirection: "",
         replySignals: [],
       },
     ]);

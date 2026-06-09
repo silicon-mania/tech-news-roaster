@@ -7,7 +7,7 @@ import type { NewsLinkedImage } from "@/features/generation/generation-events";
 
 export type NewsLinkedImageDiscoveryInput = Pick<
   OutsideXEnrichmentInput,
-  "replySignals" | "sourceTweet" | "usersDirection"
+  "replySignals" | "sourceTweet"
 >;
 
 export type NewsLinkedImageDiscoveryResult = {
@@ -30,7 +30,10 @@ export async function discoverNewsLinkedImages(
   input: NewsLinkedImageDiscoveryInput,
 ): Promise<NewsLinkedImageDiscoveryResult> {
   try {
-    const enrichmentContext = await retrieveOutsideXEnrichment(input);
+    const enrichmentContext = await retrieveOutsideXEnrichment({
+      ...input,
+      usersDirection: "",
+    });
 
     return {
       discoveredAt: enrichmentContext.retrievedAt,

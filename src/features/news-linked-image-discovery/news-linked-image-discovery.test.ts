@@ -12,8 +12,11 @@ describe("news-linked image discovery", () => {
     const previousApiKey = process.env.OUTSIDE_X_ENRICHMENT_API_KEY;
     const previousFetch = globalThis.fetch;
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
-    const fetcher = vi.fn(async () =>
-      Response.json({
+    const requestBodies: unknown[] = [];
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestBodies.push(JSON.parse(String(init?.body)));
+
+      return Response.json({
         retrievedAt: "2026-06-05T10:20:00.000Z",
         items: [
           {
@@ -38,8 +41,8 @@ describe("news-linked image discovery", () => {
             title: "Second product image",
           },
         ],
-      }),
-    );
+      });
+    });
 
     process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT = "https://outside-x.example/enrich";
     process.env.OUTSIDE_X_ENRICHMENT_API_KEY = "outside-x-secret";
@@ -49,7 +52,6 @@ describe("news-linked image discovery", () => {
       const discoveryResult = await discoverNewsLinkedImages({
         sourceTweet: tweetContext.sourceTweet,
         replySignals: buildReplySignals(tweetContext),
-        usersDirection: "Make it spiky.",
       });
 
       expect(discoveryResult).toEqual({
@@ -72,6 +74,13 @@ describe("news-linked image discovery", () => {
         ],
       });
       expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(requestBodies).toEqual([
+        {
+          sourceTweet: tweetContext.sourceTweet,
+          replySignals: buildReplySignals(tweetContext),
+          usersDirection: "",
+        },
+      ]);
     } finally {
       restoreEnvValue("OUTSIDE_X_ENRICHMENT_ENDPOINT", previousEndpoint);
       restoreEnvValue("OUTSIDE_X_ENRICHMENT_API_KEY", previousApiKey);
@@ -90,7 +99,6 @@ describe("news-linked image discovery", () => {
         discoverNewsLinkedImages({
           sourceTweet: tweetContext.sourceTweet,
           replySignals: buildReplySignals(tweetContext),
-          usersDirection: "",
         }),
       ).rejects.toBeInstanceOf(NewsLinkedImageDiscoveryUnavailableError);
     } finally {

@@ -1,11 +1,11 @@
 import { z } from "zod";
-import type { ReplySignal } from "@/features/enrichment/outside-x-enrichment";
 import type { RetrievedSourceTweet } from "@/features/tweet-retrieval/tweet-retrieval";
 import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
 import {
   type CompletedGenerationRunPayload,
   type GenerationProviderId,
   generationProviderIds,
+  type JokeContextSnapshot,
   parseCompletedGenerationRunPayload,
   type QuoteTweetDraft,
 } from "./generation-events";
@@ -27,14 +27,14 @@ export type GenerationProvider = {
 export type ProviderGenerationInput = {
   angle: string;
   fallbackForProvider?: GenerationProviderId;
-  replySignals: ReplySignal[];
+  jokeContextSnapshot: JokeContextSnapshot;
   sourceTweet: RetrievedSourceTweet;
   targetProviderId: GenerationProviderId;
   usersDirection: string;
 };
 
 export type GenerationOrchestratorInput = {
-  replySignals: ReplySignal[];
+  jokeContextSnapshot: JokeContextSnapshot;
   sourceTweet: RetrievedSourceTweet;
   sourceTweetUrl: string;
   usersDirection: string;
@@ -346,7 +346,7 @@ function buildDraft({
 function buildProviderPrompt({
   angle,
   fallbackForProvider,
-  replySignals,
+  jokeContextSnapshot,
   sourceTweet,
   usersDirection,
 }: ProviderGenerationInput) {
@@ -359,15 +359,16 @@ function buildProviderPrompt({
     },
     constraints: [
       "Use the source tweet as the visible anchor.",
-      "Use reply signals only as supporting context.",
+      "Use the Joke Context Snapshot only as hidden editorial grounding.",
       "Explore the requested angle distinctly from the other providers.",
       "Respect the user's direction when it is relevant.",
+      "Keep the user's direction scoped to text generation only.",
       "Do not mention provider orchestration or fallback in the draft text.",
     ],
     angle,
     fallbackForProvider,
+    jokeContextSnapshot,
     sourceTweet,
-    replySignals,
     usersDirection,
   });
 }
@@ -375,46 +376,54 @@ function buildProviderPrompt({
 function buildLocalDraftText({
   angle,
   fallbackForProvider,
+  jokeContextSnapshot,
   usersDirection,
 }: ProviderGenerationInput) {
   const normalizedDirection = usersDirection.trim();
   const directionClause = normalizedDirection
     ? ` Read it through this constraint: ${truncateAtWordBoundary(normalizedDirection, 72)}.`
     : "";
+  const tensionClause = ` Ground it in this tension: ${truncateAtWordBoundary(
+    jokeContextSnapshot.structuredContext.jokeableTensions[0] ??
+      jokeContextSnapshot.structuredContext.sourceTweetClaim,
+    72,
+  )}.`;
   const fallbackPrefix = fallbackForProvider
     ? "Quote-tweet draft: Fallback read:"
     : "Quote-tweet draft:";
 
   if (angle === "incentive shift") {
-    return `${fallbackPrefix} useful tech news usually hides in incentives. This is not just a launch; it is pressure on every rival to explain why their workflow still feels bolted on.${directionClause}`;
+    return `${fallbackPrefix} useful tech news usually hides in incentives. This is not just a launch; it is pressure on every rival to explain why their workflow still feels bolted on.${tensionClause}${directionClause}`;
   }
 
   if (angle === "distribution bet") {
-    return `${fallbackPrefix} this looks like a feature, but it behaves like a distribution bet. Watch access, pricing, and who suddenly has to defend yesterday's roadmap.${directionClause}`;
+    return `${fallbackPrefix} this looks like a feature, but it behaves like a distribution bet. Watch access, pricing, and who suddenly has to defend yesterday's roadmap.${tensionClause}${directionClause}`;
   }
 
   if (angle === "operator pressure") {
-    return `${fallbackPrefix} the product story is simple: less ceremony, more leverage. If operators adopt it, incumbents do not lose attention; they lose default status.${directionClause}`;
+    return `${fallbackPrefix} the product story is simple: less ceremony, more leverage. If operators adopt it, incumbents do not lose attention; they lose default status.${tensionClause}${directionClause}`;
   }
 
   if (angle === "market timing") {
-    return `${fallbackPrefix} timing is the signal. The winners are not just shipping faster; they are making every slower roadmap look like a tax on users.${directionClause}`;
+    return `${fallbackPrefix} timing is the signal. The winners are not just shipping faster; they are making every slower roadmap look like a tax on users.${tensionClause}${directionClause}`;
   }
 
   if (angle === "roadmap pressure") {
-    return `${fallbackPrefix} the move turns a product update into a roadmap audit. The question is not who has the feature, but who can make it feel inevitable.${directionClause}`;
+    return `${fallbackPrefix} the move turns a product update into a roadmap audit. The question is not who has the feature, but who can make it feel inevitable.${tensionClause}${directionClause}`;
   }
 
-  return `${fallbackPrefix} the real story is not the launch, it is leverage. One product surface just became a pressure test for everyone trying to own the next interface.${directionClause}`;
+  return `${fallbackPrefix} the real story is not the launch, it is leverage. One product surface just became a pressure test for everyone trying to own the next interface.${tensionClause}${directionClause}`;
 }
 
 function buildLocalVisibleRationale({
   angle,
-  replySignals,
+  jokeContextSnapshot,
   usersDirection,
 }: ProviderGenerationInput) {
   const contextParts = [
-    replySignals.length > 0 ? "reply signals" : null,
+    jokeContextSnapshot.structuredContext.replySignals.representativeSnippets.length > 0
+      ? "snapshot grounding"
+      : null,
     usersDirection.trim() ? "Direction covered" : null,
   ].filter(Boolean);
   const contextClause = contextParts.length > 0 ? ` Uses ${contextParts.join(", ")}.` : "";
