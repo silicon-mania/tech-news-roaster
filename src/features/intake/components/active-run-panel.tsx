@@ -290,37 +290,41 @@ function ImageGenerationArea({
         ) : null}
         {canSelectSourceImages ? (
           <>
-            <ul className="grid grid-cols-2 gap-2">
-              {images.map((image, index) => (
-                <li key={image.id}>
-                  <button
-                    type="button"
-                    aria-label={`Select ${getImageTitle(image, index)} for image generation`}
-                    aria-pressed={selectedImageIds.includes(image.id)}
-                    onClick={() => toggleImageSelection(image.id)}
-                    className={`grid h-full w-full gap-1.5 rounded-sm border p-1.5 text-left transition focus:outline-none focus:ring-2 focus:ring-sky-300/20 ${
-                      selectedImageIds.includes(image.id)
-                        ? "border-sky-300/60 bg-sky-300/10"
-                        : "border-slate-800 bg-slate-950/20 hover:border-slate-700"
-                    }`}>
-                    <span className="aspect-[4/3] overflow-hidden rounded-sm border border-slate-800 bg-slate-950">
-                      <Image
-                        alt={image.altText ?? image.title ?? `News-linked image ${index + 1}`}
-                        className="h-full w-full object-cover"
-                        height={240}
-                        loading={index === 0 ? "eager" : "lazy"}
-                        src={getDisplayImageUrl(image, index)}
-                        unoptimized
-                        width={320}
-                      />
-                    </span>
-                    <span className="line-clamp-2 text-slate-500 text-xs leading-5">
-                      {getImageTitle(image, index)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="overflow-x-auto pb-2">
+              <ul className="flex w-max gap-2 pr-2">
+                {images.map((image, index) => (
+                  <li
+                    className="w-[min(70vw,18rem)] shrink-0 lg:w-[min(18vw,300px)]"
+                    key={image.id}>
+                    <button
+                      type="button"
+                      aria-label={`Select ${getImageTitle(image, index)} for image generation`}
+                      aria-pressed={selectedImageIds.includes(image.id)}
+                      onClick={() => toggleImageSelection(image.id)}
+                      className={`group grid w-full gap-1.5 rounded-sm text-left transition focus:outline-none focus:ring-2 focus:ring-sky-300/25 ${
+                        selectedImageIds.includes(image.id)
+                          ? "bg-sky-300/10 ring-1 ring-sky-300/60"
+                          : "bg-slate-950/40"
+                      }`}>
+                      <span className="relative aspect-[4/3] overflow-hidden rounded-sm bg-slate-900">
+                        <Image
+                          alt={image.altText ?? image.title ?? `News-linked image ${index + 1}`}
+                          className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                          height={240}
+                          loading={index === 0 ? "eager" : "lazy"}
+                          src={getDisplayImageUrl(image, index)}
+                          unoptimized
+                          width={320}
+                        />
+                      </span>
+                      <span className="px-0.5 text-slate-400 text-xs">
+                        {getImageTitle(image, index)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
             {selectionMessage ? (
               <p className="text-slate-400 text-xs" role="status">
                 {selectionMessage}

@@ -165,7 +165,7 @@ const imageGenerationAttemptStateSchema = z.discriminatedUnion("status", [
   }),
 ]);
 
-const sourceTweetMediaExtractionSchema = z
+export const sourceTweetMediaExtractionSchema = z
   .object({
     summary: nonEmptyTrimmedStringSchema,
     visibleText: z.array(nonEmptyTrimmedStringSchema),
@@ -615,6 +615,7 @@ export type GenerationResultStates = z.infer<typeof generationResultStatesSchema
 export type QuoteTweetDraft = z.infer<typeof quoteTweetDraftSchema>;
 export type SelectedImageOriginal = z.infer<typeof selectedImageOriginalSchema>;
 export type SelectedVisualJoke = z.infer<typeof selectedVisualJokeSchema> | null;
+export type SourceTweetMediaExtraction = z.infer<typeof sourceTweetMediaExtractionSchema>;
 export type StructuredJokeContext = z.infer<typeof structuredJokeContextSchema>;
 export type VisualJoke = z.infer<typeof visualJokeSchema>;
 export type VisualJokeMetadata = z.infer<typeof visualJokeMetadataSchema>;
@@ -657,6 +658,10 @@ export function parseStructuredJokeContext(input: unknown): StructuredJokeContex
 
 export function parseJokeContextSnapshot(snapshot: unknown): JokeContextSnapshot {
   return jokeContextSnapshotSchema.parse(snapshot);
+}
+
+export function parseSourceTweetMediaExtraction(input: unknown): SourceTweetMediaExtraction {
+  return sourceTweetMediaExtractionSchema.parse(input);
 }
 
 export function parseVisualJokeDirectionText(direction: unknown): string {
