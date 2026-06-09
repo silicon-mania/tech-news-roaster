@@ -133,6 +133,17 @@ function buildRequestPayload() {
         likes: 240,
         views: 19_000,
       },
+      mediaReferences: [
+        {
+          id: "source-tweet-media-1",
+          kind: "image",
+          url: "https://cdn.example.com/source-tweet-image.jpg",
+          previewUrl: "https://cdn.example.com/source-tweet-image-preview.jpg",
+          altText: "Source tweet image.",
+          width: 1280,
+          height: 720,
+        },
+      ],
     },
     replySignals: [
       {

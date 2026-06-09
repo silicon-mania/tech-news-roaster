@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { retrievedSourceTweetSchema } from "@/features/tweet-retrieval/tweet-retrieval";
+import {
+  retrievedSourceTweetSchema,
+  sourceTweetMediaKindSchema,
+} from "@/features/tweet-retrieval/tweet-retrieval";
 
 export const draftTarget = 3;
 
@@ -161,8 +164,6 @@ const imageGenerationAttemptStateSchema = z.discriminatedUnion("status", [
     status: z.literal("failed"),
   }),
 ]);
-
-const sourceTweetMediaKindSchema = z.enum(["image", "video", "gif", "unknown"]);
 
 const sourceTweetMediaExtractionSchema = z
   .object({

@@ -22,10 +22,24 @@ const tweetMetricsSchema = z
   })
   .strict();
 
-export const retrievedSourceTweetSchema = z
+export const sourceTweetMediaKindSchema = z.enum(["image", "video", "gif", "unknown"]);
+
+const sourceTweetMediaReferenceSchema = z
   .object({
     id: z.string().min(1),
+    kind: sourceTweetMediaKindSchema,
     url: z.string().url(),
+    previewUrl: z.string().url().optional(),
+    altText: z.string().min(1).optional(),
+    width: z.number().int().positive().optional(),
+    height: z.number().int().positive().optional(),
+    durationMs: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
+const retrievedTweetBaseSchema = z
+  .object({
+    id: z.string().min(1),
     text: z.string().min(1),
     createdAt: z.string().datetime(),
     author: tweetAuthorSchema,
@@ -33,7 +47,14 @@ export const retrievedSourceTweetSchema = z
   })
   .strict();
 
-const retrievedReplySchema = retrievedSourceTweetSchema.omit({ url: true });
+export const retrievedSourceTweetSchema = retrievedTweetBaseSchema
+  .extend({
+    url: z.string().url(),
+    mediaReferences: z.array(sourceTweetMediaReferenceSchema),
+  })
+  .strict();
+
+const retrievedReplySchema = retrievedTweetBaseSchema;
 
 const retrievedTweetContextSchema = z
   .object({
@@ -55,6 +76,7 @@ type TwitterApiIoOptions = {
 };
 
 type RawRecord = Record<string, unknown>;
+type SourceTweetMediaReference = z.infer<typeof sourceTweetMediaReferenceSchema>;
 
 export class TweetRetrievalError extends Error {
   readonly userMessage = retrievalFailureMessage;
@@ -130,6 +152,36 @@ export function buildFixtureTweetContext(sourceTweetUrl: string): RetrievedTweet
         likes: 240,
         views: 19_000,
       },
+      mediaReferences: [
+        {
+          id: "fixture-media-1",
+          kind: "image",
+          url: "https://cdn.example.com/agent-workspace-hero.jpg",
+          previewUrl: "https://cdn.example.com/agent-workspace-hero-preview.jpg",
+          altText: "Product launch hero image.",
+          width: 1600,
+          height: 900,
+        },
+        {
+          id: "fixture-media-2",
+          kind: "image",
+          url: "https://cdn.example.com/agent-workspace-screenshot.jpg",
+          previewUrl: "https://cdn.example.com/agent-workspace-screenshot-preview.jpg",
+          altText: "Screenshot of the new agent workspace UI.",
+          width: 1440,
+          height: 900,
+        },
+        {
+          id: "fixture-media-3",
+          kind: "video",
+          url: "https://cdn.example.com/agent-workspace-demo.mp4",
+          previewUrl: "https://cdn.example.com/agent-workspace-demo-poster.jpg",
+          altText: "Short demo video of the agent workspace.",
+          width: 1920,
+          height: 1080,
+          durationMs: 24_000,
+        },
+      ],
     },
     replies: [
       {
@@ -269,6 +321,7 @@ function normalizeSourceTweet(record: RawRecord, fallbackUrl: string): Retrieved
   return retrievedSourceTweetSchema.parse({
     ...normalizeTweetBase(record),
     url: readString(record, ["url", "tweetUrl"]) ?? fallbackUrl,
+    mediaReferences: normalizeSourceTweetMediaReferences(record),
   });
 }
 
@@ -295,6 +348,182 @@ function normalizeTweetBase(record: RawRecord) {
       views: readNumber(record, ["viewCount", "views", "impression_count"]),
     },
   };
+}
+
+function normalizeSourceTweetMediaReferences(record: RawRecord): SourceTweetMediaReference[] {
+  const seenMediaReferenceIds = new Set<string>();
+  const normalizedReferences: SourceTweetMediaReference[] = [];
+
+  extractMediaRecords(record).forEach((mediaRecord, index) => {
+    const normalizedReference = normalizeSourceTweetMediaReference(mediaRecord, index);
+
+    if (!normalizedReference || seenMediaReferenceIds.has(normalizedReference.id)) {
+      return;
+    }
+
+    seenMediaReferenceIds.add(normalizedReference.id);
+    normalizedReferences.push(normalizedReference);
+  });
+
+  return normalizedReferences;
+}
+
+function normalizeSourceTweetMediaReference(
+  record: RawRecord,
+  index: number,
+): SourceTweetMediaReference | null {
+  const kind = normalizeSourceTweetMediaKind(readString(record, ["type", "mediaType", "kind"]));
+  const directUrl =
+    (kind === "video" || kind === "gif" ? selectMediaVariantUrl(record) : null) ??
+    readString(record, [
+      "media_url_https",
+      "mediaUrlHttps",
+      "media_url",
+      "mediaUrl",
+      "downloadUrl",
+      "download_url",
+      "assetUrl",
+      "asset_url",
+      "imageUrl",
+      "image_url",
+      "videoUrl",
+      "video_url",
+      "url",
+    ]);
+
+  if (!directUrl) {
+    return null;
+  }
+
+  const previewUrl =
+    readString(record, [
+      "previewUrl",
+      "preview_url",
+      "previewImageUrl",
+      "preview_image_url",
+      "thumbnailUrl",
+      "thumbnail_url",
+      "posterUrl",
+      "poster_url",
+    ]) ?? readString(record, ["media_url_https", "mediaUrlHttps", "media_url", "mediaUrl"]);
+  const originalInfo = readRecord(record, ["original_info", "originalInfo"]);
+  const candidateReference = {
+    id:
+      readString(record, ["id", "mediaKey", "media_key", "key", "uuid"]) ??
+      `source-tweet-media-${index + 1}`,
+    kind,
+    url: directUrl,
+    previewUrl: previewUrl && previewUrl !== directUrl ? previewUrl : undefined,
+    altText:
+      readString(record, ["altText", "alt_text", "ext_alt_text", "alternativeText"]) ?? undefined,
+    width:
+      readOptionalPositiveInt(record, ["width", "originalWidth"]) ??
+      readOptionalPositiveInt(originalInfo, ["width", "w"]),
+    height:
+      readOptionalPositiveInt(record, ["height", "originalHeight"]) ??
+      readOptionalPositiveInt(originalInfo, ["height", "h"]),
+    durationMs:
+      readOptionalPositiveInt(record, ["durationMs", "duration_ms", "durationMillis"]) ??
+      readOptionalPositiveInt(readRecord(record, ["video_info", "videoInfo"]), [
+        "durationMillis",
+        "duration_ms",
+        "duration_millis",
+      ]),
+  };
+  const normalizedReference = sourceTweetMediaReferenceSchema.safeParse(candidateReference);
+
+  return normalizedReference.success ? normalizedReference.data : null;
+}
+
+function normalizeSourceTweetMediaKind(value: string | null): SourceTweetMediaReference["kind"] {
+  if (!value) {
+    return "unknown";
+  }
+
+  switch (value.toLowerCase()) {
+    case "photo":
+    case "image":
+      return "image";
+    case "animated_gif":
+    case "gif":
+      return "gif";
+    case "video":
+      return "video";
+    default:
+      return "unknown";
+  }
+}
+
+function extractMediaRecords(record: RawRecord): RawRecord[] {
+  const mediaCollections = [
+    record.media,
+    record.medias,
+    record.mediaDetails,
+    readRecord(record, ["extendedEntities", "extended_entities"]),
+    readRecord(record, ["entities", "attachments"]),
+  ];
+  const collectedMediaRecords: RawRecord[] = [];
+
+  for (const mediaCollection of mediaCollections) {
+    collectedMediaRecords.push(...extractMediaRecordsFromValue(mediaCollection));
+  }
+
+  return collectedMediaRecords;
+}
+
+function extractMediaRecordsFromValue(value: unknown): RawRecord[] {
+  if (Array.isArray(value)) {
+    return value.filter(isRecord);
+  }
+
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  for (const key of ["media", "medias", "mediaDetails", "items", "photos", "videos"]) {
+    const nestedValue = value[key];
+
+    if (Array.isArray(nestedValue)) {
+      return nestedValue.filter(isRecord);
+    }
+  }
+
+  for (const key of ["media", "photo", "image", "video", "gif"]) {
+    const nestedValue = value[key];
+
+    if (isRecord(nestedValue)) {
+      return [nestedValue];
+    }
+  }
+
+  return [];
+}
+
+function selectMediaVariantUrl(record: RawRecord) {
+  const videoInfo = readRecord(record, ["video_info", "videoInfo"]);
+  const variants = [videoInfo?.variants, record.variants].find(Array.isArray);
+
+  if (!variants) {
+    return null;
+  }
+
+  const variantRecords = variants.filter(isRecord).sort((left, right) => {
+    const leftBitrate = readOptionalPositiveInt(left, ["bitrate"]) ?? 0;
+    const rightBitrate = readOptionalPositiveInt(right, ["bitrate"]) ?? 0;
+
+    return rightBitrate - leftBitrate;
+  });
+
+  for (const variant of variantRecords) {
+    const contentType = readString(variant, ["content_type", "contentType"]);
+    const url = readString(variant, ["url", "src"]);
+
+    if (url && (!contentType || contentType.toLowerCase().includes("mp4"))) {
+      return url;
+    }
+  }
+
+  return null;
 }
 
 function readRecord(record: RawRecord, keys: string[]) {
@@ -347,6 +576,30 @@ function readNumber(record: RawRecord, keys: string[]) {
   }
 
   return 0;
+}
+
+function readOptionalPositiveInt(record: unknown, keys: string[]) {
+  if (!isRecord(record)) {
+    return undefined;
+  }
+
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return Math.floor(value);
+    }
+
+    if (typeof value === "string") {
+      const parsedValue = Number.parseInt(value, 10);
+
+      if (Number.isFinite(parsedValue) && parsedValue > 0) {
+        return parsedValue;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 function normalizeCreatedAt(value: string | null) {

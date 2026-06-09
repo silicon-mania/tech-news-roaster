@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { retrievedSourceTweetSchema } from "@/features/tweet-retrieval/tweet-retrieval";
 
 export const dynamic = "force-dynamic";
 
@@ -6,29 +7,7 @@ const serperBaseUrl = "https://google.serper.dev";
 const defaultEnrichmentModel = "google/gemini-3-flash";
 const defaultAiGatewayBaseUrl = "https://ai-gateway.vercel.sh/v1";
 
-const sourceTweetSchema = z
-  .object({
-    id: z.string().min(1),
-    url: z.string().url(),
-    text: z.string().min(1),
-    createdAt: z.string().datetime(),
-    author: z
-      .object({
-        username: z.string().min(1),
-        displayName: z.string().min(1),
-      })
-      .strict(),
-    metrics: z
-      .object({
-        replies: z.number().int().nonnegative(),
-        reposts: z.number().int().nonnegative(),
-        quotes: z.number().int().nonnegative(),
-        likes: z.number().int().nonnegative(),
-        views: z.number().int().nonnegative(),
-      })
-      .strict(),
-  })
-  .strict();
+const sourceTweetSchema = retrievedSourceTweetSchema;
 
 const replySignalSchema = z
   .object({
