@@ -40,6 +40,10 @@ _Avoid_: Tweet, tweet URL, original post
 The visible representation of the source tweet shown alongside the drafts so the user can judge the quote-tweet candidates against the original post.
 _Avoid_: Embed, metadata block, raw URL
 
+**Source Tweet Media Reference**:
+A neutral pointer to media attached to the Source Tweet, with only retrieval-oriented metadata such as kind, URL, preview URL, alt text, dimensions, or duration. It is not media bytes and does not interpret what the media shows.
+_Avoid_: Media read, media extraction, image analysis
+
 **Tweet Retrieval Service**:
 The server-side integration layer that fetches the source tweet and its replies from an external retrieval provider without binding the product language to a specific API vendor.
 _Avoid_: X API client, scraper, provider SDK
@@ -59,6 +63,14 @@ _Avoid_: Multi-page flow, wizard, separate editor
 **Generation Progress**:
 The compact status surface that shows where context gathering, text generation, news-linked image discovery, visual joke generation, and image generation are in the run without becoming a research panel.
 _Avoid_: Research console, verbose timeline, hidden background work
+
+**Runtime Status**:
+The compact environment readiness surface that reports which Generation Run service boundaries are live, configured, local, unavailable, or degraded before the operator starts work.
+_Avoid_: Debug dashboard, raw environment dump, hidden health check
+
+**Runtime Readiness Gate**:
+The v3 rule that a Generation Run cannot start unless every required service boundary for the full v3 workflow is configured and ready. It favors full live workflow confidence over partial startup.
+_Avoid_: Partial readiness, best-effort run, optional service startup
 
 **Creative Result Area**:
 A distinct workspace area for one kind of generated output, such as candidate drafts, image options, or visual jokes, with its own progress and failure state.
@@ -183,6 +195,14 @@ _Avoid_: Outside-X Enrichment, basic tweet retrieval, web search
 **Source Tweet Media Extraction**:
 The first-class part of joke context gathering that reads images, screenshots, charts, product UI, video frames, and visible text inside the source tweet's media so the creative result areas can understand news carried by the media itself.
 _Avoid_: Image discovery, thumbnail preview, attachment metadata
+
+**Image Read**:
+A structured interpretation of a Source Tweet image that captures what is visible, OCR-like text, and relevant screenshot, chart, or product UI cues.
+_Avoid_: Image caption, image search result, thumbnail metadata
+
+**Video Read**:
+A structured interpretation of a Source Tweet video that may combine spoken transcript, sampled-frame summaries, visible text, and stated limitations. It is not merely an audio transcript.
+_Avoid_: Transcript, video download, full video analysis
 
 **Author Context**:
 The structured reading of who posted the source tweet, why their identity matters to the news, and whether they are acting as a founder, employee, journalist, researcher, company account, investor, or commentator, without becoming a full profile dossier.
