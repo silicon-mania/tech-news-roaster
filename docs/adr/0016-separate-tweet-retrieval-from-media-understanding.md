@@ -1,0 +1,3 @@
+# Separate Tweet Retrieval From Media Understanding
+
+In v3, the tweet retrieval service remains responsible for fetching the source tweet, replies, author data, metrics, and media references from one retrieval provider, while a separate media understanding service interprets the source tweet media for joke context gathering. We chose this boundary because media understanding requires different capabilities such as OCR, image reading, product UI interpretation, chart reading, and video frame analysis, and separating it lets the product improve media interpretation without turning tweet retrieval into a broad analysis service.

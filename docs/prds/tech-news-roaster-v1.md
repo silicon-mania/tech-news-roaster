@@ -1,3 +1,5 @@
+> Status: Historical. This v1 PRD is preserved as product history; [Tech News Roaster v3](./tech-news-roaster-v3.md) is the current product direction.
+
 ## Problem Statement
 
 An internal social media operator wants a fast way to turn a fresh tech-news source tweet into a strong quote-tweet draft without manually reading the whole discourse, synthesizing the news context, or prompting several AI tools by hand. Existing tools tend to produce generic summaries, too much fake customization, or weak humor, which makes them poor at producing a fresh, witty, memorable angle that feels worth posting.

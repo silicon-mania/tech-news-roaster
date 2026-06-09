@@ -1,3 +1,5 @@
+> Status: Historical. This v2 PRD is preserved as implementation history; [Tech News Roaster v3](./tech-news-roaster-v3.md) supersedes it as the current product direction, especially the old outside-X enrichment boundary.
+
 ## Problem Statement
 
 An internal social media operator already has a fast v1 workflow for turning a tech-news source tweet into three strong quote-tweet drafts. That workflow stops at text, which means the operator still has to leave the product to find a relevant image, decide whether it is good enough, prompt an image model by hand, and keep track of the final visual assets separately from the drafts.
