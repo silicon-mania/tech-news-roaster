@@ -3,12 +3,20 @@ import type { RetrievedSourceTweet } from "@/features/tweet-retrieval/tweet-retr
 import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
 import {
   type CompletedGenerationRunPayload,
+  draftTarget,
   type GenerationProviderId,
+  type GenerationResultStates,
   generationProviderIds,
   type JokeContextSnapshot,
   parseCompletedGenerationRunPayload,
   type QuoteTweetDraft,
 } from "./generation-events";
+import {
+  defaultVisualJokeDirection,
+  generateVisualJokeSet,
+  type VisualJokeCandidateProvider,
+  type VisualJokeServiceResult,
+} from "./visual-joke-service";
 
 type GenerationProviderOutput = {
   angle: string;
@@ -45,7 +53,9 @@ export type GenerationOrchestrator = (
 ) => Promise<CompletedGenerationRunPayload>;
 
 type GenerationOrchestratorOptions = {
+  now?: () => Date;
   providers?: GenerationProvider[];
+  visualJokeProvider?: VisualJokeCandidateProvider;
 };
 
 const gatewayResponseSchema = z.object({
@@ -94,7 +104,69 @@ export async function orchestrateThreeProviderGeneration(
   input: GenerationOrchestratorInput,
   options: GenerationOrchestratorOptions = {},
 ): Promise<CompletedGenerationRunPayload> {
-  const providers = options.providers ?? createDefaultGenerationProviders();
+  const now = options.now ?? (() => new Date());
+  const textGenerationStartedAt = now().toISOString();
+  const visualJokeGenerationStartedAt = now().toISOString();
+  const textGenerationPromise = generateDrafts(input, options.providers);
+  const visualJokePromise = generateVisualJokeSet(
+    {
+      jokeContextSnapshot: input.jokeContextSnapshot,
+      visualJokeDirection: defaultVisualJokeDirection,
+    },
+    {
+      now,
+      provider: options.visualJokeProvider,
+    },
+  );
+  const [textGenerationResult, visualJokeResult] = await Promise.all([
+    textGenerationPromise
+      .then((result) => ({ result, status: "fulfilled" as const }))
+      .catch((error: unknown) => ({ error, status: "rejected" as const })),
+    visualJokePromise
+      .then((result) => ({ result, status: "fulfilled" as const }))
+      .catch((error: unknown) => ({ error, status: "rejected" as const })),
+  ]);
+
+  if (textGenerationResult.status === "rejected" && visualJokeResult.status === "rejected") {
+    throw textGenerationResult.error;
+  }
+
+  const label = buildRunLabel(input.sourceTweetUrl);
+  const drafts =
+    textGenerationResult.status === "fulfilled" ? textGenerationResult.result.drafts : [];
+  const fallbackDisclosure =
+    textGenerationResult.status === "fulfilled"
+      ? textGenerationResult.result.fallbackDisclosure
+      : undefined;
+  const generationResultStates = buildCreativeResultStates({
+    input,
+    now,
+    textGenerationResult,
+    textGenerationStartedAt,
+    visualJokeGenerationStartedAt,
+    visualJokeResult,
+  });
+
+  return parseCompletedGenerationRunPayload({
+    drafts,
+    fallbackDisclosure,
+    generationResultStates,
+    label,
+    sourceTweet: input.sourceTweet,
+    visualJokeDirection:
+      visualJokeResult.status === "fulfilled"
+        ? visualJokeResult.result.visualJokeDirection
+        : defaultVisualJokeDirection,
+    visualJokeSet:
+      visualJokeResult.status === "fulfilled" ? visualJokeResult.result.visualJokeSet : undefined,
+  });
+}
+
+async function generateDrafts(
+  input: GenerationOrchestratorInput,
+  providerOptions?: GenerationProvider[],
+) {
+  const providers = providerOptions ?? createDefaultGenerationProviders();
   const providerById = new Map(providers.map((provider) => [provider.id, provider]));
   const providerResults = await Promise.allSettled(
     generationProviderIds.map(async (providerId) => {
@@ -182,12 +254,87 @@ export async function orchestrateThreeProviderGeneration(
           .join(", ")}; duplicate model provenance is shown on affected drafts.`
       : undefined;
 
-  return parseCompletedGenerationRunPayload({
-    fallbackDisclosure,
-    label: buildRunLabel(input.sourceTweetUrl),
-    sourceTweet: input.sourceTweet,
+  return {
     drafts,
-  });
+    fallbackDisclosure,
+  };
+}
+
+function buildCreativeResultStates({
+  input,
+  now,
+  textGenerationResult,
+  textGenerationStartedAt,
+  visualJokeGenerationStartedAt,
+  visualJokeResult,
+}: {
+  input: GenerationOrchestratorInput;
+  now: () => Date;
+  textGenerationResult:
+    | {
+        result: Awaited<ReturnType<typeof generateDrafts>>;
+        status: "fulfilled";
+      }
+    | {
+        error: unknown;
+        status: "rejected";
+      };
+  textGenerationStartedAt: string;
+  visualJokeGenerationStartedAt: string;
+  visualJokeResult:
+    | {
+        result: VisualJokeServiceResult;
+        status: "fulfilled";
+      }
+    | {
+        error: unknown;
+        status: "rejected";
+      };
+}): GenerationResultStates {
+  const completedAt = now().toISOString();
+
+  return {
+    contextGathering: {
+      completedAt,
+      jokeContextSnapshot: input.jokeContextSnapshot,
+      startedAt: completedAt,
+      status: "completed",
+    },
+    imageGeneration: {
+      status: "not-started",
+    },
+    newsLinkedImageDiscovery: {
+      status: "not-started",
+    },
+    textGeneration:
+      textGenerationResult.status === "fulfilled"
+        ? {
+            completedAt,
+            draftCount: draftTarget,
+            startedAt: textGenerationStartedAt,
+            status: "completed",
+          }
+        : {
+            failedAt: completedAt,
+            message: "Text generation could not produce a usable draft set.",
+            startedAt: textGenerationStartedAt,
+            status: "failed",
+          },
+    visualJokeGeneration:
+      visualJokeResult.status === "fulfilled"
+        ? {
+            completedAt,
+            startedAt: visualJokeGenerationStartedAt,
+            status: "completed",
+            visualJokeSet: visualJokeResult.result.visualJokeSet,
+          }
+        : {
+            failedAt: completedAt,
+            message: "Visual joke generation could not produce a publishable joke set.",
+            startedAt: visualJokeGenerationStartedAt,
+            status: "failed",
+          },
+  };
 }
 
 function createDefaultGenerationProviders(): GenerationProvider[] {

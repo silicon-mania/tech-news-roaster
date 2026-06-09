@@ -9,6 +9,7 @@ const defaultAiGatewayModels: Record<GenerationProviderId, string> = {
 };
 
 const defaultAiGatewayImageModel = "google/gemini-2.5-flash-image";
+const defaultAiGatewayVisualJokeModel = "openai/gpt-5.4-mini";
 
 export function readConfiguredAiGatewayModels(env: AiGatewayModelEnvironment) {
   return {
@@ -20,6 +21,10 @@ export function readConfiguredAiGatewayModels(env: AiGatewayModelEnvironment) {
 
 export function readConfiguredAiGatewayImageModel(env: AiGatewayModelEnvironment) {
   return readEnvValue(env.AI_GATEWAY_IMAGE_MODEL) ?? defaultAiGatewayImageModel;
+}
+
+export function readConfiguredAiGatewayVisualJokeModel(env: AiGatewayModelEnvironment) {
+  return readEnvValue(env.AI_GATEWAY_VISUAL_JOKE_MODEL) ?? defaultAiGatewayVisualJokeModel;
 }
 
 export function readEnvValue(value: string | undefined) {

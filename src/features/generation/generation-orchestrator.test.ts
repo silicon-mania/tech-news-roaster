@@ -7,6 +7,7 @@ import {
   orchestrateThreeProviderGeneration,
   type ProviderGenerationInput,
 } from "./generation-orchestrator";
+import { defaultVisualJokeDirection } from "./visual-joke-service";
 
 describe("generation orchestrator", () => {
   test("returns exactly one draft from each connected provider", async () => {
@@ -20,6 +21,7 @@ describe("generation orchestrator", () => {
       },
       {
         providers: [buildProvider("openai"), buildProvider("anthropic"), buildProvider("google")],
+        visualJokeProvider: buildVisualJokeProvider(),
       },
     );
 
@@ -30,6 +32,10 @@ describe("generation orchestrator", () => {
         expect.objectContaining({ provider: "anthropic" }),
         expect.objectContaining({ provider: "google" }),
       ],
+      visualJokeDirection: defaultVisualJokeDirection,
+      visualJokeSet: {
+        jokes: expect.arrayContaining([expect.objectContaining({ recommended: true, rank: 1 })]),
+      },
     });
     expect(run.drafts).toHaveLength(3);
     expect(new Set(run.drafts.map((draft) => draft.angle)).size).toBe(3);
@@ -73,12 +79,17 @@ describe("generation orchestrator", () => {
     globalThis.fetch = fetcher;
 
     try {
-      const run = await orchestrateThreeProviderGeneration({
-        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
-        sourceTweet: tweetContext.sourceTweet,
-        sourceTweetUrl: tweetContext.sourceTweet.url,
-        usersDirection: "",
-      });
+      const run = await orchestrateThreeProviderGeneration(
+        {
+          jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
+          sourceTweet: tweetContext.sourceTweet,
+          sourceTweetUrl: tweetContext.sourceTweet.url,
+          usersDirection: "",
+        },
+        {
+          visualJokeProvider: buildVisualJokeProvider(),
+        },
+      );
 
       expect(run.drafts.map((draft) => draft.modelProvenance)).toEqual([
         "openai/launch",
@@ -141,12 +152,17 @@ describe("generation orchestrator", () => {
     globalThis.fetch = fetcher;
 
     try {
-      await orchestrateThreeProviderGeneration({
-        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
-        sourceTweet: tweetContext.sourceTweet,
-        sourceTweetUrl: tweetContext.sourceTweet.url,
-        usersDirection: "Make the platform-risk angle sharper.",
-      });
+      await orchestrateThreeProviderGeneration(
+        {
+          jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
+          sourceTweet: tweetContext.sourceTweet,
+          sourceTweetUrl: tweetContext.sourceTweet.url,
+          usersDirection: "Make the platform-risk angle sharper.",
+        },
+        {
+          visualJokeProvider: buildVisualJokeProvider(),
+        },
+      );
 
       expect(gatewayPrompts).toHaveLength(3);
       expect(gatewayPrompts).toEqual(
@@ -198,12 +214,17 @@ describe("generation orchestrator", () => {
     globalThis.fetch = fetcher;
 
     try {
-      const run = await orchestrateThreeProviderGeneration({
-        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
-        sourceTweet: tweetContext.sourceTweet,
-        sourceTweetUrl: tweetContext.sourceTweet.url,
-        usersDirection: "",
-      });
+      const run = await orchestrateThreeProviderGeneration(
+        {
+          jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
+          sourceTweet: tweetContext.sourceTweet,
+          sourceTweetUrl: tweetContext.sourceTweet.url,
+          usersDirection: "",
+        },
+        {
+          visualJokeProvider: buildVisualJokeProvider(),
+        },
+      );
 
       expect(run.drafts).toHaveLength(3);
       expect(run.drafts.every((draft) => draft.text.length <= 280)).toBe(true);
@@ -227,7 +248,10 @@ describe("generation orchestrator", () => {
         sourceTweetUrl: tweetContext.sourceTweet.url,
         usersDirection: "Make the platform-risk angle sharper.",
       },
-      { providers: createLocalGenerationProviders() },
+      {
+        providers: createLocalGenerationProviders(),
+        visualJokeProvider: buildVisualJokeProvider(),
+      },
     );
 
     expect(run.drafts.every((draft) => draft.text.length <= 280)).toBe(true);
@@ -252,6 +276,7 @@ describe("generation orchestrator", () => {
           buildProvider("anthropic", { shouldFail: true }),
           buildProvider("google"),
         ],
+        visualJokeProvider: buildVisualJokeProvider(),
       },
     );
 
@@ -263,6 +288,72 @@ describe("generation orchestrator", () => {
     });
     expect(run.fallbackDisclosure).toContain("Anthropic");
     expect(run.drafts.filter((draft) => draft.provider === "openai")).toHaveLength(2);
+  });
+
+  test("keeps the run successful when text generation fails but visual jokes succeed", async () => {
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
+    const run = await orchestrateThreeProviderGeneration(
+      {
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
+        sourceTweet: tweetContext.sourceTweet,
+        sourceTweetUrl: tweetContext.sourceTweet.url,
+        usersDirection: "",
+      },
+      {
+        providers: [
+          buildProvider("openai", { shouldFail: true }),
+          buildProvider("anthropic", { shouldFail: true }),
+          buildProvider("google", { shouldFail: true }),
+        ],
+        visualJokeProvider: buildVisualJokeProvider(),
+      },
+    );
+
+    expect(run.drafts).toEqual([]);
+    expect(run.generationResultStates).toMatchObject({
+      textGeneration: {
+        message: "Text generation could not produce a usable draft set.",
+        status: "failed",
+      },
+      visualJokeGeneration: {
+        status: "completed",
+      },
+    });
+    expect(run.visualJokeSet?.jokes).toHaveLength(8);
+  });
+
+  test("keeps the run successful when visual joke generation fails but text succeeds", async () => {
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
+    const run = await orchestrateThreeProviderGeneration(
+      {
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
+        sourceTweet: tweetContext.sourceTweet,
+        sourceTweetUrl: tweetContext.sourceTweet.url,
+        usersDirection: "",
+      },
+      {
+        providers: [buildProvider("openai"), buildProvider("anthropic"), buildProvider("google")],
+        visualJokeProvider: {
+          model: "test-model",
+          provider: "test",
+          async generateCandidates() {
+            throw new Error("Visual joke provider failed.");
+          },
+        },
+      },
+    );
+
+    expect(run.drafts).toHaveLength(3);
+    expect(run.generationResultStates).toMatchObject({
+      textGeneration: {
+        status: "completed",
+      },
+      visualJokeGeneration: {
+        message: "Visual joke generation could not produce a publishable joke set.",
+        status: "failed",
+      },
+    });
+    expect(run.visualJokeSet).toBeUndefined();
   });
 });
 
@@ -302,6 +393,37 @@ function restoreEnvValue(name: string, value: string | undefined) {
   }
 
   process.env[name] = value;
+}
+
+function buildVisualJokeProvider() {
+  return {
+    model: "test-visual-joke-model",
+    provider: "test" as const,
+    async generateCandidates() {
+      return [
+        buildVisualJokeCandidate("OpenAI Ships The Pricing Shortcut", "truthful misdirection"),
+        buildVisualJokeCandidate("Workflow Lock-In With Better Lighting", "dark tech satire"),
+        buildVisualJokeCandidate("Roadmap As A Service", "tech-native metaphor"),
+        buildVisualJokeCandidate("OpenAI Premium Coordination Cloud", "fake product naming"),
+        buildVisualJokeCandidate("The Moat Is The Workflow", "deadpan diagnosis"),
+        buildVisualJokeCandidate("Every Launch Is A Billing Event", "incentive roast"),
+        buildVisualJokeCandidate("Breaking: The Dashboard Needs A Manager", "absurd headline"),
+        buildVisualJokeCandidate("OpenAI Wants Rent On Your Entire Workflow", "earned edge"),
+      ];
+    },
+  };
+}
+
+function buildVisualJokeCandidate(text: string, jokePattern: string) {
+  return {
+    metadata: {
+      jokePattern,
+      jokeTarget: "platform leverage",
+      referencedFact: "The rollout is framed as an operator productivity update.",
+      shortRationale: "Turns the feature reveal into a pricing-pressure punchline.",
+    },
+    text,
+  };
 }
 
 function buildJokeContextSnapshot(sourceTweetId: string) {
