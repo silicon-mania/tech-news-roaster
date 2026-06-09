@@ -96,7 +96,7 @@ API spend risk is accepted for the internal-company launch and controlled operat
 - Runtime status reports integration modes and readiness without exposing secrets.
 - Runtime status validates configured AI Gateway model IDs without making paid generation calls.
 - `.env.example` documents all required and optional go-live environment variables.
-- Vercel deployment documentation or checklist explains where to configure production environment variables.
+- Vercel deployment documentation or checklist explains where to configure production environment variables. See `docs/deployment-v3.md` for the v3 setup checklist.
 - Draft cards show the exact configured AI Gateway model ID used for each Draft.
 - One manual paid production smoke run completes with a real X source tweet URL.
 - Human editorial review confirms the live drafts are English quote-tweet candidates, meaningfully varied, compact, grounded in retrieved context, and usable enough to copy.

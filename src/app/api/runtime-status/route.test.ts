@@ -9,6 +9,7 @@ describe("runtime status route", () => {
       },
       fetcher: buildModelCatalogFetcher([
         "anthropic/claude-sonnet-4.6",
+        "google/gemini-2.5-flash-image",
         "google/gemini-3-flash",
         "openai/gpt-5.4-mini",
       ]),
@@ -52,13 +53,21 @@ describe("runtime status route", () => {
         AI_GATEWAY_ANTHROPIC_MODEL: "anthropic/launch",
         AI_GATEWAY_API_KEY: "gateway-secret",
         AI_GATEWAY_GOOGLE_MODEL: "google/launch",
+        AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
+        AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
         OUTSIDE_X_ENRICHMENT_API_KEY: "enrichment-secret",
         OUTSIDE_X_ENRICHMENT_ENDPOINT: "https://enrichment.example.test/enrich",
         TWITTERAPI_IO_API_KEY: "twitter-secret",
       },
       fetcher: buildModelCatalogFetcher(
-        ["anthropic/launch", "google/launch", "openai/launch"],
+        [
+          "anthropic/launch",
+          "google/image-launch",
+          "google/launch",
+          "openai/launch",
+          "openai/visual-jokes-launch",
+        ],
         fetchRequests,
       ),
     });
@@ -80,6 +89,10 @@ describe("runtime status route", () => {
         },
         aiGateway: {
           catalogReachable: true,
+          imageModel: {
+            available: true,
+            id: "google/image-launch",
+          },
           models: {
             anthropic: {
               available: true,
@@ -93,6 +106,10 @@ describe("runtime status route", () => {
               available: true,
               id: "openai/launch",
             },
+          },
+          visualJokeModel: {
+            available: true,
+            id: "openai/visual-jokes-launch",
           },
         },
       },
@@ -134,10 +151,18 @@ describe("runtime status route", () => {
         AI_GATEWAY_ANTHROPIC_MODEL: "anthropic/launch",
         AI_GATEWAY_API_KEY: "gateway-secret",
         AI_GATEWAY_GOOGLE_MODEL: "google/launch",
+        AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
+        AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
         TWITTERAPI_IO_API_KEY: "twitter-secret",
       },
-      fetcher: buildModelCatalogFetcher(["anthropic/launch", "google/launch", "openai/launch"]),
+      fetcher: buildModelCatalogFetcher([
+        "anthropic/launch",
+        "google/image-launch",
+        "google/launch",
+        "openai/launch",
+        "openai/visual-jokes-launch",
+      ]),
     });
 
     await expect(response.json()).resolves.toMatchObject({
@@ -157,10 +182,17 @@ describe("runtime status route", () => {
         AI_GATEWAY_ANTHROPIC_MODEL: "anthropic/missing",
         AI_GATEWAY_API_KEY: "gateway-secret",
         AI_GATEWAY_GOOGLE_MODEL: "google/launch",
+        AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
+        AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
         TWITTERAPI_IO_API_KEY: "twitter-secret",
       },
-      fetcher: buildModelCatalogFetcher(["google/launch", "openai/launch"]),
+      fetcher: buildModelCatalogFetcher([
+        "google/image-launch",
+        "google/launch",
+        "openai/launch",
+        "openai/visual-jokes-launch",
+      ]),
     });
 
     await expect(response.json()).resolves.toMatchObject({
@@ -200,6 +232,9 @@ describe("runtime status route", () => {
       generation: {
         aiGateway: {
           catalogReachable: false,
+          imageModel: {
+            available: false,
+          },
           models: {
             anthropic: {
               available: false,
@@ -210,6 +245,9 @@ describe("runtime status route", () => {
             openai: {
               available: false,
             },
+          },
+          visualJokeModel: {
+            available: false,
           },
         },
       },

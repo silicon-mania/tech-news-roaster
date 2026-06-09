@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
+  readConfiguredAiGatewayImageModel,
   readConfiguredAiGatewayModels,
+  readConfiguredAiGatewayVisualJokeModel,
   readEnvValue,
 } from "@/features/generation/ai-gateway-models";
 import {
@@ -30,7 +32,9 @@ export type RuntimeStatus = {
   generation: {
     aiGateway: {
       catalogReachable: boolean;
+      imageModel: AiGatewayModelStatus;
       models: Record<GenerationProviderId, AiGatewayModelStatus>;
+      visualJokeModel: AiGatewayModelStatus;
     };
     credentials: {
       aiGatewayApiKey: boolean;
@@ -74,6 +78,8 @@ export async function readRuntimeStatus({
   const aiGatewayApiKey =
     hasEnvValue(env.AI_GATEWAY_API_KEY) || hasEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
   const configuredModelIds = readConfiguredAiGatewayModels(env);
+  const configuredImageModelId = readConfiguredAiGatewayImageModel(env);
+  const configuredVisualJokeModelId = readConfiguredAiGatewayVisualJokeModel(env);
   const modelCatalog = await readAiGatewayModelCatalog({
     baseUrl: env.AI_GATEWAY_BASE_URL,
     fetcher,
@@ -89,6 +95,14 @@ export async function readRuntimeStatus({
   const allConfiguredModelsAvailable = generationProviderIds.every(
     (providerId) => models[providerId].available,
   );
+  const imageModel = {
+    available: modelCatalog.modelIds.has(configuredImageModelId),
+    id: configuredImageModelId,
+  };
+  const visualJokeModel = {
+    available: modelCatalog.modelIds.has(configuredVisualJokeModelId),
+    id: configuredVisualJokeModelId,
+  };
 
   return {
     enrichment: {
@@ -100,7 +114,9 @@ export async function readRuntimeStatus({
     generation: {
       aiGateway: {
         catalogReachable: modelCatalog.catalogReachable,
+        imageModel,
         models,
+        visualJokeModel,
       },
       credentials: {
         aiGatewayApiKey,
@@ -116,7 +132,9 @@ export async function readRuntimeStatus({
       aiGatewayApiKey &&
       outsideXEnrichmentEndpoint &&
       outsideXEnrichmentApiKey &&
-      allConfiguredModelsAvailable,
+      allConfiguredModelsAvailable &&
+      imageModel.available &&
+      visualJokeModel.available,
     retrieval: {
       credentials: {
         twitterApiIoApiKey,

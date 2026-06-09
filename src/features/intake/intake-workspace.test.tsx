@@ -277,6 +277,10 @@ function buildRuntimeStatus(overrides: Partial<RuntimeStatus> = {}): RuntimeStat
     generation: {
       aiGateway: {
         catalogReachable: false,
+        imageModel: {
+          available: false,
+          id: "google/gemini-2.5-flash-image",
+        },
         models: {
           anthropic: {
             available: false,
@@ -290,6 +294,10 @@ function buildRuntimeStatus(overrides: Partial<RuntimeStatus> = {}): RuntimeStat
             available: false,
             id: "openai/gpt-5.4-mini",
           },
+        },
+        visualJokeModel: {
+          available: false,
+          id: "openai/gpt-5.4-mini",
         },
       },
       credentials: {
@@ -974,10 +982,11 @@ describe("IntakeWorkspace", () => {
 
     const progress = screen.getByLabelText(/generation progress/i);
 
-    expect(progress).toHaveTextContent("Joke Context Gathering");
+    expect(progress).toHaveTextContent("Context gathering");
     expect(progress).toHaveTextContent("Running");
-    expect(progress).toHaveTextContent("Text Generation");
-    expect(progress).toHaveTextContent("Not started");
+    expect(progress).toHaveTextContent("Draft creation");
+    expect(progress).toHaveTextContent("Queued");
+    expect(progress).toHaveTextContent("Image generation");
 
     act(() => {
       generationEventSources[0]?.emit(
@@ -1012,8 +1021,154 @@ describe("IntakeWorkspace", () => {
     });
 
     expect(progress).toHaveTextContent("Complete");
-    expect(progress).toHaveTextContent("News-Linked Image Discovery");
-    expect(progress).toHaveTextContent("Visual Joke Generation");
+    expect(progress).toHaveTextContent("Image discovery");
+    expect(progress).toHaveTextContent("Visual jokes");
+    expect(progress).toHaveTextContent("Queued");
+
+    act(() => {
+      generationEventSources[0]?.emit(
+        buildGenerationRunStateEvent({
+          generationResultStates: {
+            contextGathering: {
+              completedAt: "2026-06-06T10:10:00.000Z",
+              jokeContextSnapshot: buildJokeContextSnapshot("2468"),
+              startedAt: "2026-06-06T10:08:00.000Z",
+              status: "completed",
+            },
+            imageGeneration: {
+              status: "not-started",
+            },
+            newsLinkedImageDiscovery: {
+              completedAt: "2026-06-06T10:12:00.000Z",
+              newsLinkedImages: buildNewsLinkedImages(),
+              startedAt: "2026-06-06T10:10:02.000Z",
+              status: "completed",
+            },
+            textGeneration: {
+              startedAt: "2026-06-06T10:10:01.000Z",
+              status: "running",
+            },
+            visualJokeGeneration: {
+              startedAt: "2026-06-06T10:10:03.000Z",
+              status: "running",
+            },
+          },
+          label: "Drafts for 2468",
+          sourceTweet: tweetContext.sourceTweet,
+        }),
+      );
+    });
+
+    const readyForImageGenerationProgress = screen.getByLabelText(/generation progress/i);
+
+    expect(readyForImageGenerationProgress).toHaveTextContent("Not started");
+
+    act(() => {
+      generationEventSources[0]?.emit(
+        buildGenerationRunStateEvent({
+          generationResultStates: {
+            contextGathering: {
+              completedAt: "2026-06-06T10:10:00.000Z",
+              jokeContextSnapshot: buildJokeContextSnapshot("2468"),
+              startedAt: "2026-06-06T10:08:00.000Z",
+              status: "completed",
+            },
+            imageGeneration: {
+              status: "not-started",
+            },
+            newsLinkedImageDiscovery: {
+              failedAt: "2026-06-06T10:12:00.000Z",
+              message: "Image discovery failed.",
+              startedAt: "2026-06-06T10:10:02.000Z",
+              status: "failed",
+            },
+            textGeneration: {
+              startedAt: "2026-06-06T10:10:01.000Z",
+              status: "running",
+            },
+            visualJokeGeneration: {
+              startedAt: "2026-06-06T10:10:03.000Z",
+              status: "running",
+            },
+          },
+          label: "Drafts for 2468",
+          sourceTweet: tweetContext.sourceTweet,
+        }),
+      );
+    });
+
+    const imageDiscoveryFailedProgress = screen.getByLabelText(/generation progress/i);
+
+    expect(imageDiscoveryFailedProgress).toHaveTextContent("Failed");
+    expect(imageDiscoveryFailedProgress).toHaveTextContent("Unavailable");
+  });
+
+  test("renders the full v3 happy path as separated responsive creative result areas", async () => {
+    const user = userEvent.setup();
+    const generationEventSources: FakeGenerationEventSource[] = [];
+    const completedV3Run = buildCompletedV3Run({
+      imageGenerationState: {
+        status: "not-started",
+      },
+      phase: "waiting-for-image-selection",
+    });
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      generationEventSources,
+    });
+
+    if (!completedV3Run.sourceTweet) {
+      throw new Error("Expected completed v3 fixture to include a Source Tweet.");
+    }
+    const sourceTweet = completedV3Run.sourceTweet;
+
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
+    await user.click(generateButton);
+
+    act(() => {
+      for (const event of buildCompletedGenerationRunEvents({
+        run: {
+          drafts: completedV3Run.drafts,
+          generationResultStates: completedV3Run.generationResultStates,
+          imageGenerationState: completedV3Run.imageGenerationState,
+          jokeContextSnapshot: completedV3Run.jokeContextSnapshot,
+          label: completedV3Run.label,
+          newsLinkedImages: completedV3Run.newsLinkedImages,
+          phase: completedV3Run.phase,
+          selectedVisualJoke: completedV3Run.selectedVisualJoke,
+          sourceTweet,
+          visualJokeDirection: completedV3Run.visualJokeDirection,
+          visualJokeSet: completedV3Run.visualJokeSet,
+        },
+      })) {
+        generationEventSources[0]?.emit(event);
+      }
+    });
+
+    const responsiveWorkspace = screen.getByLabelText(/responsive creative workspace/i);
+    const draftStack = screen.getByRole("region", {
+      name: /completed draft stack/i,
+    });
+    const visualJokeArea = screen.getByRole("region", {
+      name: /visual joke creative result area/i,
+    });
+    const imageGenerationArea = screen.getByRole("complementary", {
+      name: /image generation area/i,
+    });
+
+    expect(responsiveWorkspace).toHaveClass("lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]");
+    expect(
+      draftStack.compareDocumentPosition(visualJokeArea) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      visualJokeArea.compareDocumentPosition(imageGenerationArea) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(draftStack).toHaveTextContent("Quote-tweet draft: first saved draft.");
+    expect(visualJokeArea).toHaveTextContent(
+      "A workflow map where every exit arrow points back to the login screen.",
+    );
+    expect(imageGenerationArea).toHaveTextContent("Launch visual");
+    expect(imageGenerationArea).toHaveTextContent("Waiting for image selection");
   });
 
   test("unlocks image selection from enrichment while text generation keeps streaming", async () => {
@@ -1519,6 +1674,79 @@ describe("IntakeWorkspace", () => {
     expect(screen.getByRole("dialog", { name: /visual joke failure details/i })).toHaveTextContent(
       "Visual joke generation hit a provider timeout.",
     );
+  });
+
+  test("keeps image discovery failure details behind a quiet image-work result area", async () => {
+    const user = userEvent.setup();
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          generationResultStates: {
+            contextGathering: {
+              completedAt: "2026-06-06T10:10:00.000Z",
+              jokeContextSnapshot: buildJokeContextSnapshot("1234567890"),
+              startedAt: "2026-06-06T10:08:00.000Z",
+              status: "completed",
+            },
+            imageGeneration: {
+              status: "not-started",
+            },
+            newsLinkedImageDiscovery: {
+              debugLog: ["Serper quota was exhausted before image results returned."],
+              failedAt: "2026-06-06T10:12:00.000Z",
+              message: "News-linked image discovery could not complete.",
+              startedAt: "2026-06-06T10:11:00.000Z",
+              status: "failed",
+            },
+            textGeneration: {
+              completedAt: "2026-06-06T10:13:00.000Z",
+              draftCount: 3,
+              startedAt: "2026-06-06T10:11:00.000Z",
+              status: "completed",
+            },
+            visualJokeGeneration: {
+              completedAt: "2026-06-06T10:15:00.000Z",
+              startedAt: "2026-06-06T10:11:00.000Z",
+              status: "completed",
+              visualJokeSet: buildVisualJokeSet(),
+            },
+          },
+          imageGenerationState: {
+            status: "not-started",
+          },
+          newsLinkedImages: undefined,
+          phase: undefined,
+          visualJokeSet: buildVisualJokeSet(),
+        }),
+      ],
+    });
+
+    const imageWorkArea = screen.getByRole("region", {
+      name: /image work creative result area/i,
+    });
+
+    expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /visual joke creative result area/i }),
+    ).toBeInTheDocument();
+    expect(imageWorkArea).toHaveTextContent("This result area could not be completed.");
+    expect(imageWorkArea).not.toHaveTextContent("Serper quota");
+    expect(imageWorkArea).not.toHaveTextContent("News-linked image discovery could not complete.");
+
+    await user.click(
+      within(imageWorkArea).getByRole("button", {
+        name: /open image discovery failure details/i,
+      }),
+    );
+
+    const detailsDialog = screen.getByRole("dialog", {
+      name: /image discovery failure details/i,
+    });
+
+    expect(detailsDialog).toHaveTextContent("News-linked image discovery could not complete.");
+    expect(detailsDialog).toHaveTextContent("Serper quota was exhausted");
   });
 
   test("renders image sets, failed image states, modal navigation, and image downloads", async () => {

@@ -54,11 +54,21 @@ export function ActiveRunPanel({
       activeRun.imageSets?.length ||
       activeRun.failedImageSets?.length,
   );
+  const imageDiscoveryFailure = getStageFailure(
+    activeRun.generationResultStates?.newsLinkedImageDiscovery,
+  );
   const imageGenerationArea = hasImageGenerationContent ? (
     <ImageGenerationArea
       parentRunId={activeRun.id}
       run={activeRun}
       onStartImageGeneration={onStartImageGeneration}
+    />
+  ) : imageDiscoveryFailure ? (
+    <CreativeFailureArea
+      ariaLabel="Image Work Creative Result Area"
+      detailsLabel="Image Discovery Failure Details"
+      heading="Image work"
+      failure={imageDiscoveryFailure}
     />
   ) : null;
   const visualJokeArea = activeRun.visualJokeSet ? (
@@ -148,11 +158,15 @@ function RunWorkspaceLayout({
   }
 
   return (
-    <div className="grid items-start gap-4">
+    <section
+      aria-label="Responsive creative workspace"
+      className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
       <div className="min-w-0">{children}</div>
-      {visualJokeArea}
-      {imageGenerationArea}
-    </div>
+      <div className="grid min-w-0 gap-4">
+        {visualJokeArea}
+        {imageGenerationArea}
+      </div>
+    </section>
   );
 }
 
@@ -381,12 +395,12 @@ function GenerationWaitingState({ run }: { run: GenerationRun }) {
         {progressStages.length > 0 ? (
           <ul
             aria-label="Generation progress"
-            className="grid w-full gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 text-left sm:grid-cols-2">
+            className="grid w-full gap-1.5 rounded-sm border border-white/10 bg-white/5 p-2 text-left sm:grid-cols-2 lg:grid-cols-5">
             {progressStages.map((stage) => (
               <li
                 key={stage.label}
-                className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-slate-950/50 px-3 py-2">
-                <span className="text-slate-200 text-sm">{stage.label}</span>
+                className="grid min-w-0 gap-1 rounded-sm border border-white/8 bg-slate-950/50 px-2.5 py-2">
+                <span className="truncate text-slate-200 text-xs">{stage.label}</span>
                 <span className={stage.className}>{stage.statusLabel}</span>
               </li>
             ))}
@@ -401,33 +415,48 @@ function buildGenerationProgressStages(generationResultStates: GenerationResultS
   if (!generationResultStates) {
     return [];
   }
+  const contextStatus = generationResultStates.contextGathering.status;
+  const imageDiscoveryStatus = generationResultStates.newsLinkedImageDiscovery.status;
 
   return [
     {
-      label: "Joke Context Gathering",
-      ...describeStageStatus(generationResultStates.contextGathering.status),
+      label: "Context gathering",
+      ...describeStageStatus(contextStatus),
     },
     {
-      label: "Text Generation",
-      ...describeStageStatus(generationResultStates.textGeneration.status),
+      label: "Draft creation",
+      ...describeStageStatus(generationResultStates.textGeneration.status, {
+        blocked: contextStatus === "failed",
+        queued: contextStatus === "not-started" || contextStatus === "running",
+      }),
     },
     {
-      label: "News-Linked Image Discovery",
-      ...describeStageStatus(generationResultStates.newsLinkedImageDiscovery.status),
+      label: "Image discovery",
+      ...describeStageStatus(imageDiscoveryStatus, {
+        blocked: contextStatus === "failed",
+        queued: contextStatus === "not-started" || contextStatus === "running",
+      }),
     },
     {
-      label: "Visual Joke Generation",
-      ...describeStageStatus(generationResultStates.visualJokeGeneration.status),
+      label: "Visual jokes",
+      ...describeStageStatus(generationResultStates.visualJokeGeneration.status, {
+        blocked: contextStatus === "failed",
+        queued: contextStatus === "not-started" || contextStatus === "running",
+      }),
     },
     {
-      label: "Image Generation",
-      ...describeStageStatus(generationResultStates.imageGeneration.status),
+      label: "Image generation",
+      ...describeStageStatus(generationResultStates.imageGeneration.status, {
+        blocked: contextStatus === "failed" || imageDiscoveryStatus === "failed",
+        queued: imageDiscoveryStatus === "not-started" || imageDiscoveryStatus === "running",
+      }),
     },
   ];
 }
 
 function describeStageStatus(
   status: "not-started" | "running" | "completed" | "failed" | "partially-failed",
+  options: { blocked?: boolean; queued?: boolean } = {},
 ) {
   if (status === "running") {
     return {
@@ -453,9 +482,25 @@ function describeStageStatus(
     };
   }
 
+  if (status === "not-started" && options.blocked) {
+    return {
+      className:
+        "inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-500 text-[0.68rem] uppercase tracking-[0.12em]",
+      statusLabel: "Unavailable",
+    };
+  }
+
+  if (status === "not-started" && options.queued) {
+    return {
+      className:
+        "inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-400 text-[0.68rem] uppercase tracking-[0.12em]",
+      statusLabel: "Queued",
+    };
+  }
+
   return {
     className:
-      "inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-1 text-slate-400 text-xs uppercase tracking-[0.14em]",
+      "inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-400 text-[0.68rem] uppercase tracking-[0.12em]",
     statusLabel: "Not started",
   };
 }
