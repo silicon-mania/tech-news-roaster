@@ -1,5 +1,6 @@
 .grilled/
 .vscode/settings.json
+.vscode
 
 node_modules/
 .next/
