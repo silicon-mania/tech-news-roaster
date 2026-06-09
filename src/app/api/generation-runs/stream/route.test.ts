@@ -29,6 +29,10 @@ describe("generation stream route", () => {
     const events = await readStreamEvents(response);
 
     expect(events.map((event) => event.type)).toEqual([
+      "run-state",
+      "run-state",
+      "run-state",
+      "run-state",
       "progress",
       "progress",
       "progress",
@@ -36,6 +40,32 @@ describe("generation stream route", () => {
     ]);
     expect(JSON.stringify(events)).not.toContain("picsum");
     expect(events[0]).toMatchObject({
+      type: "run-state",
+      label: "Drafts for 1234",
+      generationResultStates: {
+        contextGathering: {
+          status: "running",
+        },
+        textGeneration: {
+          status: "not-started",
+        },
+      },
+      sourceTweet: expect.objectContaining({
+        text: expect.stringContaining("agent workspace"),
+      }),
+    });
+    expect(events[1]).toMatchObject({
+      type: "run-state",
+      generationResultStates: {
+        contextGathering: {
+          jokeContextSnapshot: {
+            sourceTweetId: "1234",
+          },
+          status: "completed",
+        },
+      },
+    });
+    expect(events[4]).toMatchObject({
       type: "progress",
       label: "Drafts for 1234",
       draftCount: 1,
@@ -44,6 +74,21 @@ describe("generation stream route", () => {
       }),
     });
     expect(events[3]).toMatchObject({
+      type: "run-state",
+      generationResultStates: {
+        contextGathering: {
+          status: "completed",
+        },
+        newsLinkedImageDiscovery: {
+          message: expect.stringContaining("local development"),
+          status: "failed",
+        },
+        textGeneration: {
+          status: "completed",
+        },
+      },
+    });
+    expect(events[7]).toMatchObject({
       type: "completed",
       run: {
         label: "Drafts for 1234",
@@ -84,6 +129,8 @@ describe("generation stream route", () => {
     for (const event of events) {
       if (event.type === "completed") {
         expect(event.run).not.toHaveProperty("replies");
+      } else if (event.type === "run-state") {
+        expect(event).not.toHaveProperty("replies");
       } else if (event.type === "progress") {
         expect(event).not.toHaveProperty("replies");
       } else if (event.type === "enrichment-completed") {
@@ -197,9 +244,39 @@ describe("generation stream route", () => {
       },
     ]);
     expect(events[0]).toMatchObject({
+      type: "run-state",
+      generationResultStates: {
+        contextGathering: {
+          status: "running",
+        },
+      },
+    });
+    expect(events[2]).toMatchObject({
+      type: "run-state",
+      generationResultStates: {
+        newsLinkedImageDiscovery: {
+          status: "running",
+        },
+        textGeneration: {
+          status: "running",
+        },
+      },
+    });
+    expect(events[3]).toMatchObject({
       type: "enrichment-completed",
       sourceTweet: tweetContext.sourceTweet,
       newsLinkedImages: buildNewsLinkedImageDiscoveryResult().newsLinkedImages,
+    });
+    expect(events[4]).toMatchObject({
+      type: "run-state",
+      generationResultStates: {
+        newsLinkedImageDiscovery: {
+          status: "completed",
+        },
+        textGeneration: {
+          status: "completed",
+        },
+      },
     });
     expect(events.at(-1)).toMatchObject({
       type: "completed",
@@ -243,6 +320,10 @@ describe("generation stream route", () => {
 
     expect(orchestrateGeneration).toHaveBeenCalledTimes(1);
     expect(events.map((event) => event.type)).toEqual([
+      "run-state",
+      "run-state",
+      "run-state",
+      "run-state",
       "progress",
       "progress",
       "progress",
@@ -284,13 +365,98 @@ describe("generation stream route", () => {
         retrieveTweetContext: async () => tweetContext,
       },
     );
-    const [event] = await readStreamEvents(response);
+    const events = await readStreamEvents(response);
 
     expect(discoverNewsLinkedImages).not.toHaveBeenCalled();
     expect(orchestrateGeneration).not.toHaveBeenCalled();
-    expect(event).toEqual({
+    expect(events[0]).toMatchObject({
+      type: "run-state",
+      generationResultStates: {
+        contextGathering: {
+          status: "running",
+        },
+      },
+    });
+    expect(events[1]).toEqual({
       type: "failed",
       message: "Joke context gathering could not form usable context.",
+    });
+  });
+
+  test("keeps the run successful when text fails but visual jokes succeed", async () => {
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/4242");
+    const visualJokeSet = buildVisualJokeSet();
+    const response = await streamGenerationRun(
+      new Request(
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F4242",
+      ),
+      {
+        discoverNewsLinkedImages: async () => ({
+          discoveredAt: "2026-06-05T10:20:00.000Z",
+          newsLinkedImages: [],
+        }),
+        gatherJokeContext: async () => buildJokeContextSnapshot("4242"),
+        orchestrateGeneration: async () => ({
+          label: "Drafts for 4242",
+          sourceTweet: tweetContext.sourceTweet,
+          drafts: [],
+          generationResultStates: {
+            contextGathering: {
+              completedAt: "2026-06-06T10:10:00.000Z",
+              jokeContextSnapshot: buildJokeContextSnapshot("4242"),
+              startedAt: "2026-06-06T10:08:00.000Z",
+              status: "completed",
+            },
+            imageGeneration: {
+              status: "not-started",
+            },
+            newsLinkedImageDiscovery: {
+              failedAt: "2026-06-06T10:10:25.000Z",
+              message: "No qualifying news-linked images were found.",
+              startedAt: "2026-06-06T10:10:02.000Z",
+              status: "failed",
+            },
+            textGeneration: {
+              failedAt: "2026-06-06T10:10:30.000Z",
+              message: "Text generation could not produce a usable draft set.",
+              startedAt: "2026-06-06T10:10:01.000Z",
+              status: "failed",
+            },
+            visualJokeGeneration: {
+              completedAt: "2026-06-06T10:10:40.000Z",
+              startedAt: "2026-06-06T10:10:03.000Z",
+              status: "completed",
+              visualJokeSet,
+            },
+          },
+          visualJokeSet,
+        }),
+        retrieveTweetContext: async () => tweetContext,
+      },
+    );
+    const events = await readStreamEvents(response);
+
+    expect(events.some((event) => event.type === "progress")).toBe(false);
+    expect(events.at(-1)).toMatchObject({
+      type: "completed",
+      run: {
+        drafts: [],
+        generationResultStates: {
+          contextGathering: {
+            status: "completed",
+          },
+          textGeneration: {
+            message: "Text generation could not produce a usable draft set.",
+            status: "failed",
+          },
+          visualJokeGeneration: {
+            status: "completed",
+          },
+        },
+        visualJokeSet: {
+          jokes: expect.arrayContaining([expect.objectContaining({ recommended: true, rank: 1 })]),
+        },
+      },
     });
   });
 
@@ -367,12 +533,16 @@ describe("generation stream route", () => {
     const events = await readStreamEvents(response);
 
     expect(events.map((event) => event.type)).toEqual([
+      "run-state",
+      "run-state",
+      "run-state",
+      "run-state",
       "progress",
       "progress",
       "progress",
       "completed",
     ]);
-    expect(events[1]).toMatchObject({
+    expect(events[5]).toMatchObject({
       type: "progress",
       draft: {
         fallbackForProvider: "anthropic",
@@ -380,7 +550,7 @@ describe("generation stream route", () => {
         visibleRationale: "Fallback rationale.",
       },
     });
-    expect(events[3]).toMatchObject({
+    expect(events[7]).toMatchObject({
       type: "completed",
       run: {
         fallbackDisclosure: expect.stringContaining("Anthropic"),
@@ -521,5 +691,25 @@ function buildNewsLinkedImageDiscoveryResult() {
         title: "News-linked product image",
       },
     ],
+  };
+}
+
+function buildVisualJokeSet() {
+  return {
+    generatedAt: "2026-06-06T10:12:00.000Z",
+    id: "visual-joke-set-1",
+    jokes: Array.from({ length: 5 }, (_, index) => ({
+      id: `visual-joke-${index + 1}`,
+      metadata: {
+        jokePattern: "truthful misdirection",
+        jokeTarget: "platform pricing logic",
+        referencedFact: "The launch screenshot foregrounds premium workflow controls.",
+        shortRationale: "Turns the feature reveal into a pricing-pressure punchline.",
+      },
+      rank: index + 1,
+      recommended: index === 0,
+      text: `Visual joke ${index + 1}`,
+    })),
+    targetCount: 5,
   };
 }

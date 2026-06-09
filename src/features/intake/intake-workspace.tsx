@@ -84,7 +84,10 @@ export function IntakeWorkspace({
   );
   const generationEventSources = useRef<Map<string, GenerationEventSource>>(new Map());
   const enrichedRunState = useRef<
-    Map<string, Pick<GenerationRun, "imageGenerationState" | "newsLinkedImages">>
+    Map<
+      string,
+      Pick<GenerationRun, "generationResultStates" | "imageGenerationState" | "newsLinkedImages">
+    >
   >(new Map());
   const autosaveTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -228,6 +231,7 @@ export function IntakeWorkspace({
 
     setSourceTweetUrl(parsedSourceTweetUrl.url);
     const runId = createRunId(runs);
+    const contextGatheringStartedAt = new Date().toISOString();
     const runningRun: GenerationRun = {
       id: runId,
       label: genericRunningRunLabel,
@@ -238,6 +242,24 @@ export function IntakeWorkspace({
       draftCount: 0,
       draftTarget,
       drafts: [],
+      generationResultStates: {
+        contextGathering: {
+          startedAt: contextGatheringStartedAt,
+          status: "running",
+        },
+        imageGeneration: {
+          status: "not-started",
+        },
+        newsLinkedImageDiscovery: {
+          status: "not-started",
+        },
+        textGeneration: {
+          status: "not-started",
+        },
+        visualJokeGeneration: {
+          status: "not-started",
+        },
+      },
     };
 
     setRuns((currentRuns) => [runningRun, ...currentRuns]);
@@ -253,6 +275,43 @@ export function IntakeWorkspace({
 
     generationEventSources.current.set(runId, eventSource);
 
+    eventSource.addEventListener("run-state", (message) => {
+      const event = parseGenerationStreamEvent(JSON.parse((message as MessageEvent<string>).data));
+
+      if (event.type !== "run-state") {
+        return;
+      }
+
+      const newsLinkedImages =
+        extractNewsLinkedImagesFromGenerationResultStates(event.generationResultStates) ??
+        enrichedRunState.current.get(runId)?.newsLinkedImages;
+
+      enrichedRunState.current.set(runId, {
+        generationResultStates: event.generationResultStates,
+        imageGenerationState: {
+          status: "not-started",
+        },
+        newsLinkedImages,
+      });
+
+      setRuns((currentRuns) =>
+        currentRuns.map((run) => {
+          if (run.id !== runId) {
+            return run;
+          }
+
+          return {
+            ...run,
+            generationResultStates: event.generationResultStates,
+            label: run.label === genericRunningRunLabel ? event.label : run.label,
+            newsLinkedImages,
+            phase: deriveRunPhaseFromGenerationResultStates(event.generationResultStates),
+            sourceTweet: event.sourceTweet,
+          };
+        }),
+      );
+    });
+
     eventSource.addEventListener("enrichment-completed", (message) => {
       const event = parseGenerationStreamEvent(JSON.parse((message as MessageEvent<string>).data));
 
@@ -261,6 +320,7 @@ export function IntakeWorkspace({
       }
 
       enrichedRunState.current.set(runId, {
+        generationResultStates: enrichedRunState.current.get(runId)?.generationResultStates,
         imageGenerationState: {
           status: "not-started",
         },
@@ -275,6 +335,7 @@ export function IntakeWorkspace({
 
           return {
             ...run,
+            generationResultStates: run.generationResultStates,
             imageGenerationState: {
               status: "not-started",
             },
@@ -304,6 +365,7 @@ export function IntakeWorkspace({
             draftCount: event.draftCount,
             draftTarget: event.draftTarget,
             drafts: [...run.drafts, event.draft],
+            generationResultStates: run.generationResultStates,
             label: run.label === genericRunningRunLabel ? event.label : run.label,
             phase: "text-generation-running",
             sourceTweet: event.sourceTweet,
@@ -340,9 +402,11 @@ export function IntakeWorkspace({
         drafts: event.run.drafts,
         failedImageSets: event.run.failedImageSets,
         fallbackDisclosure: event.run.fallbackDisclosure,
+        generationResultStates: event.run.generationResultStates,
         imageGenerationState,
         imageModelProvenance: event.run.imageModelProvenance,
         imageSets: event.run.imageSets,
+        jokeContextSnapshot: event.run.jokeContextSnapshot,
         newsLinkedImages,
         phase:
           event.run.phase ??
@@ -350,10 +414,13 @@ export function IntakeWorkspace({
             ? "image-generation-running"
             : newsLinkedImages
               ? "waiting-for-image-selection"
-              : undefined),
+              : deriveRunPhaseFromGenerationResultStates(event.run.generationResultStates)),
         savedAt: new Date().toISOString(),
+        selectedVisualJoke: event.run.selectedVisualJoke,
         selectedImageOriginals: event.run.selectedImageOriginals,
         sourceTweet: event.run.sourceTweet,
+        visualJokeDirection: event.run.visualJokeDirection,
+        visualJokeSet: event.run.visualJokeSet,
       };
 
       setRuns((currentRuns) =>
@@ -794,6 +861,42 @@ function mergeRuns(currentRuns: GenerationRun[], savedRuns: GenerationRun[]) {
   const unseenSavedRuns = savedRuns.filter((run) => !currentRunIds.has(run.id));
 
   return [...currentRuns, ...unseenSavedRuns];
+}
+
+function extractNewsLinkedImagesFromGenerationResultStates(
+  generationResultStates: GenerationRun["generationResultStates"],
+) {
+  if (generationResultStates?.newsLinkedImageDiscovery.status !== "completed") {
+    return undefined;
+  }
+
+  return generationResultStates.newsLinkedImageDiscovery.newsLinkedImages;
+}
+
+function deriveRunPhaseFromGenerationResultStates(
+  generationResultStates: GenerationRun["generationResultStates"],
+) {
+  if (!generationResultStates) {
+    return undefined;
+  }
+
+  if (generationResultStates.imageGeneration.status === "running") {
+    return "image-generation-running";
+  }
+
+  if (generationResultStates.contextGathering.status === "running") {
+    return "enrichment-running";
+  }
+
+  if (
+    generationResultStates.textGeneration.status === "running" ||
+    generationResultStates.newsLinkedImageDiscovery.status === "running" ||
+    generationResultStates.visualJokeGeneration.status === "running"
+  ) {
+    return "text-generation-running";
+  }
+
+  return undefined;
 }
 
 function upsertById<TItem extends { id: string }>(items: TItem[], nextItem: TItem) {

@@ -403,6 +403,15 @@ const generationResultStatesSchema = z
       return;
     }
 
+    if (states.newsLinkedImageDiscovery.status !== "not-started") {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "News-Linked Image Discovery cannot start before Joke Context Gathering completes.",
+        path: ["newsLinkedImageDiscovery"],
+      });
+    }
+
     if (states.textGeneration.status !== "not-started") {
       ctx.addIssue({
         code: "custom",
@@ -442,6 +451,82 @@ const quoteTweetDraftSchema = z
   })
   .strict();
 
+function countSuccessfulCreativeResultAreas(states: GenerationResultStates) {
+  let successCount = 0;
+
+  if (states.textGeneration.status === "completed") {
+    successCount += 1;
+  }
+
+  if (states.newsLinkedImageDiscovery.status === "completed") {
+    successCount += 1;
+  }
+
+  if (states.visualJokeGeneration.status === "completed") {
+    successCount += 1;
+  }
+
+  return successCount;
+}
+
+function addCompletedRunOutputIssues({
+  draftsLength,
+  generationResultStates,
+  ctx,
+}: {
+  draftsLength: number;
+  generationResultStates?: GenerationResultStates;
+  ctx: z.RefinementCtx;
+}) {
+  if (!generationResultStates) {
+    if (draftsLength !== draftTarget) {
+      ctx.addIssue({
+        code: "custom",
+        message: "A completed Generation Run must have three drafts.",
+        path: ["drafts"],
+      });
+    }
+
+    return;
+  }
+
+  if (generationResultStates.contextGathering.status !== "completed") {
+    ctx.addIssue({
+      code: "custom",
+      message: "A successful Generation Run requires completed Joke Context Gathering.",
+      path: ["generationResultStates", "contextGathering"],
+    });
+  }
+
+  if (countSuccessfulCreativeResultAreas(generationResultStates) === 0) {
+    ctx.addIssue({
+      code: "custom",
+      message: "A successful Generation Run requires at least one successful creative result area.",
+      path: ["generationResultStates"],
+    });
+  }
+
+  if (generationResultStates.textGeneration.status === "completed") {
+    if (draftsLength !== draftTarget) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Completed Text Generation requires exactly three drafts.",
+        path: ["drafts"],
+      });
+    }
+
+    return;
+  }
+
+  if (draftsLength > 0) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Drafts cannot be present when Text Generation did not complete successfully.",
+      path: ["drafts"],
+    });
+  }
+}
+
 const completedGenerationRunPayloadSchema = z
   .object({
     fallbackDisclosure: nonEmptyTrimmedStringSchema.optional(),
@@ -449,9 +534,7 @@ const completedGenerationRunPayloadSchema = z
     jokeContextSnapshot: jokeContextSnapshotSchema.optional(),
     label: nonEmptyTrimmedStringSchema,
     sourceTweet: retrievedSourceTweetSchema,
-    drafts: z
-      .array(quoteTweetDraftSchema)
-      .length(draftTarget, "A completed Generation Run must have three drafts."),
+    drafts: z.array(quoteTweetDraftSchema).max(draftTarget),
     imageGenerationState: imageGenerationAttemptStateSchema.optional(),
     imageModelProvenance: imageModelProvenanceSchema.optional(),
     imageSets: z.array(imageSetSchema).max(2).optional(),
@@ -465,6 +548,12 @@ const completedGenerationRunPayloadSchema = z
   })
   .strict()
   .superRefine((run, ctx) => {
+    addCompletedRunOutputIssues({
+      ctx,
+      draftsLength: run.drafts.length,
+      generationResultStates: run.generationResultStates,
+    });
+
     if (!run.selectedVisualJoke) {
       return;
     }
@@ -516,6 +605,22 @@ const savedGenerationRunSchema = z
   })
   .strict()
   .superRefine((run, ctx) => {
+    if (run.draftCount !== run.drafts.length) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Saved run draftCount must match the stored draft count.",
+        path: ["draftCount"],
+      });
+    }
+
+    if (run.status === "completed") {
+      addCompletedRunOutputIssues({
+        ctx,
+        draftsLength: run.drafts.length,
+        generationResultStates: run.generationResultStates,
+      });
+    }
+
     if (!run.selectedVisualJoke) {
       return;
     }
@@ -537,6 +642,15 @@ const savedGenerationRunSchema = z
       });
     }
   });
+
+const generationRunStateEventSchema = z
+  .object({
+    type: z.literal("run-state"),
+    label: nonEmptyTrimmedStringSchema,
+    sourceTweet: retrievedSourceTweetSchema,
+    generationResultStates: generationResultStatesSchema,
+  })
+  .strict();
 
 const generationProgressEventSchema = z
   .object({
@@ -573,6 +687,7 @@ const generationFailedEventSchema = z
 
 const generationStreamEventSchema = z.discriminatedUnion("type", [
   enrichmentCompletedEventSchema,
+  generationRunStateEventSchema,
   generationProgressEventSchema,
   generationCompletedEventSchema,
   generationFailedEventSchema,
@@ -739,6 +854,23 @@ export function buildEnrichmentCompletedEvent({
     type: "enrichment-completed",
     sourceTweet,
     newsLinkedImages,
+  });
+}
+
+export function buildGenerationRunStateEvent({
+  generationResultStates,
+  label,
+  sourceTweet,
+}: {
+  generationResultStates: GenerationResultStates;
+  label: string;
+  sourceTweet: z.infer<typeof retrievedSourceTweetSchema>;
+}): GenerationStreamEvent {
+  return generationStreamEventSchema.parse({
+    type: "run-state",
+    label,
+    sourceTweet,
+    generationResultStates,
   });
 }
 

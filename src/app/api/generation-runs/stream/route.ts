@@ -3,9 +3,13 @@ import {
   buildCompletedGenerationRunEvents,
   buildEnrichmentCompletedEvent,
   buildGenerationFailureEvent,
+  buildGenerationRunStateEvent,
+  type CompletedGenerationRunPayload,
+  draftTarget,
   type GenerationResultStates,
   type JokeContextSnapshot,
   type NewsLinkedImage,
+  parseCompletedGenerationRunPayload,
   parseGenerationStreamEvent,
 } from "@/features/generation/generation-events";
 import {
@@ -113,72 +117,151 @@ async function buildGenerationRunEvents({
     return [buildGenerationFailureEvent(message)];
   }
 
+  const runLabel = buildGenerationRunLabel(sourceTweetUrl);
+  const contextGatheringStartedAt = new Date().toISOString();
+  const events = [
+    buildGenerationRunStateEvent({
+      generationResultStates: buildContextGatheringRunningStates(contextGatheringStartedAt),
+      label: runLabel,
+      sourceTweet: tweetContext.sourceTweet,
+    }),
+  ];
   const replySignals = buildReplySignals(tweetContext);
   const jokeContextResult = await retrieveJokeContextSnapshot({
     gather,
+    startedAt: contextGatheringStartedAt,
     tweetContext,
   });
 
   if (jokeContextResult.status === "failed") {
-    return [buildGenerationFailureEvent(jokeContextResult.message)];
+    return [...events, buildGenerationFailureEvent(jokeContextResult.message)];
   }
 
-  const newsLinkedImageDiscoveryResult = await retrieveNewsLinkedImageDiscovery({
+  const contextCompletedStates = buildContextGatheringCompletedStates(jokeContextResult);
+
+  events.push(
+    buildGenerationRunStateEvent({
+      generationResultStates: contextCompletedStates,
+      label: runLabel,
+      sourceTweet: tweetContext.sourceTweet,
+    }),
+  );
+
+  const newsLinkedImageDiscoveryStartedAt = new Date().toISOString();
+  const textGenerationStartedAt = new Date().toISOString();
+  const newsLinkedImageDiscoveryPromise = retrieveNewsLinkedImageDiscovery({
     discover,
     replySignals,
     sourceTweet: tweetContext.sourceTweet,
+    startedAt: newsLinkedImageDiscoveryStartedAt,
     usersDirection,
   });
-  const textGenerationStartedAt = new Date().toISOString();
+  const completedRunPromise = orchestrate({
+    replySignals,
+    sourceTweet: tweetContext.sourceTweet,
+    sourceTweetUrl,
+    usersDirection,
+  });
+  const [newsLinkedImageDiscoveryResult, generationResult] = await Promise.all([
+    newsLinkedImageDiscoveryPromise,
+    completedRunPromise
+      .then((run) => ({ run, status: "fulfilled" as const }))
+      .catch((error: unknown) => ({ error, status: "rejected" as const })),
+  ]);
 
-  try {
-    const completedRun = await orchestrate({
-      replySignals,
+  const hasVisualJokeBranch =
+    generationResult.status === "fulfilled" &&
+    generationResult.run.generationResultStates?.visualJokeGeneration.status !== "not-started";
+  const creativeBranchesRunningStates = buildCreativeBranchesRunningStates({
+    jokeContextResult,
+    newsLinkedImageDiscoveryStartedAt,
+    textGenerationStartedAt,
+    visualJokeStartedAt: hasVisualJokeBranch ? textGenerationStartedAt : undefined,
+  });
+
+  events.push(
+    buildGenerationRunStateEvent({
+      generationResultStates: creativeBranchesRunningStates,
+      label: runLabel,
       sourceTweet: tweetContext.sourceTweet,
-      sourceTweetUrl,
-      usersDirection,
-    });
-    const textGenerationCompletedAt = new Date().toISOString();
-    const completedEvents = buildCompletedGenerationRunEvents({
-      run: {
-        ...completedRun,
-        generationResultStates: buildInitialGenerationResultStates({
-          jokeContextResult,
-          newsLinkedImageDiscoveryResult,
-          textGenerationCompletedAt,
-          textGenerationStartedAt,
-        }),
-        jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
-        newsLinkedImages:
-          newsLinkedImageDiscoveryResult.status === "available"
-            ? newsLinkedImageDiscoveryResult.newsLinkedImages
-            : undefined,
-      },
-    });
+    }),
+  );
 
-    if (newsLinkedImageDiscoveryResult.status !== "available") {
-      return completedEvents;
-    }
-
-    return [
+  if (newsLinkedImageDiscoveryResult.status === "available") {
+    events.push(
       buildEnrichmentCompletedEvent({
         newsLinkedImages: newsLinkedImageDiscoveryResult.newsLinkedImages,
         sourceTweet: tweetContext.sourceTweet,
       }),
-      ...completedEvents,
-    ];
-  } catch (error) {
-    console.error("Generation orchestration failed.", error);
-
-    return [buildGenerationFailureEvent("Draft providers could not complete a three-draft run.")];
+    );
   }
+
+  if (generationResult.status === "rejected") {
+    console.error("Generation orchestration failed.", generationResult.error);
+
+    events.push(
+      buildGenerationRunStateEvent({
+        generationResultStates: buildTerminalGenerationResultStates({
+          jokeContextResult,
+          newsLinkedImageDiscoveryResult,
+          textGeneration: {
+            startedAt: textGenerationStartedAt,
+            status: "running",
+          },
+          visualJokeGeneration: {
+            status: "not-started",
+          },
+        }),
+        label: runLabel,
+        sourceTweet: tweetContext.sourceTweet,
+      }),
+    );
+
+    return [
+      ...events,
+      buildGenerationFailureEvent("Draft providers could not complete a three-draft run."),
+    ];
+  }
+
+  const textGenerationCompletedAt = new Date().toISOString();
+  const completedRun = parseCompletedGenerationRunPayload({
+    ...generationResult.run,
+    generationResultStates: buildCompletedGenerationResultStates({
+      completedRun: generationResult.run,
+      jokeContextResult,
+      newsLinkedImageDiscoveryResult,
+      textGenerationCompletedAt,
+      textGenerationStartedAt,
+    }),
+    jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
+    label: generationResult.run.label,
+    newsLinkedImages:
+      newsLinkedImageDiscoveryResult.status === "available"
+        ? newsLinkedImageDiscoveryResult.newsLinkedImages
+        : undefined,
+    sourceTweet: generationResult.run.sourceTweet,
+  });
+
+  if (completedRun.generationResultStates) {
+    events.push(
+      buildGenerationRunStateEvent({
+        generationResultStates: completedRun.generationResultStates,
+        label: completedRun.label,
+        sourceTweet: completedRun.sourceTweet,
+      }),
+    );
+  }
+
+  return [...events, ...buildCompletedGenerationRunEvents({ run: completedRun })];
 }
 
 async function retrieveJokeContextSnapshot({
   gather,
+  startedAt,
   tweetContext,
 }: JokeContextGatheringInput & {
   gather: (input: JokeContextGatheringInput) => Promise<JokeContextSnapshot>;
+  startedAt?: string;
 }): Promise<
   | {
       completedAt: string;
@@ -191,7 +274,7 @@ async function retrieveJokeContextSnapshot({
       status: "failed";
     }
 > {
-  const startedAt = new Date().toISOString();
+  const effectiveStartedAt = startedAt ?? new Date().toISOString();
 
   try {
     const jokeContextSnapshot = await gather({ tweetContext });
@@ -199,7 +282,7 @@ async function retrieveJokeContextSnapshot({
     return {
       completedAt: new Date().toISOString(),
       jokeContextSnapshot,
-      startedAt,
+      startedAt: effectiveStartedAt,
       status: "completed",
     };
   } catch (error) {
@@ -219,9 +302,11 @@ async function retrieveNewsLinkedImageDiscovery({
   discover,
   replySignals,
   sourceTweet,
+  startedAt,
   usersDirection,
 }: Parameters<NewsLinkedImageDiscoveryService>[0] & {
   discover: NewsLinkedImageDiscoveryService;
+  startedAt?: string;
 }): Promise<
   | {
       completedAt: string;
@@ -236,7 +321,7 @@ async function retrieveNewsLinkedImageDiscovery({
       status: "failed";
     }
 > {
-  const startedAt = new Date().toISOString();
+  const effectiveStartedAt = startedAt ?? new Date().toISOString();
 
   try {
     const discoveryResult = await discover({
@@ -249,7 +334,7 @@ async function retrieveNewsLinkedImageDiscovery({
       return {
         failedAt: new Date().toISOString(),
         message: "News-linked image discovery could not find qualifying images.",
-        startedAt,
+        startedAt: effectiveStartedAt,
         status: "failed",
       };
     }
@@ -257,7 +342,7 @@ async function retrieveNewsLinkedImageDiscovery({
     return {
       completedAt: new Date().toISOString(),
       newsLinkedImages: discoveryResult.newsLinkedImages,
-      startedAt,
+      startedAt: effectiveStartedAt,
       status: "available",
     };
   } catch (error) {
@@ -269,7 +354,7 @@ async function retrieveNewsLinkedImageDiscovery({
         failedAt: new Date().toISOString(),
         message:
           "News-linked image discovery is unavailable in local development without OUTSIDE_X_ENRICHMENT_ENDPOINT.",
-        startedAt,
+        startedAt: effectiveStartedAt,
         status: "failed",
       };
     }
@@ -277,25 +362,117 @@ async function retrieveNewsLinkedImageDiscovery({
     return {
       failedAt: new Date().toISOString(),
       message: "News-linked image discovery could not find qualifying images.",
-      startedAt,
+      startedAt: effectiveStartedAt,
       status: "failed",
     };
   }
 }
 
-function buildInitialGenerationResultStates({
+function buildContextGatheringRunningStates(startedAt: string): GenerationResultStates {
+  return {
+    contextGathering: {
+      startedAt,
+      status: "running",
+    },
+    imageGeneration: {
+      status: "not-started",
+    },
+    newsLinkedImageDiscovery: {
+      status: "not-started",
+    },
+    textGeneration: {
+      status: "not-started",
+    },
+    visualJokeGeneration: {
+      status: "not-started",
+    },
+  };
+}
+
+function buildContextGatheringCompletedStates(
+  jokeContextResult: Extract<
+    Awaited<ReturnType<typeof retrieveJokeContextSnapshot>>,
+    { status: "completed" }
+  >,
+): GenerationResultStates {
+  return {
+    contextGathering: {
+      completedAt: jokeContextResult.completedAt,
+      jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
+      startedAt: jokeContextResult.startedAt,
+      status: "completed",
+    },
+    imageGeneration: {
+      status: "not-started",
+    },
+    newsLinkedImageDiscovery: {
+      status: "not-started",
+    },
+    textGeneration: {
+      status: "not-started",
+    },
+    visualJokeGeneration: {
+      status: "not-started",
+    },
+  };
+}
+
+function buildCreativeBranchesRunningStates({
+  jokeContextResult,
+  newsLinkedImageDiscoveryStartedAt,
+  textGenerationStartedAt,
+  visualJokeStartedAt,
+}: {
+  jokeContextResult: Extract<
+    Awaited<ReturnType<typeof retrieveJokeContextSnapshot>>,
+    { status: "completed" }
+  >;
+  newsLinkedImageDiscoveryStartedAt: string;
+  textGenerationStartedAt: string;
+  visualJokeStartedAt?: string;
+}): GenerationResultStates {
+  return {
+    contextGathering: {
+      completedAt: jokeContextResult.completedAt,
+      jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
+      startedAt: jokeContextResult.startedAt,
+      status: "completed",
+    },
+    imageGeneration: {
+      status: "not-started",
+    },
+    newsLinkedImageDiscovery: {
+      startedAt: newsLinkedImageDiscoveryStartedAt,
+      status: "running",
+    },
+    textGeneration: {
+      startedAt: textGenerationStartedAt,
+      status: "running",
+    },
+    visualJokeGeneration: visualJokeStartedAt
+      ? {
+          startedAt: visualJokeStartedAt,
+          status: "running",
+        }
+      : {
+          status: "not-started",
+        },
+  };
+}
+
+function buildTerminalGenerationResultStates({
   jokeContextResult,
   newsLinkedImageDiscoveryResult,
-  textGenerationCompletedAt,
-  textGenerationStartedAt,
+  textGeneration,
+  visualJokeGeneration,
 }: {
   jokeContextResult: Extract<
     Awaited<ReturnType<typeof retrieveJokeContextSnapshot>>,
     { status: "completed" }
   >;
   newsLinkedImageDiscoveryResult: Awaited<ReturnType<typeof retrieveNewsLinkedImageDiscovery>>;
-  textGenerationCompletedAt: string;
-  textGenerationStartedAt: string;
+  textGeneration: GenerationResultStates["textGeneration"];
+  visualJokeGeneration: GenerationResultStates["visualJokeGeneration"];
 }): GenerationResultStates {
   return {
     contextGathering: {
@@ -321,14 +498,44 @@ function buildInitialGenerationResultStates({
             startedAt: newsLinkedImageDiscoveryResult.startedAt,
             status: "failed",
           },
-    textGeneration: {
+    textGeneration,
+    visualJokeGeneration,
+  };
+}
+
+function buildCompletedGenerationResultStates({
+  completedRun,
+  jokeContextResult,
+  newsLinkedImageDiscoveryResult,
+  textGenerationCompletedAt,
+  textGenerationStartedAt,
+}: {
+  completedRun: CompletedGenerationRunPayload;
+  jokeContextResult: Extract<
+    Awaited<ReturnType<typeof retrieveJokeContextSnapshot>>,
+    { status: "completed" }
+  >;
+  newsLinkedImageDiscoveryResult: Awaited<ReturnType<typeof retrieveNewsLinkedImageDiscovery>>;
+  textGenerationCompletedAt: string;
+  textGenerationStartedAt: string;
+}): GenerationResultStates {
+  return buildTerminalGenerationResultStates({
+    jokeContextResult,
+    newsLinkedImageDiscoveryResult,
+    textGeneration: completedRun.generationResultStates?.textGeneration ?? {
       completedAt: textGenerationCompletedAt,
-      draftCount: 3,
+      draftCount: draftTarget,
       startedAt: textGenerationStartedAt,
       status: "completed",
     },
-    visualJokeGeneration: {
+    visualJokeGeneration: completedRun.generationResultStates?.visualJokeGeneration ?? {
       status: "not-started",
     },
-  };
+  });
+}
+
+function buildGenerationRunLabel(sourceTweetUrl: string) {
+  const statusId = sourceTweetUrl.match(/status\/([^/?#]+)/)?.[1] ?? "tweet";
+
+  return `Drafts for ${statusId}`;
 }

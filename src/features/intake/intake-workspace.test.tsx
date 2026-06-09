@@ -6,6 +6,7 @@ import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import {
   buildEnrichmentCompletedEvent,
   buildGenerationFailureEvent,
+  buildGenerationRunStateEvent,
   buildStubbedGenerationEvents,
   type GenerationProviderId,
   type GenerationStreamEvent,
@@ -15,6 +16,7 @@ import {
   type NewsLinkedImage,
   parseFailedImageSet,
   parseImageSet,
+  parseJokeContextSnapshot,
   type QuoteTweetDraft,
 } from "@/features/generation/generation-events";
 import type { RuntimeStatus } from "@/features/runtime-status/runtime-status";
@@ -24,13 +26,13 @@ import type { SavedRunStore } from "./types";
 
 class FakeGenerationEventSource {
   readonly listeners = new Map<
-    "enrichment-completed" | "progress" | "completed" | "failed",
+    "enrichment-completed" | "run-state" | "progress" | "completed" | "failed",
     ((message: MessageEvent<string>) => void)[]
   >();
   closed = false;
 
   addEventListener(
-    type: "enrichment-completed" | "progress" | "completed" | "failed",
+    type: "enrichment-completed" | "run-state" | "progress" | "completed" | "failed",
     listener: (message: MessageEvent<string>) => void,
   ) {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
@@ -286,6 +288,47 @@ function buildNewsLinkedImages(): NewsLinkedImage[] {
       title: "Strategy visual",
     },
   ];
+}
+
+function buildJokeContextSnapshot(sourceTweetId: string) {
+  return parseJokeContextSnapshot({
+    capturedAt: "2026-06-06T10:10:00.000Z",
+    sourceTweetId,
+    structuredContext: {
+      authorContext: {
+        authoritySignals: ["Operator is close to the launch."],
+        displayName: "Silicon Mania",
+        handle: "@siliconmania",
+        relationshipToTopic: "Announcing its own workflow launch.",
+      },
+      forbiddenAssumptions: ["Do not invent missing product details."],
+      jokeContextQuality: {
+        status: "usable",
+        summary: "Enough context exists to support grounded jokes.",
+      },
+      jokeableTensions: ["The launch promises simplicity while increasing platform dependence."],
+      replySignals: {
+        representativeSnippets: [
+          {
+            authorHandle: "@replyguy",
+            replyId: `${sourceTweetId}-reply-1`,
+            signal: "Audience reads this as workflow lock-in.",
+            snippet: "Cool, now every workflow starts looking locked in.",
+          },
+        ],
+        summary: "Replies focus on workflow lock-in and operator pressure.",
+      },
+      sourceTweetClaim: "The source tweet claims the launch removes the final workflow bottleneck.",
+      sourceTweetMediaExtraction: {
+        mediaKinds: ["image"],
+        notableDetails: ["Launch card shows one-click workflow automation."],
+        summary: "The media shows a workflow automation launch card.",
+        visibleText: ["One-click workflow automation"],
+      },
+      supportingFacts: ["The rollout is framed as an operator productivity update."],
+      unknowns: ["No pricing detail is confirmed in the source tweet."],
+    },
+  });
 }
 
 function buildImageSet(newsLinkedImage: NewsLinkedImage): ImageSet {
@@ -756,6 +799,89 @@ describe("IntakeWorkspace", () => {
     expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
     expect(screen.getAllByText(/local draft model/i)).toHaveLength(3);
+  });
+
+  test("renders compact generation progress from run-state events without polling", async () => {
+    const user = userEvent.setup();
+    const generationEventSources: FakeGenerationEventSource[] = [];
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      generationEventSources,
+    });
+    const sourceTweetUrl = "https://x.com/siliconmania/status/2468";
+    const tweetContext = buildFixtureTweetContext(sourceTweetUrl);
+
+    await user.type(sourceTweetUrlInput, sourceTweetUrl);
+    await user.click(generateButton);
+
+    act(() => {
+      generationEventSources[0]?.emit(
+        buildGenerationRunStateEvent({
+          generationResultStates: {
+            contextGathering: {
+              startedAt: "2026-06-06T10:08:00.000Z",
+              status: "running",
+            },
+            imageGeneration: {
+              status: "not-started",
+            },
+            newsLinkedImageDiscovery: {
+              status: "not-started",
+            },
+            textGeneration: {
+              status: "not-started",
+            },
+            visualJokeGeneration: {
+              status: "not-started",
+            },
+          },
+          label: "Drafts for 2468",
+          sourceTweet: tweetContext.sourceTweet,
+        }),
+      );
+    });
+
+    const progress = screen.getByLabelText(/generation progress/i);
+
+    expect(progress).toHaveTextContent("Joke Context Gathering");
+    expect(progress).toHaveTextContent("Running");
+    expect(progress).toHaveTextContent("Text Generation");
+    expect(progress).toHaveTextContent("Not started");
+
+    act(() => {
+      generationEventSources[0]?.emit(
+        buildGenerationRunStateEvent({
+          generationResultStates: {
+            contextGathering: {
+              completedAt: "2026-06-06T10:10:00.000Z",
+              jokeContextSnapshot: buildJokeContextSnapshot("2468"),
+              startedAt: "2026-06-06T10:08:00.000Z",
+              status: "completed",
+            },
+            imageGeneration: {
+              status: "not-started",
+            },
+            newsLinkedImageDiscovery: {
+              startedAt: "2026-06-06T10:10:02.000Z",
+              status: "running",
+            },
+            textGeneration: {
+              startedAt: "2026-06-06T10:10:01.000Z",
+              status: "running",
+            },
+            visualJokeGeneration: {
+              startedAt: "2026-06-06T10:10:03.000Z",
+              status: "running",
+            },
+          },
+          label: "Drafts for 2468",
+          sourceTweet: tweetContext.sourceTweet,
+        }),
+      );
+    });
+
+    expect(progress).toHaveTextContent("Complete");
+    expect(progress).toHaveTextContent("News-Linked Image Discovery");
+    expect(progress).toHaveTextContent("Visual Joke Generation");
   });
 
   test("unlocks image selection from enrichment while text generation keeps streaming", async () => {

@@ -6,6 +6,7 @@ import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import type {
   FailedImageSet,
+  GenerationResultStates,
   ImageGenerationInput,
   ImageModelProvenance,
   ImageSet,
@@ -136,20 +137,99 @@ function SourceTweetPreview({ text }: { text: string }) {
 }
 
 function GenerationWaitingState({ run }: { run: GenerationRun }) {
+  const progressStages = buildGenerationProgressStages(run.generationResultStates);
+
   return (
     <section
       aria-label="Generation waiting state"
       aria-live="polite"
       className="grid min-h-80 place-items-center sm:min-h-96">
-      <div className="grid justify-items-center gap-3 text-center">
+      <div className="grid w-full max-w-3xl justify-items-center gap-5 text-center">
         <p className="editorial-serif text-6xl text-slate-100 tracking-normal sm:text-7xl">
           {run.draftCount}/{run.draftTarget}
         </p>
         <p className="text-slate-500 text-xs uppercase tracking-[0.18em]">drafts</p>
         <p className="text-slate-400 text-sm">{getRunPhaseLabel(run)}</p>
+        {progressStages.length > 0 ? (
+          <ul
+            aria-label="Generation progress"
+            className="grid w-full gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 text-left sm:grid-cols-2">
+            {progressStages.map((stage) => (
+              <li
+                key={stage.label}
+                className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-slate-950/50 px-3 py-2">
+                <span className="text-slate-200 text-sm">{stage.label}</span>
+                <span className={stage.className}>{stage.statusLabel}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </section>
   );
+}
+
+function buildGenerationProgressStages(generationResultStates: GenerationResultStates | undefined) {
+  if (!generationResultStates) {
+    return [];
+  }
+
+  return [
+    {
+      label: "Joke Context Gathering",
+      ...describeStageStatus(generationResultStates.contextGathering.status),
+    },
+    {
+      label: "Text Generation",
+      ...describeStageStatus(generationResultStates.textGeneration.status),
+    },
+    {
+      label: "News-Linked Image Discovery",
+      ...describeStageStatus(generationResultStates.newsLinkedImageDiscovery.status),
+    },
+    {
+      label: "Visual Joke Generation",
+      ...describeStageStatus(generationResultStates.visualJokeGeneration.status),
+    },
+    {
+      label: "Image Generation",
+      ...describeStageStatus(generationResultStates.imageGeneration.status),
+    },
+  ];
+}
+
+function describeStageStatus(
+  status: "not-started" | "running" | "completed" | "failed" | "partially-failed",
+) {
+  if (status === "running") {
+    return {
+      className:
+        "inline-flex items-center rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-1 text-sky-200 text-xs uppercase tracking-[0.14em]",
+      statusLabel: "Running",
+    };
+  }
+
+  if (status === "completed") {
+    return {
+      className:
+        "inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-emerald-200 text-xs uppercase tracking-[0.14em]",
+      statusLabel: "Complete",
+    };
+  }
+
+  if (status === "failed" || status === "partially-failed") {
+    return {
+      className:
+        "inline-flex items-center rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-1 text-rose-200 text-xs uppercase tracking-[0.14em]",
+      statusLabel: status === "failed" ? "Failed" : "Partial",
+    };
+  }
+
+  return {
+    className:
+      "inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-1 text-slate-400 text-xs uppercase tracking-[0.14em]",
+    statusLabel: "Not started",
+  };
 }
 
 type ImageGenerationAreaStatusKind = "loading" | "success" | "failed";

@@ -5,6 +5,7 @@ import type { JokeContextSnapshot, VisualJokeSet } from "./generation-events";
 import {
   buildEnrichmentCompletedEvent,
   buildGenerationFailureEvent,
+  buildGenerationRunStateEvent,
   buildStubbedGenerationEvents,
   parseCompletedGenerationRunPayload,
   parseGenerationResultStates,
@@ -336,6 +337,26 @@ describe("generation event contracts", () => {
     expect(parseSelectedVisualJoke(null, visualJokeSet)).toBeNull();
     expect(generationResultStates.newsLinkedImageDiscovery.status).toBe("failed");
     expect(generationResultStates.textGeneration.status).toBe("completed");
+    expect(
+      parseGenerationStreamEvent(
+        buildGenerationRunStateEvent({
+          generationResultStates,
+          label: "Drafts for 2468",
+          sourceTweet: buildFixtureTweetContext("https://x.com/siliconmania/status/2468")
+            .sourceTweet,
+        }),
+      ),
+    ).toMatchObject({
+      type: "run-state",
+      generationResultStates: {
+        contextGathering: {
+          status: "completed",
+        },
+        visualJokeGeneration: {
+          status: "completed",
+        },
+      },
+    });
 
     expect(
       parseCompletedGenerationRunPayload({
@@ -365,6 +386,60 @@ describe("generation event contracts", () => {
       },
       visualJokeSet: {
         jokes: expect.arrayContaining([expect.objectContaining({ recommended: true, rank: 1 })]),
+      },
+    });
+  });
+
+  test("allows completed runs with failed text generation when another creative branch succeeds", () => {
+    const jokeContextSnapshot = parseJokeContextSnapshot(buildJokeContextSnapshot());
+    const visualJokeSet = parseVisualJokeSet(buildVisualJokeSet());
+
+    expect(
+      parseCompletedGenerationRunPayload({
+        label: "Drafts for 9999",
+        sourceTweet: buildFixtureTweetContext("https://x.com/siliconmania/status/9999").sourceTweet,
+        drafts: [],
+        jokeContextSnapshot,
+        generationResultStates: {
+          contextGathering: {
+            completedAt: "2026-06-06T10:10:00.000Z",
+            jokeContextSnapshot,
+            startedAt: "2026-06-06T10:08:00.000Z",
+            status: "completed",
+          },
+          imageGeneration: {
+            status: "not-started",
+          },
+          newsLinkedImageDiscovery: {
+            failedAt: "2026-06-06T10:10:25.000Z",
+            message: "No qualifying news-linked images were found.",
+            startedAt: "2026-06-06T10:10:02.000Z",
+            status: "failed",
+          },
+          textGeneration: {
+            failedAt: "2026-06-06T10:10:30.000Z",
+            message: "Text generation could not produce a usable draft set.",
+            startedAt: "2026-06-06T10:10:01.000Z",
+            status: "failed",
+          },
+          visualJokeGeneration: {
+            completedAt: "2026-06-06T10:10:40.000Z",
+            startedAt: "2026-06-06T10:10:03.000Z",
+            status: "completed",
+            visualJokeSet,
+          },
+        },
+        visualJokeSet,
+      }),
+    ).toMatchObject({
+      drafts: [],
+      generationResultStates: {
+        textGeneration: {
+          status: "failed",
+        },
+        visualJokeGeneration: {
+          status: "completed",
+        },
       },
     });
   });

@@ -11,7 +11,7 @@ type GenerationEventListener = (message: MessageEvent<string>) => void;
 
 export type GenerationEventSource = {
   addEventListener(
-    type: "enrichment-completed" | "progress" | "completed" | "failed",
+    type: "enrichment-completed" | "run-state" | "progress" | "completed" | "failed",
     listener: GenerationEventListener,
   ): void;
   close(): void;
