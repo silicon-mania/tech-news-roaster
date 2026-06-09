@@ -42,6 +42,28 @@ type GeneratedImageVariation = {
   url: string;
 };
 
+const gatewayImageCompletionSchema = {
+  parse(payload: unknown): GeneratedImageVariation {
+    const record = toRecord(payload);
+    const choices = toArray(record.choices);
+    const firstChoice = toRecord(choices[0]);
+    const message = toRecord(firstChoice.message);
+    const images = toArray(message.images);
+    const firstImage = toRecord(images[0]);
+    const imageUrl = toRecord(firstImage.image_url);
+    const url = readString(imageUrl.url);
+
+    if (!url) {
+      throw new Error("Image provider returned a variation without a URL.");
+    }
+
+    return {
+      altText: readString(message.content),
+      url,
+    };
+  },
+};
+
 export type ImageVariationProvider = {
   imageModelProvenance: ImageModelProvenance;
   generateVariations(input: {
@@ -288,60 +310,95 @@ function createAiGatewayImageVariationProvider({
         throw new Error("AI Gateway credentials are not configured.");
       }
 
-      const response = await fetch(
-        `${(baseUrl ?? "https://ai-gateway.vercel.sh/v1").replace(
-          /\/$/,
-          "",
-        )}/images/edits`,
-        {
-          body: JSON.stringify({
-            image: original.dataUrl,
-            model,
-            n: variationCount,
-            prompt: userImagePrompt,
-          }),
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          method: "POST",
-        },
+      const gatewayBaseUrl = (
+        baseUrl ?? "https://ai-gateway.vercel.sh/v1"
+      ).replace(/\/$/, "");
+      const variations = await Promise.all(
+        Array.from({ length: variationCount }, async (_, index) => {
+          const response = await fetch(`${gatewayBaseUrl}/chat/completions`, {
+            body: JSON.stringify({
+              messages: [
+                {
+                  content: [
+                    {
+                      text: buildImageVariationPrompt({
+                        index,
+                        original,
+                        userImagePrompt,
+                        variationCount,
+                      }),
+                      type: "text",
+                    },
+                    {
+                      image_url: {
+                        url: original.dataUrl,
+                      },
+                      type: "image_url",
+                    },
+                  ],
+                  role: "user",
+                },
+              ],
+              model,
+            }),
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            method: "POST",
+          });
+
+          if (!response.ok) {
+            throw new Error(
+              `Image generation failed (${response.status}): ${await readGatewayError(
+                response,
+              )}`,
+            );
+          }
+
+          const variation = gatewayImageCompletionSchema.parse(
+            await response.json(),
+          );
+
+          return {
+            altText:
+              variation.altText ?? `Generated visual variation ${index + 1}.`,
+            url: variation.url,
+          };
+        }),
       );
 
-      if (!response.ok) {
-        throw new Error(
-          `Image generation failed (${response.status}): ${await readGatewayError(
-            response,
-          )}`,
-        );
-      }
-
-      const payload = (await response.json()) as {
-        data?: Array<{
-          b64_json?: string;
-          revised_prompt?: string;
-          url?: string;
-        }>;
-      };
-      const variations =
-        payload.data?.map((variation, index) => ({
-          altText:
-            variation.revised_prompt ??
-            `Generated visual variation ${index + 1}.`,
-          url:
-            variation.url ??
-            (variation.b64_json
-              ? `data:image/png;base64,${variation.b64_json}`
-              : undefined),
-        })) ?? [];
-
-      if (variations.some((variation) => !variation.url)) {
-        throw new Error("Image provider returned a variation without a URL.");
-      }
-
-      return variations as GeneratedImageVariation[];
+      return variations;
     },
   };
+}
+
+function buildImageVariationPrompt({
+  index,
+  original,
+  userImagePrompt,
+  variationCount,
+}: {
+  index: number;
+  original: PreparedSelectedImageOriginal;
+  userImagePrompt: string;
+  variationCount: number;
+}) {
+  return [
+    `Create variation ${index + 1} of ${variationCount} from the attached image.`,
+    "Use the attached image as the visual reference and preserve its core subject.",
+    "Follow this user image prompt:",
+    userImagePrompt,
+    original.selectedImageOriginal.title
+      ? `Original image title: ${original.selectedImageOriginal.title}`
+      : null,
+    original.selectedImageOriginal.altText
+      ? `Original image alt text: ${original.selectedImageOriginal.altText}`
+      : null,
+    "Return one generated image.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function resolveSelectedNewsLinkedImages({
@@ -452,6 +509,22 @@ async function readGatewayError(response: Response) {
   } catch {
     return "No error body returned.";
   }
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function toArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : undefined;
 }
 
 function readAiGatewayApiKey(env: ImageModelEnvironment) {

@@ -140,6 +140,104 @@ describe("image generation service", () => {
     expect(provider.generateVariations).not.toHaveBeenCalled();
   });
 
+  test("uses AI Gateway chat completions for selected-image variations", async () => {
+    const previousApiKey = process.env.AI_GATEWAY_API_KEY;
+    const previousBaseUrl = process.env.AI_GATEWAY_BASE_URL;
+    const previousImageModel = process.env.AI_GATEWAY_IMAGE_MODEL;
+    const previousFetch = globalThis.fetch;
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      Response.json({
+        choices: [
+          {
+            message: {
+              content: "Generated launch-ready variation.",
+              images: [
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: "data:image/png;base64,generated-image",
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+
+    process.env.AI_GATEWAY_API_KEY = "gateway-secret";
+    process.env.AI_GATEWAY_BASE_URL = "https://ai-gateway.example/v1";
+    process.env.AI_GATEWAY_IMAGE_MODEL = "google/gemini-2.5-flash-image";
+    globalThis.fetch = fetcher;
+
+    try {
+      const result = await generateImageSetsForRun(
+        {
+          input: {
+            parentRunId: "run-1",
+            selectedImageIds: ["news-linked-image-1"],
+            userImagePrompt: "Make it feel like a launch visual.",
+          },
+          parentRun: {
+            id: "run-1",
+            newsLinkedImages: buildNewsLinkedImages(),
+          },
+        },
+        {
+          now: () => new Date("2026-06-05T10:20:00.000Z"),
+          prepareSelectedImageOriginal: async ({ newsLinkedImage }) =>
+            buildPreparedOriginal(newsLinkedImage),
+        },
+      );
+
+      expect(fetcher).toHaveBeenCalledTimes(2);
+      expect(fetcher).toHaveBeenNthCalledWith(
+        1,
+        "https://ai-gateway.example/v1/chat/completions",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Bearer gateway-secret",
+          }),
+          method: "POST",
+        }),
+      );
+      const firstCallInit = fetcher.mock.calls[0]?.[1];
+
+      expect(JSON.parse(String(firstCallInit?.body))).toEqual(
+        expect.objectContaining({
+          messages: [
+            expect.objectContaining({
+              content: expect.arrayContaining([
+                expect.objectContaining({
+                  text: expect.stringContaining(
+                    "Make it feel like a launch visual.",
+                  ),
+                  type: "text",
+                }),
+                expect.objectContaining({
+                  image_url: {
+                    url: "data:image/jpeg;base64,news-linked-image-1",
+                  },
+                  type: "image_url",
+                }),
+              ]),
+            }),
+          ],
+          model: "google/gemini-2.5-flash-image",
+        }),
+      );
+      expect(result.imageSets[0]?.options[1]).toMatchObject({
+        label: "Variation 1",
+        url: "data:image/png;base64,generated-image",
+      });
+    } finally {
+      restoreEnvValue("AI_GATEWAY_API_KEY", previousApiKey);
+      restoreEnvValue("AI_GATEWAY_BASE_URL", previousBaseUrl);
+      restoreEnvValue("AI_GATEWAY_IMAGE_MODEL", previousImageModel);
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   test("keeps successful image sets when a later selected image fails without retry or fallback", async () => {
     const generateVariations = vi
       .fn()
@@ -236,6 +334,15 @@ describe("image generation service", () => {
     }
   });
 });
+
+function restoreEnvValue(name: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+
+  process.env[name] = value;
+}
 
 function buildNewsLinkedImages(): NewsLinkedImage[] {
   return [

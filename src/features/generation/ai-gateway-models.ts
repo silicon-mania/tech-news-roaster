@@ -8,7 +8,7 @@ const defaultAiGatewayModels: Record<GenerationProviderId, string> = {
   openai: "openai/gpt-5.4-mini",
 };
 
-const defaultAiGatewayImageModel = "google/gemini-2.5-flash-image-preview";
+const defaultAiGatewayImageModel = "google/gemini-2.5-flash-image";
 
 export function readConfiguredAiGatewayModels(env: AiGatewayModelEnvironment) {
   return {
