@@ -440,6 +440,18 @@ const generationRunPhaseSchema = z.enum([
   "failed",
 ]);
 
+const imageGenerationParentRunSchema = z
+  .object({
+    id: runLocalIdSchema,
+    failedImageSets: z.array(failedImageSetSchema).max(2).optional(),
+    imageGenerationState: imageGenerationAttemptStateSchema.optional(),
+    imageSets: z.array(imageSetSchema).max(2).optional(),
+    newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
+    phase: generationRunPhaseSchema.optional(),
+    selectedImageOriginals: z.array(selectedImageOriginalSchema).max(2).optional(),
+  })
+  .strict();
+
 const quoteTweetDraftSchema = z
   .object({
     id: nonEmptyTrimmedStringSchema,
@@ -724,6 +736,7 @@ const imageGenerationStreamEventSchema = z.discriminatedUnion("type", [
 export type NewsLinkedImage = z.infer<typeof newsLinkedImageSchema>;
 export type FailedImageSet = z.infer<typeof failedImageSetSchema>;
 export type ImageGenerationInput = z.infer<typeof imageGenerationInputSchema>;
+export type ImageGenerationParentRun = z.infer<typeof imageGenerationParentRunSchema>;
 export type ImageModelProvenance = z.infer<typeof imageModelProvenanceSchema>;
 export type ImageSet = z.infer<typeof imageSetSchema>;
 export type JokeContextSnapshot = z.infer<typeof jokeContextSnapshotSchema>;
@@ -766,6 +779,10 @@ export function parseImageGenerationStreamEvent(event: unknown): ImageGeneration
 
 export function parseImageGenerationInput(input: unknown): ImageGenerationInput {
   return imageGenerationInputSchema.parse(input);
+}
+
+export function parseImageGenerationParentRun(parentRun: unknown): ImageGenerationParentRun {
+  return imageGenerationParentRunSchema.parse(parentRun);
 }
 
 export function parseStructuredJokeContext(input: unknown): StructuredJokeContext {

@@ -2,12 +2,12 @@ import { ZodError } from "zod";
 import {
   type FailedImageSet,
   type ImageGenerationInput,
+  type ImageGenerationParentRun,
   type ImageGenerationStreamEvent,
   type ImageSet,
   parseImageGenerationInput,
+  parseImageGenerationParentRun,
   parseImageGenerationStreamEvent,
-  parseSavedGenerationRun,
-  type SavedGenerationRun,
 } from "@/features/generation/generation-events";
 import {
   type ImageVariationProvider,
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 type ImageGenerationStreamRequest = {
   input: ImageGenerationInput;
-  parentRun: SavedGenerationRun;
+  parentRun: ImageGenerationParentRun;
 };
 
 type ImageGenerationStreamDependencies = {
@@ -125,7 +125,7 @@ async function readImageGenerationStreamRequest(
 
   try {
     const bodyRecord = toRecord(body);
-    const parentRun = parseSavedGenerationRun(bodyRecord.parentRun);
+    const parentRun = parseImageGenerationParentRun(bodyRecord.parentRun);
     const input = parseImageGenerationInput(bodyRecord.input);
     const startValidationError = validateImageGenerationStart({
       input,
@@ -204,7 +204,7 @@ function inferTerminalStatus({
   return "failed";
 }
 
-function hasImageGenerationStarted(run: SavedGenerationRun) {
+function hasImageGenerationStarted(run: ImageGenerationParentRun) {
   return (
     (run.imageGenerationState && run.imageGenerationState.status !== "not-started") ||
     (run.imageSets?.length ?? 0) > 0 ||

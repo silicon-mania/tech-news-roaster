@@ -1256,7 +1256,7 @@ describe("IntakeWorkspace", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(within(visualJokeArea).getAllByRole("article")).toHaveLength(5);
-    expect(within(visualJokeArea).getByText("Recommended")).toBeInTheDocument();
+    expect(within(visualJokeArea).getByText("(Recommended)")).toBeInTheDocument();
     expect(
       within(visualJokeArea).getByRole("button", {
         name: /select visual joke 1/i,
@@ -1644,6 +1644,12 @@ describe("IntakeWorkspace", () => {
     const newsLinkedImages = buildNewsLinkedImages();
     const imageSet = buildImageSet(newsLinkedImages[0]);
     const failedImageSet = buildFailedImageSet(newsLinkedImages[1]);
+    const jokeContextSnapshot = buildJokeContextSnapshot("1234567890");
+    const visualJokeSet = buildVisualJokeSet();
+    const selectedVisualJoke = {
+      selectedAt: "2026-06-06T10:16:00.000Z",
+      visualJokeId: visualJokeSet.jokes[1].id,
+    };
     const imageGenerationStreamFetcher = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) =>
         buildImageGenerationStreamResponse([
@@ -1675,8 +1681,13 @@ describe("IntakeWorkspace", () => {
           imageGenerationState: {
             status: "not-started",
           },
+          jokeContextSnapshot,
           newsLinkedImages,
           phase: "waiting-for-image-selection",
+          selectedVisualJoke,
+          usersDirection: "Keep the text skeptical about platform risk.",
+          visualJokeDirection: "Internal visual joke direction.",
+          visualJokeSet,
         }),
       ],
       savedRunStore,
@@ -1720,6 +1731,24 @@ describe("IntakeWorkspace", () => {
     ).toEqual({
       status: "not-started",
     });
+    expect(JSON.parse(String(imageGenerationStreamFetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      input: {
+        parentRunId: "saved-run",
+        selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
+        userImagePrompt: "Make it feel like a serious product launch image.",
+      },
+      parentRun: {
+        id: "saved-run",
+        imageGenerationState: {
+          status: "not-started",
+        },
+        newsLinkedImages,
+        phase: "waiting-for-image-selection",
+      },
+    });
+    expect(JSON.stringify(imageGenerationStreamFetcher.mock.calls[0]?.[1]?.body)).not.toMatch(
+      /jokeContextSnapshot|visualJokeDirection|visualJokeSet|selectedVisualJoke|platform risk/i,
+    );
     await waitFor(() =>
       expect(
         within(imageGenerationArea).getByRole("region", {
@@ -1737,7 +1766,11 @@ describe("IntakeWorkspace", () => {
             status: "partially-failed",
           }),
           imageSets: [imageSet],
+          jokeContextSnapshot,
           phase: "image-generation-partially-failed",
+          selectedVisualJoke,
+          visualJokeDirection: "Internal visual joke direction.",
+          visualJokeSet,
         }),
       ),
     );

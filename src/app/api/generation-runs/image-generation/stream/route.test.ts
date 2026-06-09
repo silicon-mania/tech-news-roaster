@@ -1,37 +1,24 @@
 import { describe, expect, test, vi } from "vitest";
 import {
-  draftTarget,
-  type GenerationProviderId,
   type ImageGenerationInput,
+  type ImageGenerationParentRun,
   type NewsLinkedImage,
   parseImageGenerationStreamEvent,
-  type QuoteTweetDraft,
-  type SavedGenerationRun,
 } from "@/features/generation/generation-events";
 import type {
   ImageVariationProvider,
   PreparedSelectedImageOriginal,
 } from "@/features/generation/image-generation-service";
-import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
 import { streamImageGenerationRun } from "./route";
 
 describe("image generation stream route", () => {
   test("streams completed image sets sequentially from an active text-generation run", async () => {
     const calls: string[] = [];
     const parentRun = buildParentRun({
-      draftCount: 1,
-      drafts: [
-        buildSavedDraft({
-          id: "draft-openai",
-          provider: "openai",
-          text: "Quote-tweet draft: first partial draft.",
-        }),
-      ],
       imageGenerationState: {
         status: "not-started",
       },
       phase: "text-generation-running",
-      status: "running",
     });
     const response = await streamImageGenerationRun(
       buildRequest({
@@ -113,8 +100,6 @@ describe("image generation stream route", () => {
         status: "not-started",
       },
       phase: "waiting-for-image-selection",
-      savedAt: "2026-06-05T10:20:00.000Z",
-      status: "completed",
     });
     const response = await streamImageGenerationRun(
       buildRequest({
@@ -161,7 +146,6 @@ describe("image generation stream route", () => {
             status: "not-started",
           },
           phase: "waiting-for-image-selection",
-          usersDirection: "Make the text skeptical about platform risk.",
         }),
       }),
       {
@@ -183,6 +167,34 @@ describe("image generation stream route", () => {
       }),
     );
     expect(JSON.stringify(generateVariations.mock.calls)).not.toContain("platform risk");
+  });
+
+  test("rejects joke and context fields in the image generation parent run", async () => {
+    const response = await streamImageGenerationRun(
+      buildRequest({
+        input: buildInput({
+          selectedImageIds: ["news-linked-image-1"],
+        }),
+        parentRun: {
+          ...buildParentRun({
+            imageGenerationState: {
+              status: "not-started",
+            },
+          }),
+          selectedVisualJoke: {
+            selectedAt: "2026-06-05T10:19:00.000Z",
+            visualJokeId: "visual-joke-1",
+          },
+          usersDirection: "Make the text skeptical about platform risk.",
+          visualJokeDirection: "Internal visual joke direction.",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      message: expect.stringContaining("Unrecognized keys"),
+    });
   });
 
   test("streams failed image sets without dropping earlier successful sets", async () => {
@@ -347,57 +359,14 @@ function buildInput(overrides: Partial<ImageGenerationInput> = {}): ImageGenerat
   };
 }
 
-function buildParentRun(overrides: Partial<SavedGenerationRun> = {}): SavedGenerationRun {
-  const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/1234567890");
-
+function buildParentRun(
+  overrides: Partial<ImageGenerationParentRun> = {},
+): ImageGenerationParentRun {
   return {
     id: "saved-run",
-    label: "Saved run",
-    sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
-    usersDirection: "Keep it dry.",
-    status: "completed",
-    draftCount: 3,
-    draftTarget,
-    drafts: [
-      buildSavedDraft({
-        id: "draft-openai",
-        provider: "openai",
-        text: "Quote-tweet draft: first saved draft.",
-      }),
-      buildSavedDraft({
-        id: "draft-anthropic",
-        provider: "anthropic",
-        text: "Quote-tweet draft: second saved draft.",
-      }),
-      buildSavedDraft({
-        id: "draft-google",
-        provider: "google",
-        text: "Quote-tweet draft: third saved draft.",
-      }),
-    ],
     newsLinkedImages: buildNewsLinkedImages(),
     phase: "waiting-for-image-selection",
-    sourceTweet: tweetContext.sourceTweet,
     ...overrides,
-  };
-}
-
-function buildSavedDraft({
-  id,
-  provider,
-  text,
-}: {
-  id: string;
-  provider: GenerationProviderId;
-  text: string;
-}): QuoteTweetDraft {
-  return {
-    angle: `${provider} angle`,
-    id,
-    modelProvenance: `${provider} local draft model`,
-    provider,
-    text,
-    visibleRationale: `${provider} rationale.`,
   };
 }
 

@@ -5,6 +5,7 @@ import {
   draftTarget,
   type ImageGenerationInput,
   parseGenerationStreamEvent,
+  parseImageGenerationParentRun,
   parseImageGenerationStreamEvent,
 } from "@/features/generation/generation-events";
 import type { RuntimeStatus } from "@/features/runtime-status/runtime-status";
@@ -605,7 +606,7 @@ export function IntakeWorkspace({
       const response = await streamFetcher("/api/generation-runs/image-generation/stream", {
         body: JSON.stringify({
           input,
-          parentRun,
+          parentRun: buildImageGenerationParentRun(parentRun),
         }),
         headers: {
           "Content-Type": "application/json",
@@ -980,6 +981,18 @@ function collectSelectedImageOriginals({
   }
 
   return selectedImageOriginals;
+}
+
+function buildImageGenerationParentRun(run: GenerationRun) {
+  return parseImageGenerationParentRun({
+    failedImageSets: run.failedImageSets,
+    id: run.id,
+    imageGenerationState: run.imageGenerationState,
+    imageSets: run.imageSets,
+    newsLinkedImages: run.newsLinkedImages,
+    phase: run.phase,
+    selectedImageOriginals: run.selectedImageOriginals,
+  });
 }
 
 async function readImageGenerationErrorMessage(response: Response) {
