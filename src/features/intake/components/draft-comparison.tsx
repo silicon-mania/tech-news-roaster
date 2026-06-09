@@ -21,26 +21,18 @@ export function DraftComparison({
 }: DraftComparisonProps) {
   const [expandedDraftId, setExpandedDraftId] = useState(drafts.at(0)?.id);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
-  const [visibleRationaleDraftId, setVisibleRationaleDraftId] = useState<
-    string | null
-  >(null);
+  const [visibleRationaleDraftId, setVisibleRationaleDraftId] = useState<string | null>(null);
 
   useEffect(() => {
     setExpandedDraftId((currentExpandedDraftId) => {
-      if (
-        currentExpandedDraftId &&
-        drafts.some((draft) => draft.id === currentExpandedDraftId)
-      ) {
+      if (currentExpandedDraftId && drafts.some((draft) => draft.id === currentExpandedDraftId)) {
         return currentExpandedDraftId;
       }
 
       return drafts.at(0)?.id;
     });
     setEditingDraftId((currentEditingDraftId) => {
-      if (
-        currentEditingDraftId &&
-        drafts.some((draft) => draft.id === currentEditingDraftId)
-      ) {
+      if (currentEditingDraftId && drafts.some((draft) => draft.id === currentEditingDraftId)) {
         return currentEditingDraftId;
       }
 
@@ -69,22 +61,15 @@ export function DraftComparison({
         {drafts.map((draft, index) => {
           const isExpanded = draft.id === expandedDraftId;
           const hasExpandedDraft = expandedDraftId != null;
-          const provider = getDraftProvider(
-            draft.provider,
-            draft.modelProvenance,
-          );
+          const provider = getDraftProvider(draft.provider, draft.modelProvenance);
 
           return isExpanded ? (
             <article
               aria-label={`Expanded draft ${index + 1}`}
               key={draft.id}
-              className={`grid gap-5 px-1 py-1 sm:px-2 ${draftCardClassName}`}
-            >
+              className={`grid gap-5 px-1 py-1 sm:px-2 ${draftCardClassName}`}>
               <div className="flex flex-wrap items-center justify-between gap-3 px-2 pt-2">
-                <ProviderProvenance
-                  modelProvenance={draft.modelProvenance}
-                  provider={provider}
-                />
+                <ProviderProvenance modelProvenance={draft.modelProvenance} provider={provider} />
                 <div className="flex shrink-0 items-center gap-1">
                   <button
                     type="button"
@@ -93,8 +78,7 @@ export function DraftComparison({
                       event.stopPropagation();
                       void copyDraftText(draft.text);
                     }}
-                    className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-                  >
+                    className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
                     <Copy aria-hidden className="size-3.5" strokeWidth={1.75} />
                   </button>
                   <button
@@ -106,13 +90,8 @@ export function DraftComparison({
                         currentDraftId === draft.id ? null : draft.id,
                       );
                     }}
-                    className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-                  >
-                    <Lightbulb
-                      aria-hidden
-                      className="size-3.5"
-                      strokeWidth={1.75}
-                    />
+                    className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
+                    <Lightbulb aria-hidden className="size-3.5" strokeWidth={1.75} />
                   </button>
                 </div>
               </div>
@@ -120,9 +99,7 @@ export function DraftComparison({
                 <textarea
                   aria-label={`Edit draft ${index + 1}`}
                   value={draft.text}
-                  onChange={(event) =>
-                    onDraftTextChange(draft.id, event.target.value)
-                  }
+                  onChange={(event) => onDraftTextChange(draft.id, event.target.value)}
                   className="min-h-48 w-full resize-y whitespace-pre-wrap break-words rounded-sm border border-transparent bg-transparent px-2 pb-3 text-base text-slate-100 leading-7 outline-none transition focus:border-slate-800 focus:ring-2 focus:ring-sky-300/20 sm:text-lg sm:leading-8"
                 />
               ) : (
@@ -130,8 +107,7 @@ export function DraftComparison({
                   type="button"
                   aria-label={`Edit draft ${index + 1}`}
                   onClick={() => setEditingDraftId(draft.id)}
-                  className="whitespace-pre-wrap break-words px-2 pb-3 text-left text-base text-slate-100 leading-7 outline-none transition focus:text-sky-100 sm:text-lg sm:leading-8"
-                >
+                  className="whitespace-pre-wrap break-words px-2 pb-3 text-left text-base text-slate-100 leading-7 outline-none transition focus:text-sky-100 sm:text-lg sm:leading-8">
                   {draft.text}
                 </button>
               )}
@@ -145,8 +121,7 @@ export function DraftComparison({
             <article
               aria-label={`Collapsed draft ${index + 1}`}
               key={draft.id}
-              className={`${draftCardClassName}${hasExpandedDraft ? " opacity-60" : ""}`}
-            >
+              className={`${draftCardClassName}${hasExpandedDraft ? " opacity-60" : ""}`}>
               <button
                 type="button"
                 aria-label={`Expand draft ${index + 1}`}
@@ -155,15 +130,11 @@ export function DraftComparison({
                   setEditingDraftId(null);
                   setVisibleRationaleDraftId(null);
                 }}
-                className="grid w-full gap-3 rounded-lg p-3 text-left transition hover:bg-slate-800/25 focus:outline-none focus:ring-2 focus:ring-sky-300/20 sm:p-4"
-              >
+                className="grid w-full gap-3 rounded-lg p-3 text-left transition hover:bg-slate-800/25 focus:outline-none focus:ring-2 focus:ring-sky-300/20 sm:p-4">
                 <p className="line-clamp-3 break-words text-slate-300 text-sm leading-6">
                   {draft.text}
                 </p>
-                <ProviderProvenance
-                  modelProvenance={draft.modelProvenance}
-                  provider={provider}
-                />
+                <ProviderProvenance modelProvenance={draft.modelProvenance} provider={provider} />
               </button>
             </article>
           );
@@ -228,20 +199,14 @@ function getDraftProvider(
 
   const normalizedProvenance = modelProvenance.toLowerCase();
 
-  if (
-    normalizedProvenance.includes("anthropic") ||
-    normalizedProvenance.includes("claude")
-  ) {
+  if (normalizedProvenance.includes("anthropic") || normalizedProvenance.includes("claude")) {
     return {
       iconSrc: "/assets/claude.png",
       name: "Claude",
     };
   }
 
-  if (
-    normalizedProvenance.includes("google") ||
-    normalizedProvenance.includes("gemini")
-  ) {
+  if (normalizedProvenance.includes("google") || normalizedProvenance.includes("gemini")) {
     return {
       iconSrc: "/assets/gemini.png",
       name: "Gemini",

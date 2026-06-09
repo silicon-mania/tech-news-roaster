@@ -4,10 +4,7 @@ import type {
   ReplySignal,
 } from "@/features/enrichment/outside-x-enrichment";
 import type { RetrievedSourceTweet } from "@/features/tweet-retrieval/tweet-retrieval";
-import {
-  readConfiguredAiGatewayModels,
-  readEnvValue,
-} from "./ai-gateway-models";
+import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
 import {
   type CompletedGenerationRunPayload,
   type GenerationProviderId,
@@ -80,10 +77,7 @@ const providerJsonOutputSchema = z
   })
   .passthrough();
 
-const providerDisplayNames: Record<
-  GenerationProviderId,
-  GenerationProvider["displayName"]
-> = {
+const providerDisplayNames: Record<GenerationProviderId, GenerationProvider["displayName"]> = {
   anthropic: "Anthropic",
   google: "Google",
   openai: "OpenAI",
@@ -106,9 +100,7 @@ export async function orchestrateThreeProviderGeneration(
   options: GenerationOrchestratorOptions = {},
 ): Promise<CompletedGenerationRunPayload> {
   const providers = options.providers ?? createDefaultGenerationProviders();
-  const providerById = new Map(
-    providers.map((provider) => [provider.id, provider]),
-  );
+  const providerById = new Map(providers.map((provider) => [provider.id, provider]));
   const providerResults = await Promise.allSettled(
     generationProviderIds.map(async (providerId) => {
       const provider = providerById.get(providerId);
@@ -155,9 +147,7 @@ export async function orchestrateThreeProviderGeneration(
   });
 
   for (const [index, failedProviderId] of failedProviderIds.entries()) {
-    const fallbackProvider = successfulProviders.at(
-      index % successfulProviders.length,
-    );
+    const fallbackProvider = successfulProviders.at(index % successfulProviders.length);
 
     if (!fallbackProvider) {
       throw new Error("No generation provider completed successfully.");
@@ -269,33 +259,29 @@ function createGatewayGenerationProvider({
         throw new Error("AI Gateway credentials are not configured.");
       }
 
-      const gatewayBaseUrl =
-        process.env.AI_GATEWAY_BASE_URL ?? "https://ai-gateway.vercel.sh/v1";
-      const response = await fetch(
-        `${gatewayBaseUrl.replace(/\/$/, "")}/chat/completions`,
-        {
-          body: JSON.stringify({
-            messages: [
-              {
-                content:
-                  "You write sharp English quote-tweet candidates for tech-news commentary. Return only JSON.",
-                role: "system",
-              },
-              {
-                content: buildProviderPrompt(input),
-                role: "user",
-              },
-            ],
-            model,
-            temperature: 0.8,
-          }),
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          method: "POST",
+      const gatewayBaseUrl = process.env.AI_GATEWAY_BASE_URL ?? "https://ai-gateway.vercel.sh/v1";
+      const response = await fetch(`${gatewayBaseUrl.replace(/\/$/, "")}/chat/completions`, {
+        body: JSON.stringify({
+          messages: [
+            {
+              content:
+                "You write sharp English quote-tweet candidates for tech-news commentary. Return only JSON.",
+              role: "system",
+            },
+            {
+              content: buildProviderPrompt(input),
+              role: "user",
+            },
+          ],
+          model,
+          temperature: 0.8,
+        }),
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
         },
-      );
+        method: "POST",
+      });
 
       if (!response.ok) {
         throw new Error(
@@ -306,10 +292,7 @@ function createGatewayGenerationProvider({
       }
 
       const payload = gatewayResponseSchema.parse(await response.json());
-      const parsedOutput = parseProviderJsonOutput(
-        payload.choices[0].message.content,
-        input.angle,
-      );
+      const parsedOutput = parseProviderJsonOutput(payload.choices[0].message.content, input.angle);
 
       return {
         ...parsedOutput,
@@ -321,12 +304,9 @@ function createGatewayGenerationProvider({
 }
 
 function parseProviderJsonOutput(content: string, fallbackAngle: string) {
-  const output = providerJsonOutputSchema.parse(
-    JSON.parse(extractJsonObject(content)),
-  );
+  const output = providerJsonOutputSchema.parse(JSON.parse(extractJsonObject(content)));
   const text = output.text ?? output.draft ?? output.tweet;
-  const visibleRationale =
-    output.visibleRationale ?? output.visible_rationale ?? output.rationale;
+  const visibleRationale = output.visibleRationale ?? output.visible_rationale ?? output.rationale;
 
   if (!text) {
     throw new Error("Gateway response did not include draft text.");
@@ -353,9 +333,7 @@ function buildDraft({
   targetProviderId: GenerationProviderId;
 }): QuoteTweetDraft {
   const targetDisplayName = providerDisplayNames[targetProviderId];
-  const fallbackClause = fallbackForProvider
-    ? ` (fallback for ${targetDisplayName})`
-    : "";
+  const fallbackClause = fallbackForProvider ? ` (fallback for ${targetDisplayName})` : "";
 
   return {
     angle: output.angle,
@@ -408,10 +386,7 @@ function buildLocalDraftText({
 }: ProviderGenerationInput) {
   const normalizedDirection = usersDirection.trim();
   const directionClause = normalizedDirection
-    ? ` Read it through this constraint: ${truncateAtWordBoundary(
-        normalizedDirection,
-        72,
-      )}.`
+    ? ` Read it through this constraint: ${truncateAtWordBoundary(normalizedDirection, 72)}.`
     : "";
   const fallbackPrefix = fallbackForProvider
     ? "Quote-tweet draft: Fallback read:"
@@ -448,13 +423,10 @@ function buildLocalVisibleRationale({
 }: ProviderGenerationInput) {
   const contextParts = [
     replySignals.length > 0 ? "reply signals" : null,
-    enrichmentContext && enrichmentContext.items.length > 0
-      ? "hidden outside-X context"
-      : null,
+    enrichmentContext && enrichmentContext.items.length > 0 ? "hidden outside-X context" : null,
     usersDirection.trim() ? "Direction covered" : null,
   ].filter(Boolean);
-  const contextClause =
-    contextParts.length > 0 ? ` Uses ${contextParts.join(", ")}.` : "";
+  const contextClause = contextParts.length > 0 ? ` Uses ${contextParts.join(", ")}.` : "";
 
   return `Explores the ${angle} angle while keeping the source tweet as the anchor.${contextClause}`;
 }

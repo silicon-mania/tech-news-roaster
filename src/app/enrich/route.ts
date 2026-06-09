@@ -149,21 +149,13 @@ export async function POST(request: Request) {
   const serperApiKey = readEnvValue(process.env.SERPER_API_KEY);
 
   if (!serperApiKey) {
-    return Response.json(
-      { message: "Serper credentials are not configured." },
-      { status: 500 },
-    );
+    return Response.json({ message: "Serper credentials are not configured." }, { status: 500 });
   }
 
-  const parsedRequest = enrichmentRequestSchema.safeParse(
-    await readRequestJson(request),
-  );
+  const parsedRequest = enrichmentRequestSchema.safeParse(await readRequestJson(request));
 
   if (!parsedRequest.success) {
-    return Response.json(
-      { message: "Invalid enrichment request." },
-      { status: 400 },
-    );
+    return Response.json({ message: "Invalid enrichment request." }, { status: 400 });
   }
 
   try {
@@ -175,10 +167,7 @@ export async function POST(request: Request) {
     const findingCandidates = extractFindingCandidates(searchPayload);
 
     if (findingCandidates.length === 0) {
-      return Response.json(
-        { message: "No outside-X findings were found." },
-        { status: 422 },
-      );
+      return Response.json({ message: "No outside-X findings were found." }, { status: 422 });
     }
 
     const items = await summarizeFindings({
@@ -192,10 +181,7 @@ export async function POST(request: Request) {
     });
 
     if (newsLinkedImages.length === 0) {
-      return Response.json(
-        { message: "No news-linked images were found." },
-        { status: 422 },
-      );
+      return Response.json({ message: "No news-linked images were found." }, { status: 422 });
     }
 
     return Response.json(
@@ -208,10 +194,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Outside-X enrichment failed.", error);
 
-    return Response.json(
-      { message: "Outside-X enrichment failed." },
-      { status: 502 },
-    );
+    return Response.json({ message: "Outside-X enrichment failed." }, { status: 502 });
   }
 }
 
@@ -257,11 +240,7 @@ function buildSearchQuery({ replySignals, sourceTweet }: EnrichmentRequest) {
   return truncateAtWordBoundary(query.replace(/\s+/g, " ").trim(), 420);
 }
 
-async function searchSerper(
-  kind: "images" | "search",
-  query: string,
-  apiKey: string,
-) {
+async function searchSerper(kind: "images" | "search", query: string, apiKey: string) {
   const response = await fetch(`${serperBaseUrl}/${kind}`, {
     body: JSON.stringify({
       num: 10,
@@ -283,10 +262,7 @@ async function searchSerper(
 
 function extractFindingCandidates(payload: unknown): FindingCandidate[] {
   const searchPayload = serperSearchResponseSchema.parse(payload);
-  const candidates = [
-    ...(searchPayload.news ?? []),
-    ...(searchPayload.organic ?? []),
-  ];
+  const candidates = [...(searchPayload.news ?? []), ...(searchPayload.organic ?? [])];
   const seenUrls = new Set<string>();
 
   return candidates.flatMap((candidate) => {
@@ -302,9 +278,7 @@ function extractFindingCandidates(payload: unknown): FindingCandidate[] {
     return [
       {
         title,
-        summary:
-          candidate.snippet?.trim() ??
-          "External context related to the source tweet.",
+        summary: candidate.snippet?.trim() ?? "External context related to the source tweet.",
         url,
       },
     ];
@@ -340,8 +314,7 @@ async function summarizeFindings({
                 items: [
                   {
                     title: "Article/report title",
-                    summary:
-                      "One short hidden news context sentence used by text generation.",
+                    summary: "One short hidden news context sentence used by text generation.",
                     url: "Candidate URL",
                   },
                 ],
@@ -354,9 +327,7 @@ async function summarizeFindings({
             role: "user",
           },
         ],
-        model:
-          readEnvValue(process.env.OUTSIDE_X_ENRICHMENT_MODEL) ??
-          defaultEnrichmentModel,
+        model: readEnvValue(process.env.OUTSIDE_X_ENRICHMENT_MODEL) ?? defaultEnrichmentModel,
         temperature: 0.2,
       }),
       headers: {
@@ -410,15 +381,9 @@ function selectNewsLinkedImages({
   return imageCandidates
     .map((image) => ({
       image,
-      score:
-        image.sourceUrl && findingDomains.has(readDomain(image.sourceUrl) ?? "")
-          ? 1
-          : 0,
+      score: image.sourceUrl && findingDomains.has(readDomain(image.sourceUrl) ?? "") ? 1 : 0,
     }))
-    .sort(
-      (left, right) =>
-        right.score - left.score || left.image.index - right.image.index,
-    )
+    .sort((left, right) => right.score - left.score || left.image.index - right.image.index)
     .flatMap(({ image }) => {
       if (seenUrls.has(image.url)) {
         return [];
@@ -447,10 +412,7 @@ function extractImageCandidates({
 }): ImageCandidate[] {
   const imagePayload = serperImagesResponseSchema.parse(imagesPayload);
   const searchPayload = serperSearchResponseSchema.parse(fallbackSearchPayload);
-  const searchResults = [
-    ...(searchPayload.news ?? []),
-    ...(searchPayload.organic ?? []),
-  ];
+  const searchResults = [...(searchPayload.news ?? []), ...(searchPayload.organic ?? [])];
   const imageResults = imagePayload.images ?? [];
 
   return [
@@ -523,9 +485,10 @@ function readAiGatewayApiKey() {
 }
 
 function readAiGatewayBaseUrl() {
-  return (
-    readEnvValue(process.env.AI_GATEWAY_BASE_URL) ?? defaultAiGatewayBaseUrl
-  ).replace(/\/$/, "");
+  return (readEnvValue(process.env.AI_GATEWAY_BASE_URL) ?? defaultAiGatewayBaseUrl).replace(
+    /\/$/,
+    "",
+  );
 }
 
 function readEnvValue(value: string | undefined) {

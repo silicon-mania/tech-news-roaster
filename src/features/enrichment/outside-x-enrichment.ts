@@ -50,9 +50,7 @@ const outsideXEnrichmentContextSchema = z
   .strict();
 
 export type ReplySignal = z.infer<typeof replySignalSchema>;
-export type OutsideXEnrichmentContext = z.infer<
-  typeof outsideXEnrichmentContextSchema
->;
+export type OutsideXEnrichmentContext = z.infer<typeof outsideXEnrichmentContextSchema>;
 
 export type OutsideXEnrichmentInput = {
   sourceTweet: RetrievedSourceTweet;
@@ -71,9 +69,7 @@ export class OutsideXEnrichmentUnavailableError extends Error {
   }
 }
 
-export function buildReplySignals(
-  tweetContext: RetrievedTweetContext,
-): ReplySignal[] {
+export function buildReplySignals(tweetContext: RetrievedTweetContext): ReplySignal[] {
   return tweetContext.replies
     .map((reply) =>
       replySignalSchema.parse({
@@ -126,9 +122,7 @@ export async function retrieveOutsideXEnrichment({
   return normalizeOutsideXEnrichmentContext(await response.json());
 }
 
-function normalizeOutsideXEnrichmentContext(
-  payload: unknown,
-): OutsideXEnrichmentContext {
+function normalizeOutsideXEnrichmentContext(payload: unknown): OutsideXEnrichmentContext {
   const rawContext = rawOutsideXEnrichmentContextSchema.parse(payload);
 
   return outsideXEnrichmentContextSchema.parse({

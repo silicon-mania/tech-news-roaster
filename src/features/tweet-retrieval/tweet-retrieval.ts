@@ -47,9 +47,7 @@ export type RetrievedTweetContext = z.infer<typeof retrievedTweetContextSchema>;
 export type TweetRetrievalInput = {
   sourceTweetUrl: string;
 };
-export type TweetRetrievalService = (
-  input: TweetRetrievalInput,
-) => Promise<RetrievedTweetContext>;
+export type TweetRetrievalService = (input: TweetRetrievalInput) => Promise<RetrievedTweetContext>;
 
 type TwitterApiIoOptions = {
   apiKey?: string;
@@ -93,9 +91,7 @@ async function retrieveWithTwitterApiIo(
 
   const tweetId = extractTweetId(sourceTweetUrl);
   const sourcePayload = await fetchJson(
-    `${twitterApiBaseUrl}/twitter/tweets?tweet_ids=${encodeURIComponent(
-      tweetId,
-    )}`,
+    `${twitterApiBaseUrl}/twitter/tweets?tweet_ids=${encodeURIComponent(tweetId)}`,
     apiKey,
     fetcher,
   );
@@ -114,9 +110,7 @@ async function retrieveWithTwitterApiIo(
   });
 }
 
-export function buildFixtureTweetContext(
-  sourceTweetUrl: string,
-): RetrievedTweetContext {
+export function buildFixtureTweetContext(sourceTweetUrl: string): RetrievedTweetContext {
   const tweetId = extractTweetId(sourceTweetUrl);
 
   return retrievedTweetContextSchema.parse({
@@ -185,11 +179,7 @@ function extractTweetId(sourceTweetUrl: string) {
   return match[1];
 }
 
-async function retrieveReplies(
-  tweetId: string,
-  apiKey: string,
-  fetcher: typeof fetch,
-) {
+async function retrieveReplies(tweetId: string, apiKey: string, fetcher: typeof fetch) {
   const replies: RetrievedTweetContext["replies"] = [];
   let cursor: string | null = null;
 
@@ -275,19 +265,14 @@ function extractTweetRecords(payload: unknown): RawRecord[] {
   return [];
 }
 
-function normalizeSourceTweet(
-  record: RawRecord,
-  fallbackUrl: string,
-): RetrievedSourceTweet {
+function normalizeSourceTweet(record: RawRecord, fallbackUrl: string): RetrievedSourceTweet {
   return retrievedSourceTweetSchema.parse({
     ...normalizeTweetBase(record),
     url: readString(record, ["url", "tweetUrl"]) ?? fallbackUrl,
   });
 }
 
-function normalizeReply(
-  record: RawRecord,
-): RetrievedTweetContext["replies"][0] {
+function normalizeReply(record: RawRecord): RetrievedTweetContext["replies"][0] {
   return retrievedReplySchema.parse(normalizeTweetBase(record));
 }
 
@@ -296,17 +281,11 @@ function normalizeTweetBase(record: RawRecord) {
 
   return {
     id: readString(record, ["id", "id_str", "tweetId"]) ?? "unknown",
-    text:
-      readString(record, ["text", "full_text", "tweetText", "content"]) ?? "",
-    createdAt: normalizeCreatedAt(
-      readString(record, ["createdAt", "created_at", "created_time"]),
-    ),
+    text: readString(record, ["text", "full_text", "tweetText", "content"]) ?? "",
+    createdAt: normalizeCreatedAt(readString(record, ["createdAt", "created_at", "created_time"])),
     author: {
-      username:
-        readString(author, ["username", "userName", "screen_name"]) ??
-        "unknown",
-      displayName:
-        readString(author, ["displayName", "name", "fullName"]) ?? "Unknown",
+      username: readString(author, ["username", "userName", "screen_name"]) ?? "unknown",
+      displayName: readString(author, ["displayName", "name", "fullName"]) ?? "Unknown",
     },
     metrics: {
       replies: readNumber(record, ["replyCount", "replies", "reply_count"]),

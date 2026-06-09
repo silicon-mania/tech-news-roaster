@@ -27,17 +27,13 @@ describe("generation stream route", () => {
       .trim()
       .split("\n\n")
       .map((rawEvent) => {
-        const dataLine = rawEvent
-          .split("\n")
-          .find((line) => line.startsWith("data: "));
+        const dataLine = rawEvent.split("\n").find((line) => line.startsWith("data: "));
 
         if (!dataLine) {
           throw new Error("Missing SSE data line.");
         }
 
-        return parseGenerationStreamEvent(
-          JSON.parse(dataLine.replace("data: ", "")),
-        );
+        return parseGenerationStreamEvent(JSON.parse(dataLine.replace("data: ", "")));
       });
 
     expect(events.map((event) => event.type)).toEqual([
@@ -114,20 +110,16 @@ describe("generation stream route", () => {
       .split("\n")
       .find((line) => line.startsWith("data: "));
 
-    expect(
-      parseGenerationStreamEvent(
-        JSON.parse(dataLine?.replace("data: ", "") ?? "{}"),
-      ),
-    ).toEqual({
-      type: "failed",
-      message: "Source tweet could not be retrieved.",
-    });
+    expect(parseGenerationStreamEvent(JSON.parse(dataLine?.replace("data: ", "") ?? "{}"))).toEqual(
+      {
+        type: "failed",
+        message: "Source tweet could not be retrieved.",
+      },
+    );
   });
 
   test("passes the accepted Source Tweet URL through the retrieval boundary", async () => {
-    const retrieved = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/5678",
-    );
+    const retrieved = buildFixtureTweetContext("https://x.com/siliconmania/status/5678");
     const response = await streamGenerationRun(
       new Request(
         "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F5678",
@@ -144,15 +136,11 @@ describe("generation stream route", () => {
       },
     );
 
-    expect(await response.text()).toContain(
-      "Retrieved source tweet text from the service.",
-    );
+    expect(await response.text()).toContain("Retrieved source tweet text from the service.");
   });
 
   test("requests outside-X enrichment before text generation for every run", async () => {
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/1357",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/1357");
     const enrichmentRequests: unknown[] = [];
     const orchestrationRequests: unknown[] = [];
     const callOrder: string[] = [];
@@ -242,9 +230,7 @@ describe("generation stream route", () => {
   });
 
   test("emits a failed event when outside-X enrichment returns zero images", async () => {
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/9999",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/9999");
     const orchestrateGeneration = vi.fn();
     const response = await streamGenerationRun(
       new Request(
@@ -278,9 +264,7 @@ describe("generation stream route", () => {
   });
 
   test("emits a failed event when outside-X enrichment fails", async () => {
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/9999",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/9999");
     const orchestrateGeneration = vi.fn();
     const response = await streamGenerationRun(
       new Request(
@@ -333,9 +317,7 @@ describe("generation stream route", () => {
   });
 
   test("streams fallback disclosure and complete draft metadata", async () => {
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const response = await streamGenerationRun(
       new Request(
         "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F2468",
@@ -414,24 +396,18 @@ async function readStreamEvents(response: Response) {
     .trim()
     .split("\n\n")
     .map((rawEvent) => {
-      const dataLine = rawEvent
-        .split("\n")
-        .find((line) => line.startsWith("data: "));
+      const dataLine = rawEvent.split("\n").find((line) => line.startsWith("data: "));
 
       if (!dataLine) {
         throw new Error("Missing SSE data line.");
       }
 
-      return parseGenerationStreamEvent(
-        JSON.parse(dataLine.replace("data: ", "")),
-      );
+      return parseGenerationStreamEvent(JSON.parse(dataLine.replace("data: ", "")));
     });
 }
 
 function buildThinTweetContext(): RetrievedTweetContext {
-  const tweetContext = buildFixtureTweetContext(
-    "https://x.com/siliconmania/status/9999",
-  );
+  const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/9999");
 
   return {
     sourceTweet: {

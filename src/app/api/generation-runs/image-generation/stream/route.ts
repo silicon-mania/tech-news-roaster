@@ -51,8 +51,7 @@ export async function streamImageGenerationRun(
   }
 
   const encoder = new TextEncoder();
-  const streamImageSetsForRun =
-    dependencies.streamImageSetsForRun ?? streamImageSetsForRunService;
+  const streamImageSetsForRun = dependencies.streamImageSetsForRun ?? streamImageSetsForRunService;
   const now = dependencies.now ?? (() => new Date());
   const stream = new ReadableStream({
     async start(controller) {
@@ -67,8 +66,7 @@ export async function streamImageGenerationRun(
           },
           {
             now,
-            prepareSelectedImageOriginal:
-              dependencies.prepareSelectedImageOriginal,
+            prepareSelectedImageOriginal: dependencies.prepareSelectedImageOriginal,
             provider: dependencies.provider,
           },
         )) {
@@ -151,10 +149,7 @@ async function readImageGenerationStreamRequest(
   }
 }
 
-function validateImageGenerationStart({
-  input,
-  parentRun,
-}: ImageGenerationStreamRequest) {
+function validateImageGenerationStart({ input, parentRun }: ImageGenerationStreamRequest) {
   if (parentRun.id !== input.parentRunId) {
     return "Image generation input does not match the parent run.";
   }
@@ -167,9 +162,7 @@ function validateImageGenerationStart({
     return "Image Generation has already started for this run.";
   }
 
-  const availableImageIds = new Set(
-    parentRun.newsLinkedImages.map((image) => image.id),
-  );
+  const availableImageIds = new Set(parentRun.newsLinkedImages.map((image) => image.id));
   const unavailableImageId = input.selectedImageIds.find(
     (selectedImageId) => !availableImageIds.has(selectedImageId),
   );
@@ -189,11 +182,7 @@ function enqueueImageGenerationEvent(
   const validatedEvent = parseImageGenerationStreamEvent(event);
 
   controller.enqueue(
-    encoder.encode(
-      `event: ${validatedEvent.type}\ndata: ${JSON.stringify(
-        validatedEvent,
-      )}\n\n`,
-    ),
+    encoder.encode(`event: ${validatedEvent.type}\ndata: ${JSON.stringify(validatedEvent)}\n\n`),
   );
 }
 
@@ -217,8 +206,7 @@ function inferTerminalStatus({
 
 function hasImageGenerationStarted(run: SavedGenerationRun) {
   return (
-    (run.imageGenerationState &&
-      run.imageGenerationState.status !== "not-started") ||
+    (run.imageGenerationState && run.imageGenerationState.status !== "not-started") ||
     (run.imageSets?.length ?? 0) > 0 ||
     (run.failedImageSets?.length ?? 0) > 0 ||
     (run.selectedImageOriginals?.length ?? 0) > 0 ||
@@ -238,9 +226,7 @@ function toRecord(value: unknown): Record<string, unknown> {
 
 function normalizeRequestValidationError(error: unknown) {
   if (error instanceof ZodError) {
-    const promptIssue = error.issues.find((issue) =>
-      issue.path.includes("userImagePrompt"),
-    );
+    const promptIssue = error.issues.find((issue) => issue.path.includes("userImagePrompt"));
     const selectedImageIssue = error.issues.find((issue) =>
       issue.path.includes("selectedImageIds"),
     );

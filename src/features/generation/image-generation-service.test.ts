@@ -19,9 +19,7 @@ describe("image generation service", () => {
         userImagePrompt: string;
         variationCount: 2;
       }) {
-        calls.push(
-          `provider:${input.original.selectedImageOriginal.newsLinkedImageId}`,
-        );
+        calls.push(`provider:${input.original.selectedImageOriginal.newsLinkedImageId}`);
 
         return [
           {
@@ -209,9 +207,7 @@ describe("image generation service", () => {
             expect.objectContaining({
               content: expect.arrayContaining([
                 expect.objectContaining({
-                  text: expect.stringContaining(
-                    "Make it feel like a launch visual.",
-                  ),
+                  text: expect.stringContaining("Make it feel like a launch visual."),
                   type: "text",
                 }),
                 expect.objectContaining({
@@ -279,9 +275,7 @@ describe("image generation service", () => {
     );
 
     expect(generateVariations).toHaveBeenCalledTimes(2);
-    expect(
-      generateVariations.mock.calls.map(([input]) => input.variationCount),
-    ).toEqual([2, 2]);
+    expect(generateVariations.mock.calls.map(([input]) => input.variationCount)).toEqual([2, 2]);
     expect(result.imageSets).toHaveLength(1);
     expect(result.failedImageSets).toEqual([
       expect.objectContaining({
@@ -313,9 +307,7 @@ describe("image generation service", () => {
         now: () => new Date("2026-06-05T10:20:00.000Z"),
       });
 
-      expect(fetch).toHaveBeenCalledWith(
-        "https://example.com/news-linked-image-1.jpg",
-      );
+      expect(fetch).toHaveBeenCalledWith("https://example.com/news-linked-image-1.jpg");
       expect(prepared).toEqual({
         dataUrl: "data:image/png;base64,AQID",
         mediaType: "image/png",
@@ -363,9 +355,7 @@ function buildNewsLinkedImages(): NewsLinkedImage[] {
   ];
 }
 
-function buildPreparedOriginal(
-  newsLinkedImage: NewsLinkedImage,
-): PreparedSelectedImageOriginal {
+function buildPreparedOriginal(newsLinkedImage: NewsLinkedImage): PreparedSelectedImageOriginal {
   return {
     dataUrl: `data:image/jpeg;base64,${newsLinkedImage.id}`,
     mediaType: "image/jpeg",

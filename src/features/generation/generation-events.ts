@@ -82,11 +82,9 @@ const imageSetSchema = z
   .strict()
   .refine(
     (imageSet) =>
-      imageSet.options[1].label === "Variation 1" &&
-      imageSet.options[2].label === "Variation 2",
+      imageSet.options[1].label === "Variation 1" && imageSet.options[2].label === "Variation 2",
     {
-      message:
-        "Image Sets must contain Original, Variation 1, and Variation 2.",
+      message: "Image Sets must contain Original, Variation 1, and Variation 2.",
       path: ["options"],
     },
   );
@@ -192,20 +190,14 @@ const completedGenerationRunPayloadSchema = z
     sourceTweet: retrievedSourceTweetSchema,
     drafts: z
       .array(quoteTweetDraftSchema)
-      .length(
-        draftTarget,
-        "A completed Generation Run must have three drafts.",
-      ),
+      .length(draftTarget, "A completed Generation Run must have three drafts."),
     imageGenerationState: imageGenerationAttemptStateSchema.optional(),
     imageModelProvenance: imageModelProvenanceSchema.optional(),
     imageSets: z.array(imageSetSchema).max(2).optional(),
     failedImageSets: z.array(failedImageSetSchema).max(2).optional(),
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
     phase: generationRunPhaseSchema.optional(),
-    selectedImageOriginals: z
-      .array(selectedImageOriginalSchema)
-      .max(2)
-      .optional(),
+    selectedImageOriginals: z.array(selectedImageOriginalSchema).max(2).optional(),
   })
   .strict();
 
@@ -228,10 +220,7 @@ const savedGenerationRunSchema = z
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
     phase: generationRunPhaseSchema.optional(),
     savedAt: z.string().datetime().optional(),
-    selectedImageOriginals: z
-      .array(selectedImageOriginalSchema)
-      .max(2)
-      .optional(),
+    selectedImageOriginals: z.array(selectedImageOriginalSchema).max(2).optional(),
     sourceTweet: retrievedSourceTweetSchema.optional(),
   })
   .strict();
@@ -310,13 +299,9 @@ export type ImageModelProvenance = z.infer<typeof imageModelProvenanceSchema>;
 export type ImageSet = z.infer<typeof imageSetSchema>;
 export type QuoteTweetDraft = z.infer<typeof quoteTweetDraftSchema>;
 export type SelectedImageOriginal = z.infer<typeof selectedImageOriginalSchema>;
-export type CompletedGenerationRunPayload = z.infer<
-  typeof completedGenerationRunPayloadSchema
->;
+export type CompletedGenerationRunPayload = z.infer<typeof completedGenerationRunPayloadSchema>;
 export type GenerationStreamEvent = z.infer<typeof generationStreamEventSchema>;
-export type ImageGenerationStreamEvent = z.infer<
-  typeof imageGenerationStreamEventSchema
->;
+export type ImageGenerationStreamEvent = z.infer<typeof imageGenerationStreamEventSchema>;
 export type SavedGenerationRun = z.infer<typeof savedGenerationRunSchema>;
 
 type StubbedGenerationInput = {
@@ -334,27 +319,19 @@ type CompletedGenerationRunEventsInput = {
   run: CompletedGenerationRunPayload;
 };
 
-export function parseGenerationStreamEvent(
-  event: unknown,
-): GenerationStreamEvent {
+export function parseGenerationStreamEvent(event: unknown): GenerationStreamEvent {
   return generationStreamEventSchema.parse(event);
 }
 
-export function parseImageGenerationStreamEvent(
-  event: unknown,
-): ImageGenerationStreamEvent {
+export function parseImageGenerationStreamEvent(event: unknown): ImageGenerationStreamEvent {
   return imageGenerationStreamEventSchema.parse(event);
 }
 
-export function parseImageGenerationInput(
-  input: unknown,
-): ImageGenerationInput {
+export function parseImageGenerationInput(input: unknown): ImageGenerationInput {
   return imageGenerationInputSchema.parse(input);
 }
 
-export function parseSelectedImageOriginal(
-  original: unknown,
-): SelectedImageOriginal {
+export function parseSelectedImageOriginal(original: unknown): SelectedImageOriginal {
   return selectedImageOriginalSchema.parse(original);
 }
 
@@ -417,8 +394,7 @@ export function buildStubbedGenerationEvents({
       text: `Quote-tweet draft: The real story is not the launch, it is the leverage. This update turns one product move into a pressure test for every platform trying to own the next interface.${contextClause}`,
       modelProvenance: "local draft model",
       provider: "openai",
-      visibleRationale:
-        "Frames the news around platform leverage and interface ownership.",
+      visibleRationale: "Frames the news around platform leverage and interface ownership.",
     },
     {
       angle: "incentive shift",
@@ -474,9 +450,7 @@ export function buildCompletedGenerationRunEvents({
   ];
 }
 
-export function buildGenerationFailureEvent(
-  message: string,
-): GenerationStreamEvent {
+export function buildGenerationFailureEvent(message: string): GenerationStreamEvent {
   return generationStreamEventSchema.parse({
     type: "failed",
     message,

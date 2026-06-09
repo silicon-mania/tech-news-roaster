@@ -17,9 +17,7 @@ export type GenerationEventSource = {
   close(): void;
 };
 
-export type GenerationEventSourceFactory = (
-  url: string,
-) => GenerationEventSource;
+export type GenerationEventSourceFactory = (url: string) => GenerationEventSource;
 
 export type SubmissionState =
   | { kind: "idle" }

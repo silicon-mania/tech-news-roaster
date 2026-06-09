@@ -10,9 +10,7 @@ import {
 
 describe("generation orchestrator", () => {
   test("returns exactly one draft from each connected provider", async () => {
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const run = await orchestrateThreeProviderGeneration(
       {
         replySignals: buildReplySignals(tweetContext),
@@ -21,11 +19,7 @@ describe("generation orchestrator", () => {
         usersDirection: "",
       },
       {
-        providers: [
-          buildProvider("openai"),
-          buildProvider("anthropic"),
-          buildProvider("google"),
-        ],
+        providers: [buildProvider("openai"), buildProvider("anthropic"), buildProvider("google")],
       },
     );
 
@@ -52,28 +46,24 @@ describe("generation orchestrator", () => {
     };
     const previousFetch = globalThis.fetch;
     const gatewayBodies: unknown[] = [];
-    const fetcher = vi.fn(
-      async (_input: RequestInfo | URL, init?: RequestInit) => {
-        gatewayBodies.push(JSON.parse(String(init?.body)));
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      gatewayBodies.push(JSON.parse(String(init?.body)));
 
-        return Response.json({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  angle: "configured model",
-                  text: "Quote-tweet draft: configured model provenance.",
-                  visibleRationale: "Shows configured model provenance.",
-                }),
-              },
+      return Response.json({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                angle: "configured model",
+                text: "Quote-tweet draft: configured model provenance.",
+                visibleRationale: "Shows configured model provenance.",
+              }),
             },
-          ],
-        });
-      },
-    );
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+          },
+        ],
+      });
+    });
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
 
     process.env.AI_GATEWAY_API_KEY = "gateway-secret";
     process.env.AI_GATEWAY_OPENAI_MODEL = "openai/launch";
@@ -97,35 +87,20 @@ describe("generation orchestrator", () => {
       ]);
       expect(
         gatewayBodies.map((body) =>
-          typeof body === "object" && body && "model" in body
-            ? body.model
-            : undefined,
+          typeof body === "object" && body && "model" in body ? body.model : undefined,
         ),
       ).toEqual(["openai/launch", "anthropic/launch", "google/launch"]);
       expect(
         gatewayBodies.every(
-          (body) =>
-            typeof body === "object" && body && !("response_format" in body),
+          (body) => typeof body === "object" && body && !("response_format" in body),
         ),
       ).toBe(true);
     } finally {
       restoreEnvValue("AI_GATEWAY_API_KEY", previousEnv.AI_GATEWAY_API_KEY);
-      restoreEnvValue(
-        "AI_GATEWAY_OPENAI_MODEL",
-        previousEnv.AI_GATEWAY_OPENAI_MODEL,
-      );
-      restoreEnvValue(
-        "AI_GATEWAY_ANTHROPIC_MODEL",
-        previousEnv.AI_GATEWAY_ANTHROPIC_MODEL,
-      );
-      restoreEnvValue(
-        "AI_GATEWAY_GOOGLE_MODEL",
-        previousEnv.AI_GATEWAY_GOOGLE_MODEL,
-      );
-      restoreEnvValue(
-        "VERCEL_AI_GATEWAY_API_KEY",
-        previousEnv.VERCEL_AI_GATEWAY_API_KEY,
-      );
+      restoreEnvValue("AI_GATEWAY_OPENAI_MODEL", previousEnv.AI_GATEWAY_OPENAI_MODEL);
+      restoreEnvValue("AI_GATEWAY_ANTHROPIC_MODEL", previousEnv.AI_GATEWAY_ANTHROPIC_MODEL);
+      restoreEnvValue("AI_GATEWAY_GOOGLE_MODEL", previousEnv.AI_GATEWAY_GOOGLE_MODEL);
+      restoreEnvValue("VERCEL_AI_GATEWAY_API_KEY", previousEnv.VERCEL_AI_GATEWAY_API_KEY);
       globalThis.fetch = previousFetch;
     }
   });
@@ -137,36 +112,29 @@ describe("generation orchestrator", () => {
     };
     const previousFetch = globalThis.fetch;
     const gatewayPrompts: unknown[] = [];
-    const fetcher = vi.fn(
-      async (_input: RequestInfo | URL, init?: RequestInit) => {
-        const body = JSON.parse(String(init?.body)) as {
-          messages?: Array<{ content?: string; role?: string }>;
-        };
-        const userMessage = body.messages?.find(
-          (message) => message.role === "user",
-        );
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as {
+        messages?: Array<{ content?: string; role?: string }>;
+      };
+      const userMessage = body.messages?.find((message) => message.role === "user");
 
-        gatewayPrompts.push(JSON.parse(String(userMessage?.content)));
+      gatewayPrompts.push(JSON.parse(String(userMessage?.content)));
 
-        return Response.json({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  angle: "directional read",
-                  text: "Quote-tweet draft: direction and replies shape the read.",
-                  visibleRationale:
-                    "Uses replies and the user's direction for the text draft.",
-                }),
-              },
+      return Response.json({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                angle: "directional read",
+                text: "Quote-tweet draft: direction and replies shape the read.",
+                visibleRationale: "Uses replies and the user's direction for the text draft.",
+              }),
             },
-          ],
-        });
-      },
-    );
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+          },
+        ],
+      });
+    });
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
 
     process.env.AI_GATEWAY_API_KEY = "gateway-secret";
     delete process.env.VERCEL_AI_GATEWAY_API_KEY;
@@ -196,10 +164,7 @@ describe("generation orchestrator", () => {
       );
     } finally {
       restoreEnvValue("AI_GATEWAY_API_KEY", previousEnv.AI_GATEWAY_API_KEY);
-      restoreEnvValue(
-        "VERCEL_AI_GATEWAY_API_KEY",
-        previousEnv.VERCEL_AI_GATEWAY_API_KEY,
-      );
+      restoreEnvValue("VERCEL_AI_GATEWAY_API_KEY", previousEnv.VERCEL_AI_GATEWAY_API_KEY);
       globalThis.fetch = previousFetch;
     }
   });
@@ -226,9 +191,7 @@ describe("generation orchestrator", () => {
         ],
       }),
     );
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
 
     process.env.AI_GATEWAY_API_KEY = "gateway-secret";
     delete process.env.VERCEL_AI_GATEWAY_API_KEY;
@@ -250,18 +213,13 @@ describe("generation orchestrator", () => {
       });
     } finally {
       restoreEnvValue("AI_GATEWAY_API_KEY", previousEnv.AI_GATEWAY_API_KEY);
-      restoreEnvValue(
-        "VERCEL_AI_GATEWAY_API_KEY",
-        previousEnv.VERCEL_AI_GATEWAY_API_KEY,
-      );
+      restoreEnvValue("VERCEL_AI_GATEWAY_API_KEY", previousEnv.VERCEL_AI_GATEWAY_API_KEY);
       globalThis.fetch = previousFetch;
     }
   });
 
   test("keeps drafts short and covers the user's direction when relevant", async () => {
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const run = await orchestrateThreeProviderGeneration(
       {
         replySignals: buildReplySignals(tweetContext),
@@ -273,18 +231,14 @@ describe("generation orchestrator", () => {
     );
 
     expect(run.drafts.every((draft) => draft.text.length <= 280)).toBe(true);
-    expect(
-      run.drafts.every((draft) =>
-        draft.visibleRationale.includes("Direction covered"),
-      ),
-    ).toBe(true);
+    expect(run.drafts.every((draft) => draft.visibleRationale.includes("Direction covered"))).toBe(
+      true,
+    );
     expect(new Set(run.drafts.map((draft) => draft.angle)).size).toBe(3);
   });
 
   test("uses provider fallback to preserve a complete three-draft run", async () => {
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const run = await orchestrateThreeProviderGeneration(
       {
         replySignals: buildReplySignals(tweetContext),
@@ -308,9 +262,7 @@ describe("generation orchestrator", () => {
       modelProvenance: "test-model (fallback for Anthropic)",
     });
     expect(run.fallbackDisclosure).toContain("Anthropic");
-    expect(
-      run.drafts.filter((draft) => draft.provider === "openai"),
-    ).toHaveLength(2);
+    expect(run.drafts.filter((draft) => draft.provider === "openai")).toHaveLength(2);
   });
 });
 
@@ -318,10 +270,7 @@ function buildProvider(
   id: GenerationProvider["id"],
   { shouldFail = false }: { shouldFail?: boolean } = {},
 ): GenerationProvider {
-  const displayNames: Record<
-    GenerationProvider["id"],
-    GenerationProvider["displayName"]
-  > = {
+  const displayNames: Record<GenerationProvider["id"], GenerationProvider["displayName"]> = {
     anthropic: "Anthropic",
     google: "Google",
     openai: "OpenAI",

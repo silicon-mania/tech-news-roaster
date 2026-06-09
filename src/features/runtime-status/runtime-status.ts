@@ -69,15 +69,10 @@ export async function readRuntimeStatus({
   fetcher = fetch,
 }: RuntimeStatusOptions = {}): Promise<RuntimeStatus> {
   const twitterApiIoApiKey = hasEnvValue(env.TWITTERAPI_IO_API_KEY);
-  const outsideXEnrichmentApiKey = hasEnvValue(
-    env.OUTSIDE_X_ENRICHMENT_API_KEY,
-  );
-  const outsideXEnrichmentEndpoint = hasEnvValue(
-    env.OUTSIDE_X_ENRICHMENT_ENDPOINT,
-  );
+  const outsideXEnrichmentApiKey = hasEnvValue(env.OUTSIDE_X_ENRICHMENT_API_KEY);
+  const outsideXEnrichmentEndpoint = hasEnvValue(env.OUTSIDE_X_ENRICHMENT_ENDPOINT);
   const aiGatewayApiKey =
-    hasEnvValue(env.AI_GATEWAY_API_KEY) ||
-    hasEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
+    hasEnvValue(env.AI_GATEWAY_API_KEY) || hasEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
   const configuredModelIds = readConfiguredAiGatewayModels(env);
   const modelCatalog = await readAiGatewayModelCatalog({
     baseUrl: env.AI_GATEWAY_BASE_URL,

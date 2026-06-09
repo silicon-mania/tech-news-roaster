@@ -40,10 +40,8 @@ export async function streamGenerationRun(
   const usersDirection = requestUrl.searchParams.get("usersDirection") ?? "";
   const encoder = new TextEncoder();
   const retrieve = dependencies.retrieveTweetContext ?? retrieveTweetContext;
-  const enrich =
-    dependencies.retrieveOutsideXEnrichment ?? retrieveOutsideXEnrichment;
-  const orchestrate =
-    dependencies.orchestrateGeneration ?? orchestrateThreeProviderGeneration;
+  const enrich = dependencies.retrieveOutsideXEnrichment ?? retrieveOutsideXEnrichment;
+  const orchestrate = dependencies.orchestrateGeneration ?? orchestrateThreeProviderGeneration;
   const events = await buildGenerationRunEvents({
     enrich,
     orchestrate,
@@ -59,9 +57,7 @@ export async function streamGenerationRun(
 
         controller.enqueue(
           encoder.encode(
-            `event: ${validatedEvent.type}\ndata: ${JSON.stringify(
-              validatedEvent,
-            )}\n\n`,
+            `event: ${validatedEvent.type}\ndata: ${JSON.stringify(validatedEvent)}\n\n`,
           ),
         );
       }
@@ -115,15 +111,11 @@ async function buildGenerationRunEvents({
 
   if (enrichmentResult.status === "failed") {
     return [
-      buildGenerationFailureEvent(
-        "Outside-X enrichment could not provide news-linked images.",
-      ),
+      buildGenerationFailureEvent("Outside-X enrichment could not provide news-linked images."),
     ];
   }
   const enrichmentContext =
-    enrichmentResult.status === "available"
-      ? enrichmentResult.enrichmentContext
-      : undefined;
+    enrichmentResult.status === "available" ? enrichmentResult.enrichmentContext : undefined;
 
   try {
     const completedRun = await orchestrate({
@@ -151,11 +143,7 @@ async function buildGenerationRunEvents({
   } catch (error) {
     console.error("Generation orchestration failed.", error);
 
-    return [
-      buildGenerationFailureEvent(
-        "Draft providers could not complete a three-draft run.",
-      ),
-    ];
+    return [buildGenerationFailureEvent("Draft providers could not complete a three-draft run.")];
   }
 }
 

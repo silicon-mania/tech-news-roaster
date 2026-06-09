@@ -14,9 +14,7 @@ import {
 
 describe("generation event contracts", () => {
   test("builds deterministic progress events followed by a completed run", () => {
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const events = buildStubbedGenerationEvents({
       replySignals: buildReplySignals(tweetContext),
       sourceTweet: tweetContext.sourceTweet,
@@ -66,9 +64,7 @@ describe("generation event contracts", () => {
   });
 
   test("rejects completed runs without exactly three drafts", () => {
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
 
     expect(() =>
       parseCompletedGenerationRunPayload({
@@ -111,9 +107,7 @@ describe("generation event contracts", () => {
   });
 
   test("validates enrichment-completed events without hidden enrichment text", () => {
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const event = buildEnrichmentCompletedEvent({
       sourceTweet: tweetContext.sourceTweet,
       newsLinkedImages: [
@@ -166,11 +160,7 @@ describe("generation event contracts", () => {
     expect(() =>
       parseImageGenerationInput({
         parentRunId: "run-1",
-        selectedImageIds: [
-          "news-linked-image-1",
-          "news-linked-image-2",
-          "news-linked-image-3",
-        ],
+        selectedImageIds: ["news-linked-image-1", "news-linked-image-2", "news-linked-image-3"],
         userImagePrompt: "Too many images.",
       }),
     ).toThrow();
@@ -253,9 +243,7 @@ describe("generation event contracts", () => {
   });
 
   test("validates v2 saved runs and rejects invalid one-time image states", () => {
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const imageSet = buildImageSet();
 
     expect(

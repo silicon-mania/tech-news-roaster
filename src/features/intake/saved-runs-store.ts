@@ -6,16 +6,11 @@ const databaseVersion = 1;
 const savedRunsStoreName = "saved-runs";
 const successfulSavedRunLimit = 10;
 
-export function planSavedRunRetention(
-  runs: GenerationRun[],
-  limit = successfulSavedRunLimit,
-) {
+export function planSavedRunRetention(runs: GenerationRun[], limit = successfulSavedRunLimit) {
   const successfulRuns = runs
     .filter((run) => run.status === "completed")
     .sort(compareNewestSavedRunFirst);
-  const deletedRunIds = new Set(
-    successfulRuns.slice(limit).map((run) => run.id),
-  );
+  const deletedRunIds = new Set(successfulRuns.slice(limit).map((run) => run.id));
 
   return {
     deletedRunIds,
@@ -37,9 +32,7 @@ export const indexedDbSavedRunStore: SavedRunStore = {
       const request = store.getAll();
 
       request.onsuccess = () => {
-        const savedRuns = request.result
-          .filter(isGenerationRun)
-          .sort(compareNewestSavedRunFirst);
+        const savedRuns = request.result.filter(isGenerationRun).sort(compareNewestSavedRunFirst);
 
         resolve(savedRuns);
       };

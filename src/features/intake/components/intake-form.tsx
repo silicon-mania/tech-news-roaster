@@ -39,13 +39,10 @@ export function IntakeForm({
   const sourceTweetUrlErrorId = `${sourceTweetUrlId}-error`;
   const statusId = `${sourceTweetUrlId}-status`;
   const runtimeNoticeId = `${sourceTweetUrlId}-runtime-notice`;
-  const visibleRuntimeNotice =
-    submissionState.kind === "idle" ? runtimeNotice : undefined;
+  const visibleRuntimeNotice = submissionState.kind === "idle" ? runtimeNotice : undefined;
   const sourceTweetUrlDescription = [
     submissionState.kind === "invalid" ? sourceTweetUrlErrorId : null,
-    submissionState.kind === "accepted" || submissionState.kind === "blocked"
-      ? statusId
-      : null,
+    submissionState.kind === "accepted" || submissionState.kind === "blocked" ? statusId : null,
     visibleRuntimeNotice ? runtimeNoticeId : null,
   ]
     .filter(Boolean)
@@ -56,19 +53,16 @@ export function IntakeForm({
       aria-label={hasRuns ? "Compressed intake bar" : "Primary intake bar"}
       className={`mx-auto grid w-full max-w-3xl gap-3 transition-[max-width] duration-300 ${
         hasRuns ? "sm:max-w-2xl" : ""
-      }`}
-    >
+      }`}>
       <form
         noValidate
         onSubmit={onSubmit}
-        className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2 rounded-sm border border-slate-800/90 bg-slate-950/84 p-2 shadow-2xl shadow-black/25 backdrop-blur sm:grid-cols-[3rem_minmax(0,1fr)_auto_3rem]"
-      >
+        className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2 rounded-sm border border-slate-800/90 bg-slate-950/84 p-2 shadow-2xl shadow-black/25 backdrop-blur sm:grid-cols-[3rem_minmax(0,1fr)_auto_3rem]">
         <button
           type="button"
           aria-label={`Open runs drawer, ${runsCount} runs`}
           onClick={onOpenRunsDrawer}
-          className={iconButtonClassName}
-        >
+          className={iconButtonClassName}>
           <Menu aria-hidden className="size-3.5" strokeWidth={1.75} />
         </button>
 
@@ -92,8 +86,7 @@ export function IntakeForm({
           type="submit"
           aria-describedby={visibleRuntimeNotice ? runtimeNoticeId : undefined}
           disabled={isRunDisabled}
-          className="col-span-3 row-start-2 inline-flex h-11 items-center justify-center gap-2 rounded-sm bg-sky-300 px-3 font-semibold text-slate-950 text-sm transition hover:bg-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500 sm:col-auto sm:row-auto sm:px-4"
-        >
+          className="col-span-3 row-start-2 inline-flex h-11 items-center justify-center gap-2 rounded-sm bg-sky-300 px-3 font-semibold text-slate-950 text-sm transition hover:bg-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500 sm:col-auto sm:row-auto sm:px-4">
           <ArrowRight aria-hidden className="size-4" strokeWidth={1.75} />
           <span>Run</span>
         </button>
@@ -102,8 +95,7 @@ export function IntakeForm({
           type="button"
           aria-label="Open user's direction panel"
           onClick={onOpenDirectionPanel}
-          className={`relative col-start-3 row-start-1 sm:col-auto sm:row-auto ${iconButtonClassName}`}
-        >
+          className={`relative col-start-3 row-start-1 sm:col-auto sm:row-auto ${iconButtonClassName}`}>
           <AlignLeft aria-hidden className="size-3.5" strokeWidth={1.75} />
           {hasUsersDirection ? (
             <span
@@ -119,8 +111,7 @@ export function IntakeForm({
           <p
             id={sourceTweetUrlErrorId}
             role="alert"
-            className="text-center text-rose-300 text-sm leading-5"
-          >
+            className="text-center text-rose-300 text-sm leading-5">
             {submissionState.message}
           </p>
         ) : null}
@@ -129,32 +120,22 @@ export function IntakeForm({
             id={statusId}
             role="status"
             aria-live="polite"
-            className="text-center text-emerald-300 text-sm leading-5"
-          >
+            className="text-center text-emerald-300 text-sm leading-5">
             Intake accepted.
           </p>
         ) : null}
         {submissionState.kind === "blocked" ? (
-          <p
-            id={statusId}
-            role="status"
-            className="text-center text-slate-400 text-sm leading-5"
-          >
+          <p id={statusId} role="status" className="text-center text-slate-400 text-sm leading-5">
             {submissionState.message}
           </p>
         ) : null}
         {visibleRuntimeNotice ? (
           <p
             id={runtimeNoticeId}
-            role={
-              visibleRuntimeNotice.kind === "blocked" ? "status" : undefined
-            }
+            role={visibleRuntimeNotice.kind === "blocked" ? "status" : undefined}
             className={`text-center text-sm leading-5 ${
-              visibleRuntimeNotice.kind === "warning"
-                ? "text-amber-200"
-                : "text-slate-400"
-            }`}
-          >
+              visibleRuntimeNotice.kind === "warning" ? "text-amber-200" : "text-slate-400"
+            }`}>
             {visibleRuntimeNotice.message}
           </p>
         ) : null}

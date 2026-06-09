@@ -6,13 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": [
-      "**",
-      "!node_modules",
-      "!.next",
-      "!coverage",
-      "!package-lock.json"
-    ]
+    "includes": ["**", "!node_modules", "!.next", "!coverage", "!package-lock.json"]
   },
   "formatter": {
     "enabled": true,

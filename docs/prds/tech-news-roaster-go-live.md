@@ -135,4 +135,3 @@ API spend risk is accepted for the internal-company launch and controlled operat
 - Adding automated editorial scoring or an LLM judge.
 - Adding another backend service outside Next.js and Vercel.
 - Adding durable background generation that survives tab closure.
-

@@ -87,9 +87,7 @@ describe("tweet retrieval", () => {
     expect(requestHeaders).toHaveLength(2);
     for (const headers of requestHeaders) {
       expect(headers.get("x-api-key")).toBe("twitterapi-secret");
-      expect(
-        [...headers.entries()].filter(([key]) => key === "x-api-key"),
-      ).toHaveLength(1);
+      expect([...headers.entries()].filter(([key]) => key === "x-api-key")).toHaveLength(1);
     }
     expect(context.sourceTweet).toMatchObject({
       id: "2062195681947971840",

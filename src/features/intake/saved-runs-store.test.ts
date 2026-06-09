@@ -116,15 +116,11 @@ describe("planSavedRunRetention", () => {
       retainedRun,
     ]);
     const retainedIds = new Set(retainedRuns.map((run) => run.id));
-    const persistedRetainedRun = retainedRuns.find(
-      (run) => run.id === "retained-image-heavy-run",
-    );
+    const persistedRetainedRun = retainedRuns.find((run) => run.id === "retained-image-heavy-run");
 
     expect([...deletedRunIds]).toEqual(["old-image-heavy-run"]);
     expect(retainedIds.has("old-image-heavy-run")).toBe(false);
-    expect(persistedRetainedRun?.drafts[0]?.text).toBe(
-      "Retained edited draft.",
-    );
+    expect(persistedRetainedRun?.drafts[0]?.text).toBe("Retained edited draft.");
     expect(persistedRetainedRun?.imageSets).toEqual([retainedImageSet]);
     expect(persistedRetainedRun?.selectedImageOriginals).toEqual([
       retainedImageSet.selectedImageOriginal,
@@ -189,9 +185,7 @@ function buildSavedDraft({
   };
 }
 
-function buildImageSet(
-  id: string,
-): NonNullable<GenerationRun["imageSets"]>[number] {
+function buildImageSet(id: string): NonNullable<GenerationRun["imageSets"]>[number] {
   const selectedImageOriginal = {
     id: `${id}-selected-original`,
     newsLinkedImageId: `${id}-news-image`,

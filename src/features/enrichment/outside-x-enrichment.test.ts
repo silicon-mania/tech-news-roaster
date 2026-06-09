@@ -11,9 +11,7 @@ describe("outside-X enrichment", () => {
     const previousEndpoint = process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
     const previousApiKey = process.env.OUTSIDE_X_ENRICHMENT_API_KEY;
     const previousFetch = globalThis.fetch;
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const fetcher = vi.fn(async () =>
       Response.json({
         retrievedAt: "2026-06-05T10:20:00.000Z",
@@ -43,8 +41,7 @@ describe("outside-X enrichment", () => {
       }),
     );
 
-    process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT =
-      "https://outside-x.example/enrich";
+    process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT = "https://outside-x.example/enrich";
     process.env.OUTSIDE_X_ENRICHMENT_API_KEY = "outside-x-secret";
     globalThis.fetch = fetcher;
 
@@ -71,9 +68,10 @@ describe("outside-X enrichment", () => {
           url: "https://example.com/report",
         },
       ]);
-      expect(
-        enrichmentContext.newsLinkedImages.map((image) => image.id),
-      ).toEqual(["news-linked-image-1", "news-linked-image-2"]);
+      expect(enrichmentContext.newsLinkedImages.map((image) => image.id)).toEqual([
+        "news-linked-image-1",
+        "news-linked-image-2",
+      ]);
       expect(enrichmentContext.newsLinkedImages[0]).toMatchObject({
         url: "https://example.com/image-a.jpg",
         sourceUrl: "https://example.com/report",
@@ -87,9 +85,7 @@ describe("outside-X enrichment", () => {
 
   test("does not build placeholder images when the endpoint is unset", async () => {
     const previousEndpoint = process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
 
     delete process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
 
@@ -110,13 +106,10 @@ describe("outside-X enrichment", () => {
     const previousEndpoint = process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
     const previousApiKey = process.env.OUTSIDE_X_ENRICHMENT_API_KEY;
     const previousFetch = globalThis.fetch;
-    const tweetContext = buildFixtureTweetContext(
-      "https://x.com/siliconmania/status/2468",
-    );
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const fetcher = vi.fn();
 
-    process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT =
-      "https://outside-x.example/enrich";
+    process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT = "https://outside-x.example/enrich";
     delete process.env.OUTSIDE_X_ENRICHMENT_API_KEY;
     globalThis.fetch = fetcher;
 

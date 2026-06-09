@@ -91,9 +91,9 @@ describe("outside-X enrichment route", () => {
       "https://google.serper.dev/search",
       "https://google.serper.dev/images",
     ]);
-    expect(
-      JSON.stringify(fetchRequests.map((request) => request.body)),
-    ).not.toContain("Make it spiky");
+    expect(JSON.stringify(fetchRequests.map((request) => request.body))).not.toContain(
+      "Make it spiky",
+    );
     expect(payload).toMatchObject({
       items: [
         {

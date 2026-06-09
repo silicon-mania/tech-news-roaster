@@ -47,9 +47,7 @@ describe("image generation stream route", () => {
         },
         provider: buildProvider({
           async generateVariations({ original }) {
-            calls.push(
-              `provider:${original.selectedImageOriginal.newsLinkedImageId}`,
-            );
+            calls.push(`provider:${original.selectedImageOriginal.newsLinkedImageId}`);
 
             return [
               {
@@ -142,16 +140,16 @@ describe("image generation stream route", () => {
   });
 
   test("uses only the User Image Prompt to steer image generation", async () => {
-    const generateVariations = vi.fn<
-      ImageVariationProvider["generateVariations"]
-    >(async ({ original }) => [
-      {
-        url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-1.jpg`,
-      },
-      {
-        url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-2.jpg`,
-      },
-    ]);
+    const generateVariations = vi.fn<ImageVariationProvider["generateVariations"]>(
+      async ({ original }) => [
+        {
+          url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-1.jpg`,
+        },
+        {
+          url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-2.jpg`,
+        },
+      ],
+    );
     const response = await streamImageGenerationRun(
       buildRequest({
         input: buildInput({
@@ -184,9 +182,7 @@ describe("image generation stream route", () => {
         userImagePrompt: "Make the visual launch-ready.",
       }),
     );
-    expect(JSON.stringify(generateVariations.mock.calls)).not.toContain(
-      "platform risk",
-    );
+    expect(JSON.stringify(generateVariations.mock.calls)).not.toContain("platform risk");
   });
 
   test("streams failed image sets without dropping earlier successful sets", async () => {
@@ -284,11 +280,7 @@ describe("image generation stream route", () => {
       name: "more than two selected images",
       body: {
         input: buildInput({
-          selectedImageIds: [
-            "news-linked-image-1",
-            "news-linked-image-2",
-            "news-linked-image-3",
-          ],
+          selectedImageIds: ["news-linked-image-1", "news-linked-image-2", "news-linked-image-3"],
         }),
         parentRun: buildParentRun({
           imageGenerationState: {
@@ -326,36 +318,27 @@ async function readImageGenerationStreamEvents(response: Response) {
     .trim()
     .split("\n\n")
     .map((rawEvent) => {
-      const dataLine = rawEvent
-        .split("\n")
-        .find((line) => line.startsWith("data: "));
+      const dataLine = rawEvent.split("\n").find((line) => line.startsWith("data: "));
 
       if (!dataLine) {
         throw new Error("Missing SSE data line.");
       }
 
-      return parseImageGenerationStreamEvent(
-        JSON.parse(dataLine.replace("data: ", "")),
-      );
+      return parseImageGenerationStreamEvent(JSON.parse(dataLine.replace("data: ", "")));
     });
 }
 
 function buildRequest(body: unknown) {
-  return new Request(
-    "https://tech-news-roaster.test/api/generation-runs/image-generation/stream",
-    {
-      body: JSON.stringify(body),
-      headers: {
-        "Content-Type": "application/json",
-      },
-      method: "POST",
+  return new Request("https://tech-news-roaster.test/api/generation-runs/image-generation/stream", {
+    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
     },
-  );
+    method: "POST",
+  });
 }
 
-function buildInput(
-  overrides: Partial<ImageGenerationInput> = {},
-): ImageGenerationInput {
+function buildInput(overrides: Partial<ImageGenerationInput> = {}): ImageGenerationInput {
   return {
     parentRunId: "saved-run",
     selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
@@ -364,12 +347,8 @@ function buildInput(
   };
 }
 
-function buildParentRun(
-  overrides: Partial<SavedGenerationRun> = {},
-): SavedGenerationRun {
-  const tweetContext = buildFixtureTweetContext(
-    "https://x.com/siliconmania/status/1234567890",
-  );
+function buildParentRun(overrides: Partial<SavedGenerationRun> = {}): SavedGenerationRun {
+  const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/1234567890");
 
   return {
     id: "saved-run",
@@ -448,9 +427,7 @@ function buildNewsLinkedImages(): NewsLinkedImage[] {
   ];
 }
 
-function buildPreparedOriginal(
-  newsLinkedImage: NewsLinkedImage,
-): PreparedSelectedImageOriginal {
+function buildPreparedOriginal(newsLinkedImage: NewsLinkedImage): PreparedSelectedImageOriginal {
   return {
     dataUrl: `data:image/jpeg;base64,${newsLinkedImage.id}`,
     mediaType: "image/jpeg",
@@ -466,9 +443,7 @@ function buildPreparedOriginal(
   };
 }
 
-function buildProvider(
-  overrides: Partial<ImageVariationProvider> = {},
-): ImageVariationProvider {
+function buildProvider(overrides: Partial<ImageVariationProvider> = {}): ImageVariationProvider {
   return {
     imageModelProvenance: {
       model: "image-model-v1",

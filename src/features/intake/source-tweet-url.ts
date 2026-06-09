@@ -1,24 +1,16 @@
 import { z } from "zod";
 
-const acceptedHostnames = new Set([
-  "x.com",
-  "twitter.com",
-  "mobile.twitter.com",
-]);
+const acceptedHostnames = new Set(["x.com", "twitter.com", "mobile.twitter.com"]);
 const sourceStatusPathPattern = /^\/(?:[^/]+\/status|i\/web\/status)\/\d+\/?$/;
 
-const directSourceTweetUrlMessage =
-  "Use a direct x.com or twitter.com status URL.";
+const directSourceTweetUrlMessage = "Use a direct x.com or twitter.com status URL.";
 
 function isDirectSourceTweetUrl(value: string) {
   try {
     const parsedUrl = new URL(value);
     const hostname = parsedUrl.hostname.toLowerCase().replace(/^www\./, "");
 
-    return (
-      acceptedHostnames.has(hostname) &&
-      sourceStatusPathPattern.test(parsedUrl.pathname)
-    );
+    return acceptedHostnames.has(hostname) && sourceStatusPathPattern.test(parsedUrl.pathname);
   } catch {
     return false;
   }
@@ -49,8 +41,7 @@ export function parseSourceTweetUrl(input: string) {
   if (!result.success) {
     return {
       success: false,
-      message:
-        result.error.issues.at(0)?.message ?? directSourceTweetUrlMessage,
+      message: result.error.issues.at(0)?.message ?? directSourceTweetUrlMessage,
     } as const;
   }
 

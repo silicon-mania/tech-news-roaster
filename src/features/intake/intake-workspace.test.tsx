@@ -19,11 +19,7 @@ import {
 } from "@/features/generation/generation-events";
 import type { RuntimeStatus } from "@/features/runtime-status/runtime-status";
 import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
-import {
-  type GenerationIntake,
-  type GenerationRun,
-  IntakeWorkspace,
-} from "./intake-workspace";
+import { type GenerationIntake, type GenerationRun, IntakeWorkspace } from "./intake-workspace";
 import type { SavedRunStore } from "./types";
 
 class FakeGenerationEventSource {
@@ -144,12 +140,8 @@ function stubDesktopMediaQuery(matches: boolean) {
   }));
 }
 
-function buildCompletedRun(
-  overrides: Partial<GenerationRun> = {},
-): GenerationRun {
-  const tweetContext = buildFixtureTweetContext(
-    "https://x.com/siliconmania/status/1234567890",
-  );
+function buildCompletedRun(overrides: Partial<GenerationRun> = {}): GenerationRun {
+  const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/1234567890");
 
   return {
     id: "saved-run",
@@ -206,9 +198,7 @@ function buildSavedDraft({
   };
 }
 
-function buildRuntimeStatus(
-  overrides: Partial<RuntimeStatus> = {},
-): RuntimeStatus {
+function buildRuntimeStatus(overrides: Partial<RuntimeStatus> = {}): RuntimeStatus {
   const status: RuntimeStatus = {
     enrichment: {
       credentials: {
@@ -350,9 +340,7 @@ function buildFailedImageSet(newsLinkedImage: NewsLinkedImage) {
   });
 }
 
-function buildImageGenerationStreamResponse(
-  events: ImageGenerationStreamEvent[],
-) {
+function buildImageGenerationStreamResponse(events: ImageGenerationStreamEvent[]) {
   const encoder = new TextEncoder();
 
   return new Response(
@@ -360,9 +348,7 @@ function buildImageGenerationStreamResponse(
       start(controller) {
         for (const event of events) {
           controller.enqueue(
-            encoder.encode(
-              `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
-            ),
+            encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`),
           );
         }
 
@@ -381,21 +367,11 @@ describe("IntakeWorkspace", () => {
   test("renders an almost empty draft-first shell before any run exists", () => {
     renderWorkspace();
 
-    expect(
-      screen.getByRole("heading", { name: "TECH NEWS ROASTER" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: /primary intake bar/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: /empty draft canvas/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("complementary", { name: /runs drawer/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("textbox", { name: /^user's direction$/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "TECH NEWS ROASTER" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /primary intake bar/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /empty draft canvas/i })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: /runs drawer/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /^user's direction$/i })).not.toBeInTheDocument();
   });
 
   test("submits a valid direct Source Tweet URL with optional User's Direction", async () => {
@@ -405,20 +381,12 @@ describe("IntakeWorkspace", () => {
       onStartGenerationRun: startGenerationRun,
     });
 
-    await user.type(
-      sourceTweetUrlInput,
-      " https://x.com/siliconmania/status/1234567890 ",
-    );
-    await user.click(
-      screen.getByRole("button", { name: /open user's direction panel/i }),
-    );
+    await user.type(sourceTweetUrlInput, " https://x.com/siliconmania/status/1234567890 ");
+    await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
     const usersDirectionInput = screen.getByRole("textbox", {
       name: /^user's direction$/i,
     });
-    await user.type(
-      usersDirectionInput,
-      "Make it sharper about platform risk.",
-    );
+    await user.type(usersDirectionInput, "Make it sharper about platform risk.");
     await user.click(
       screen.getByRole("button", {
         name: /close user's direction panel/i,
@@ -431,16 +399,12 @@ describe("IntakeWorkspace", () => {
       usersDirection: "Make it sharper about platform risk.",
     });
     expect(screen.getByRole("status")).toHaveTextContent("Intake accepted.");
-    expect(
-      screen.getByRole("region", { name: /compressed intake bar/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: /generation waiting state/i }),
-    ).toHaveTextContent("0/3");
-
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
+    expect(screen.getByRole("region", { name: /compressed intake bar/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
+      "0/3",
     );
+
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
     expect(
       screen.getByRole("button", {
         name: /new generation run.*just now/i,
@@ -477,10 +441,7 @@ describe("IntakeWorkspace", () => {
       onStartGenerationRun: startGenerationRun,
     });
 
-    await user.type(
-      sourceTweetUrlInput,
-      "https://twitter.com/siliconmania/status/987654321",
-    );
+    await user.type(sourceTweetUrlInput, "https://twitter.com/siliconmania/status/987654321");
     await user.click(generateButton);
 
     expect(startGenerationRun).toHaveBeenCalledWith({
@@ -512,15 +473,10 @@ describe("IntakeWorkspace", () => {
       runtimeEnvironment: "development",
     });
 
-    expect(
-      screen.getByText("Live APIs enabled. Runs may use paid quota."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Live APIs enabled. Runs may use paid quota.")).toBeInTheDocument();
     expect(generateButton).toBeEnabled();
 
-    await user.type(
-      sourceTweetUrlInput,
-      "https://x.com/siliconmania/status/1234567890",
-    );
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
     await user.click(generateButton);
 
     expect(startGenerationRun).toHaveBeenCalledWith({
@@ -552,10 +508,7 @@ describe("IntakeWorkspace", () => {
     ).toBeInTheDocument();
     expect(generateButton).toBeEnabled();
 
-    await user.type(
-      sourceTweetUrlInput,
-      "https://x.com/siliconmania/status/1234567890",
-    );
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
     await user.click(generateButton);
 
     expect(startGenerationRun).toHaveBeenCalledWith({
@@ -567,24 +520,18 @@ describe("IntakeWorkspace", () => {
   test("disables Run in production when live integrations are not ready", async () => {
     const user = userEvent.setup();
     const startGenerationRun = vi.fn();
-    const { sourceTweetUrlInput, generateButton, generationStreamUrls } =
-      renderWorkspace({
-        initialRuntimeStatus: buildRuntimeStatus({
-          productionReady: false,
-        }),
-        onStartGenerationRun: startGenerationRun,
-        runtimeEnvironment: "production",
-      });
+    const { sourceTweetUrlInput, generateButton, generationStreamUrls } = renderWorkspace({
+      initialRuntimeStatus: buildRuntimeStatus({
+        productionReady: false,
+      }),
+      onStartGenerationRun: startGenerationRun,
+      runtimeEnvironment: "production",
+    });
 
     expect(generateButton).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Live integrations are not configured.",
-    );
+    expect(screen.getByRole("status")).toHaveTextContent("Live integrations are not configured.");
 
-    await user.type(
-      sourceTweetUrlInput,
-      "https://x.com/siliconmania/status/1234567890",
-    );
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
     await user.click(generateButton);
 
     expect(startGenerationRun).not.toHaveBeenCalled();
@@ -603,14 +550,9 @@ describe("IntakeWorkspace", () => {
     });
 
     expect(generateButton).toBeEnabled();
-    expect(
-      screen.queryByText("Live integrations are not configured."),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Live integrations are not configured.")).not.toBeInTheDocument();
 
-    await user.type(
-      sourceTweetUrlInput,
-      "https://x.com/siliconmania/status/1234567890",
-    );
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
     await user.click(generateButton);
 
     expect(startGenerationRun).toHaveBeenCalledWith({
@@ -638,19 +580,11 @@ describe("IntakeWorkspace", () => {
     vi.stubGlobal("innerWidth", 1280);
     renderWorkspace();
 
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 0 runs/i }),
-    );
-    expect(
-      screen.getByRole("complementary", { name: /runs drawer/i }),
-    ).toHaveClass("left-0");
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 0 runs/i }));
+    expect(screen.getByRole("complementary", { name: /runs drawer/i })).toHaveClass("left-0");
 
-    await user.click(
-      screen.getByRole("button", { name: /close runs drawer/i }),
-    );
-    await user.click(
-      screen.getByRole("button", { name: /open user's direction panel/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /close runs drawer/i }));
+    await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
     expect(
       screen.getByRole("complementary", {
         name: /user's direction panel/i,
@@ -666,17 +600,11 @@ describe("IntakeWorkspace", () => {
         name: /close user's direction panel/i,
       }),
     );
-    expect(
-      screen.getByTitle("User's Direction has content"),
-    ).toBeInTheDocument();
+    expect(screen.getByTitle("User's Direction has content")).toBeInTheDocument();
 
     vi.stubGlobal("innerWidth", 390);
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 0 runs/i }),
-    );
-    expect(
-      screen.getByRole("complementary", { name: /runs drawer/i }),
-    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 0 runs/i }));
+    expect(screen.getByRole("complementary", { name: /runs drawer/i })).toBeInTheDocument();
   });
 
   test("keeps the running run inspectable and prevents another in-flight run", async () => {
@@ -686,24 +614,19 @@ describe("IntakeWorkspace", () => {
       onStartGenerationRun: startGenerationRun,
     });
 
-    await user.type(
-      sourceTweetUrlInput,
-      "https://x.com/siliconmania/status/1234567890",
-    );
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
     await user.click(generateButton);
 
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
     expect(
       screen.getByRole("button", {
         name: /new generation run.*just now/i,
       }),
     ).toHaveAttribute("aria-current", "true");
     expect(screen.getByTitle("Enrichment running")).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: /generation waiting state/i }),
-    ).toHaveTextContent("0/3");
+    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
+      "0/3",
+    );
     expect(generateButton).toBeDisabled();
 
     await user.click(generateButton);
@@ -741,24 +664,18 @@ describe("IntakeWorkspace", () => {
       initialRuns: seededRuns,
     });
 
-    expect(
-      screen.getByRole("region", { name: /compressed intake bar/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: /generation waiting state/i }),
-    ).toHaveTextContent("0/3");
-
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 2 runs/i }),
+    expect(screen.getByRole("region", { name: /compressed intake bar/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
+      "0/3",
     );
+
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 2 runs/i }));
     await user.click(screen.getByRole("button", { name: /second run/i }));
 
-    expect(
-      screen.getByRole("region", { name: /generation waiting state/i }),
-    ).toHaveTextContent("1/3");
-    expect(
-      screen.queryByRole("complementary", { name: /runs drawer/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
+      "1/3",
+    );
+    expect(screen.queryByRole("complementary", { name: /runs drawer/i })).not.toBeInTheDocument();
   });
 
   test("receives progressive SSE updates and reveals exactly three completed drafts", async () => {
@@ -768,13 +685,8 @@ describe("IntakeWorkspace", () => {
       generationEventSources,
     });
 
-    await user.type(
-      sourceTweetUrlInput,
-      "https://x.com/siliconmania/status/1234567890",
-    );
-    await user.click(
-      screen.getByRole("button", { name: /open user's direction panel/i }),
-    );
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
+    await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
     const usersDirectionInput = screen.getByRole("textbox", {
       name: /^user's direction$/i,
     });
@@ -797,18 +709,14 @@ describe("IntakeWorkspace", () => {
       generationEventSources[0]?.emit(events[0]);
     });
 
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
     expect(
       screen.getByRole("button", {
         name: /drafts for 1234567890.*just now/i,
       }),
     ).toBeInTheDocument();
     expect(screen.getByTitle("Text generation running")).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: /close runs drawer/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /close runs drawer/i }));
     const sourceTweetPreview = screen.getByRole("complementary", {
       name: /source tweet preview/i,
     });
@@ -826,9 +734,9 @@ describe("IntakeWorkspace", () => {
       generationEventSources[0]?.emit(events[2]);
     });
 
-    expect(
-      screen.getByRole("region", { name: /generation waiting state/i }),
-    ).toHaveTextContent("3/3");
+    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
+      "3/3",
+    );
     expect(
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
@@ -838,18 +746,14 @@ describe("IntakeWorkspace", () => {
     });
 
     expect(generationEventSources[0]?.closed).toBe(true);
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
     expect(
       screen.getByRole("button", {
         name: /drafts for 1234567890.*just now/i,
       }),
     ).toBeInTheDocument();
     expect(screen.getByTitle("Completed")).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: /completed draft stack/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
     expect(screen.getAllByText(/local draft model/i)).toHaveLength(3);
   });
@@ -885,20 +789,16 @@ describe("IntakeWorkspace", () => {
     expect(imageGenerationArea).toHaveTextContent("Launch visual");
     expect(imageGenerationArea).toHaveTextContent("Platform visual");
     expect(imageGenerationArea).toHaveTextContent("Text generation running");
-    expect(
-      screen.getByRole("region", { name: /generation waiting state/i }),
-    ).toHaveTextContent("0/3");
+    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
+      "0/3",
+    );
     expect(
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
 
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
     expect(screen.getByTitle("Text generation running")).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: /close runs drawer/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /close runs drawer/i }));
 
     const events = buildGenerationEvents({
       sourceTweetUrl,
@@ -909,9 +809,9 @@ describe("IntakeWorkspace", () => {
       generationEventSources[0]?.emit(events[0]);
     });
 
-    expect(
-      screen.getByRole("region", { name: /generation waiting state/i }),
-    ).toHaveTextContent("1/3");
+    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
+      "1/3",
+    );
     expect(
       screen.getByRole("complementary", {
         name: /image generation area/i,
@@ -923,9 +823,9 @@ describe("IntakeWorkspace", () => {
       generationEventSources[0]?.emit(events[2]);
     });
 
-    expect(
-      screen.getByRole("region", { name: /generation waiting state/i }),
-    ).toHaveTextContent("3/3");
+    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
+      "3/3",
+    );
     expect(
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
@@ -934,9 +834,7 @@ describe("IntakeWorkspace", () => {
       generationEventSources[0]?.emit(events[3]);
     });
 
-    expect(
-      screen.getByRole("region", { name: /completed draft stack/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
     expect(
       screen.getByRole("complementary", {
         name: /image generation area/i,
@@ -986,14 +884,12 @@ describe("IntakeWorkspace", () => {
     const imageGenerationArea = screen.getByRole("complementary", {
       name: /image generation area/i,
     });
-    const imageGenerationButton = within(imageGenerationArea).getByRole(
-      "button",
-      { name: /^image generation$/i },
-    );
+    const imageGenerationButton = within(imageGenerationArea).getByRole("button", {
+      name: /^image generation$/i,
+    });
 
     expect(
-      draftStack.compareDocumentPosition(imageGenerationArea) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      draftStack.compareDocumentPosition(imageGenerationArea) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(imageGenerationButton).toBeDisabled();
 
@@ -1035,8 +931,7 @@ describe("IntakeWorkspace", () => {
     expect(startImageGeneration).toHaveBeenCalledWith({
       parentRunId: "saved-run",
       selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
-      userImagePrompt:
-        "Make it feel like a serious product launch, not a meme.",
+      userImagePrompt: "Make it feel like a serious product launch, not a meme.",
     });
     expect(JSON.stringify(startImageGeneration.mock.calls[0]?.[0])).not.toMatch(
       /picsum|Launch product screenshot|Platform update chart/i,
@@ -1047,8 +942,7 @@ describe("IntakeWorkspace", () => {
         imageGenerationState: expect.objectContaining({
           selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
           status: "running",
-          userImagePrompt:
-            "Make it feel like a serious product launch, not a meme.",
+          userImagePrompt: "Make it feel like a serious product launch, not a meme.",
         }),
         newsLinkedImages: newsLinkedImages.slice(0, 2),
         phase: "image-generation-running",
@@ -1072,8 +966,7 @@ describe("IntakeWorkspace", () => {
             selectedImageIds: [newsLinkedImages[0].id, newsLinkedImages[1].id],
             startedAt: "2026-06-05T10:20:00.000Z",
             status: "partially-failed",
-            userImagePrompt:
-              "Make it feel like a serious product launch image.",
+            userImagePrompt: "Make it feel like a serious product launch image.",
           },
           imageModelProvenance: imageSet.imageModelProvenance,
           imageSets: [imageSet],
@@ -1094,9 +987,7 @@ describe("IntakeWorkspace", () => {
       name: /failed image set 1/i,
     });
 
-    expect(imageGenerationArea).toHaveTextContent(
-      imageSet.imageModelProvenance.model,
-    );
+    expect(imageGenerationArea).toHaveTextContent(imageSet.imageModelProvenance.model);
     expect(
       within(imageResultsArea).getByRole("article", {
         name: /^image set 1$/i,
@@ -1241,8 +1132,8 @@ describe("IntakeWorkspace", () => {
       }),
     );
     expect(
-      JSON.parse(String(imageGenerationStreamFetcher.mock.calls[0]?.[1]?.body))
-        .parentRun.imageGenerationState,
+      JSON.parse(String(imageGenerationStreamFetcher.mock.calls[0]?.[1]?.body)).parentRun
+        .imageGenerationState,
     ).toEqual({
       status: "not-started",
     });
@@ -1254,9 +1145,7 @@ describe("IntakeWorkspace", () => {
       ).toHaveTextContent("Variation 2"),
     );
     expect(imageGenerationArea).toHaveTextContent("Partial image failure");
-    expect(imageGenerationArea).toHaveTextContent(
-      "The configured image model failed.",
-    );
+    expect(imageGenerationArea).toHaveTextContent("The configured image model failed.");
     await waitFor(() =>
       expect(savedRunStore.save).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1276,9 +1165,7 @@ describe("IntakeWorkspace", () => {
     const savedRunStore = createMemorySavedRunStore();
     const newsLinkedImages = buildNewsLinkedImages();
     const imageSet = buildImageSet(newsLinkedImages[0]);
-    let streamController:
-      | ReadableStreamDefaultController<Uint8Array>
-      | undefined;
+    let streamController: ReadableStreamDefaultController<Uint8Array> | undefined;
     const encoder = new TextEncoder();
     const imageGenerationStreamFetcher = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) =>
@@ -1363,16 +1250,10 @@ describe("IntakeWorkspace", () => {
 
   test("opens the generation stream with the accepted intake", async () => {
     const user = userEvent.setup();
-    const { sourceTweetUrlInput, generateButton, generationStreamUrls } =
-      renderWorkspace();
+    const { sourceTweetUrlInput, generateButton, generationStreamUrls } = renderWorkspace();
 
-    await user.type(
-      sourceTweetUrlInput,
-      "https://x.com/siliconmania/status/13579",
-    );
-    await user.click(
-      screen.getByRole("button", { name: /open user's direction panel/i }),
-    );
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/13579");
+    await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
     const usersDirectionInput = screen.getByRole("textbox", {
       name: /^user's direction$/i,
     });
@@ -1398,10 +1279,7 @@ describe("IntakeWorkspace", () => {
       savedRunStore,
     });
 
-    await user.type(
-      sourceTweetUrlInput,
-      "https://x.com/siliconmania/status/1234567890",
-    );
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
     await user.click(generateButton);
 
     const events = buildGenerationEvents({
@@ -1429,13 +1307,9 @@ describe("IntakeWorkspace", () => {
         savedAt: expect.any(String),
       }),
     );
-    expect(sourceTweetUrlInput).toHaveValue(
-      "https://x.com/siliconmania/status/1234567890",
-    );
+    expect(sourceTweetUrlInput).toHaveValue("https://x.com/siliconmania/status/1234567890");
 
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
     expect(
       screen.getByRole("button", {
         name: /drafts for 1234567890.*just now/i,
@@ -1464,12 +1338,8 @@ describe("IntakeWorkspace", () => {
     );
 
     expect(generationStreamUrls).toEqual([]);
-    expect(sourceTweetUrlInput).toHaveValue(
-      "https://x.com/siliconmania/status/1234567890",
-    );
-    expect(
-      screen.getByRole("region", { name: /completed draft stack/i }),
-    ).toBeInTheDocument();
+    expect(sourceTweetUrlInput).toHaveValue("https://x.com/siliconmania/status/1234567890");
+    expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
     expect(
       screen.getByRole("complementary", {
         name: /source tweet preview/i,
@@ -1513,9 +1383,7 @@ describe("IntakeWorkspace", () => {
     });
 
     expect(generationStreamUrls).toEqual([]);
-    expect(imageGenerationArea).toHaveTextContent(
-      "Waiting for image selection",
-    );
+    expect(imageGenerationArea).toHaveTextContent("Waiting for image selection");
     expect(imageGenerationArea).toHaveTextContent("Launch visual");
 
     await user.click(
@@ -1551,10 +1419,7 @@ describe("IntakeWorkspace", () => {
       savedRunStore,
     });
 
-    await user.type(
-      sourceTweetUrlInput,
-      "https://x.com/siliconmania/status/1234567890",
-    );
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
     await user.click(generateButton);
 
     act(() => {
@@ -1564,20 +1429,16 @@ describe("IntakeWorkspace", () => {
     });
 
     expect(generationEventSources[0]?.closed).toBe(true);
-    expect(
-      screen.getByRole("region", { name: /generation failure state/i }),
-    ).toHaveTextContent("Source tweet could not be retrieved.");
-    expect(screen.getByRole("status")).toHaveTextContent(
+    expect(screen.getByRole("region", { name: /generation failure state/i })).toHaveTextContent(
       "Source tweet could not be retrieved.",
     );
+    expect(screen.getByRole("status")).toHaveTextContent("Source tweet could not be retrieved.");
     expect(savedRunStore.save).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
 
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
     expect(screen.getByTitle("Failed")).toBeInTheDocument();
   });
 
@@ -1611,9 +1472,7 @@ describe("IntakeWorkspace", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      within(collapsedSecondDraft).getByText(
-        "Quote-tweet draft: second saved draft.",
-      ),
+      within(collapsedSecondDraft).getByText("Quote-tweet draft: second saved draft."),
     ).toHaveClass("line-clamp-3");
     expect(
       within(draftStack).getByRole("img", {
@@ -1760,10 +1619,7 @@ describe("IntakeWorkspace", () => {
     });
 
     await user.clear(draftEditor);
-    await user.type(
-      draftEditor,
-      "Edited first line.{enter}Edited second line.",
-    );
+    await user.type(draftEditor, "Edited first line.{enter}Edited second line.");
 
     expect(screen.queryByText(/autosave|saving/i)).not.toBeInTheDocument();
     await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
@@ -1789,9 +1645,7 @@ describe("IntakeWorkspace", () => {
       }),
     );
 
-    expect(writeText).toHaveBeenCalledWith(
-      "Edited first line.\nEdited second line.",
-    );
+    expect(writeText).toHaveBeenCalledWith("Edited first line.\nEdited second line.");
   });
 
   test("reopens the latest edited Saved Run content without regenerating", async () => {
@@ -1846,17 +1700,13 @@ describe("IntakeWorkspace", () => {
     await user.type(draftEditor, "Latest edit line one.{enter}Line two.");
     await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
 
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 2 runs/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 2 runs/i }));
     await user.click(
       screen.getByRole("button", {
         name: /other saved run/i,
       }),
     );
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 2 runs/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 2 runs/i }));
     await user.click(
       screen.getByRole("button", {
         name: /editable saved run/i,
@@ -1886,16 +1736,11 @@ describe("IntakeWorkspace", () => {
       name: /open runs drawer, 1 runs/i,
     });
     await waitFor(() =>
-      expect(sourceTweetUrlInput).toHaveValue(
-        "https://x.com/siliconmania/status/1234567890",
-      ),
+      expect(sourceTweetUrlInput).toHaveValue("https://x.com/siliconmania/status/1234567890"),
     );
     await user.clear(sourceTweetUrlInput);
     await waitFor(() => expect(sourceTweetUrlInput).toHaveValue(""));
-    await user.type(
-      sourceTweetUrlInput,
-      "https://x.com/siliconmania/status/1234567890",
-    );
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
     await user.click(generateButton);
 
     const events = buildGenerationEvents({
@@ -1943,9 +1788,7 @@ describe("IntakeWorkspace", () => {
         name: /open runs drawer, 1 runs/i,
       }),
     ).toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: /open runs drawer, 1 runs/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
     expect(
       screen.getByRole("button", {
         name: /three weeks old.*3 weeks ago/i,
@@ -1979,9 +1822,7 @@ describe("IntakeWorkspace", () => {
       }),
     );
 
-    await waitFor(() =>
-      expect(savedRunStore.delete).toHaveBeenCalledWith("saved-run"),
-    );
+    await waitFor(() => expect(savedRunStore.delete).toHaveBeenCalledWith("saved-run"));
     expect(
       screen.queryByRole("button", {
         name: /disposable run/i,

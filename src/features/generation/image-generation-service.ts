@@ -1,8 +1,5 @@
 import { Buffer } from "node:buffer";
-import {
-  readConfiguredAiGatewayImageModel,
-  readEnvValue,
-} from "./ai-gateway-models";
+import { readConfiguredAiGatewayImageModel, readEnvValue } from "./ai-gateway-models";
 import {
   type FailedImageSet,
   type ImageGenerationInput,
@@ -21,10 +18,7 @@ const generatedVariationTarget = 2;
 
 type ImageModelEnvironment = Readonly<Record<string, string | undefined>>;
 
-export type ParentGenerationRunForImages = Pick<
-  SavedGenerationRun,
-  "id" | "newsLinkedImages"
->;
+export type ParentGenerationRunForImages = Pick<SavedGenerationRun, "id" | "newsLinkedImages">;
 
 export type PreparedSelectedImageOriginal = {
   dataUrl: string;
@@ -168,8 +162,7 @@ export async function* streamImageSetsForRun(
     selectedImageIds: parsedInput.selectedImageIds,
   });
   const now = options.now ?? (() => new Date());
-  const prepare =
-    options.prepareSelectedImageOriginal ?? prepareSelectedImageOriginal;
+  const prepare = options.prepareSelectedImageOriginal ?? prepareSelectedImageOriginal;
   const provider = options.provider ?? createDefaultImageVariationProvider();
 
   for (const newsLinkedImage of selectedImages) {
@@ -225,9 +218,7 @@ export async function prepareSelectedImageOriginal({
   const response = await fetch(newsLinkedImage.url);
 
   if (!response.ok) {
-    throw new Error(
-      `Selected image original could not be fetched (${response.status}).`,
-    );
+    throw new Error(`Selected image original could not be fetched (${response.status}).`);
   }
 
   const bytes = Buffer.from(await response.arrayBuffer());
@@ -236,8 +227,7 @@ export async function prepareSelectedImageOriginal({
     throw new Error("Selected image original was empty.");
   }
 
-  const mediaType =
-    response.headers.get("content-type") ?? "application/octet-stream";
+  const mediaType = response.headers.get("content-type") ?? "application/octet-stream";
   const selectedImageOriginal = parseSelectedImageOriginal({
     altText: newsLinkedImage.altText,
     id: `selected-original-${newsLinkedImage.id}`,
@@ -310,9 +300,7 @@ function createAiGatewayImageVariationProvider({
         throw new Error("AI Gateway credentials are not configured.");
       }
 
-      const gatewayBaseUrl = (
-        baseUrl ?? "https://ai-gateway.vercel.sh/v1"
-      ).replace(/\/$/, "");
+      const gatewayBaseUrl = (baseUrl ?? "https://ai-gateway.vercel.sh/v1").replace(/\/$/, "");
       const variations = await Promise.all(
         Array.from({ length: variationCount }, async (_, index) => {
           const response = await fetch(`${gatewayBaseUrl}/chat/completions`, {
@@ -350,19 +338,14 @@ function createAiGatewayImageVariationProvider({
 
           if (!response.ok) {
             throw new Error(
-              `Image generation failed (${response.status}): ${await readGatewayError(
-                response,
-              )}`,
+              `Image generation failed (${response.status}): ${await readGatewayError(response)}`,
             );
           }
 
-          const variation = gatewayImageCompletionSchema.parse(
-            await response.json(),
-          );
+          const variation = gatewayImageCompletionSchema.parse(await response.json());
 
           return {
-            altText:
-              variation.altText ?? `Generated visual variation ${index + 1}.`,
+            altText: variation.altText ?? `Generated visual variation ${index + 1}.`,
             url: variation.url,
           };
         }),
@@ -408,17 +391,13 @@ function resolveSelectedNewsLinkedImages({
   newsLinkedImages: ParentGenerationRunForImages["newsLinkedImages"];
   selectedImageIds: ImageGenerationInput["selectedImageIds"];
 }) {
-  const newsLinkedImageById = new Map(
-    (newsLinkedImages ?? []).map((image) => [image.id, image]),
-  );
+  const newsLinkedImageById = new Map((newsLinkedImages ?? []).map((image) => [image.id, image]));
 
   return selectedImageIds.map((selectedImageId) => {
     const newsLinkedImage = newsLinkedImageById.get(selectedImageId);
 
     if (!newsLinkedImage) {
-      throw new Error(
-        `Selected image ID ${selectedImageId} is not available on the parent run.`,
-      );
+      throw new Error(`Selected image ID ${selectedImageId} is not available on the parent run.`);
     }
 
     return newsLinkedImage;
@@ -528,8 +507,5 @@ function readString(value: unknown) {
 }
 
 function readAiGatewayApiKey(env: ImageModelEnvironment) {
-  return (
-    readEnvValue(env.AI_GATEWAY_API_KEY) ??
-    readEnvValue(env.VERCEL_AI_GATEWAY_API_KEY)
-  );
+  return readEnvValue(env.AI_GATEWAY_API_KEY) ?? readEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
 }

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  type FormEvent,
-  type ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import {
   draftTarget,
   type ImageGenerationInput,
@@ -14,12 +8,7 @@ import {
   parseImageGenerationStreamEvent,
 } from "@/features/generation/generation-events";
 import type { RuntimeStatus } from "@/features/runtime-status/runtime-status";
-import {
-  ActiveRunPanel,
-  IntakeForm,
-  RunsList,
-  WorkspaceHeader,
-} from "./components";
+import { ActiveRunPanel, IntakeForm, RunsList, WorkspaceHeader } from "./components";
 import { isRunInFlight } from "./run-phase";
 import { indexedDbSavedRunStore } from "./saved-runs-store";
 import { parseSourceTweetUrl } from "./source-tweet-url";
@@ -41,9 +30,7 @@ type IntakeWorkspaceProps = {
   imageGenerationStreamFetcher?: typeof fetch;
   initialRuntimeStatus?: RuntimeStatus;
   onStartGenerationRun?: (intake: GenerationIntake) => void | Promise<void>;
-  onStartImageGeneration?: (
-    input: ImageGenerationInput,
-  ) => void | Promise<void>;
+  onStartImageGeneration?: (input: ImageGenerationInput) => void | Promise<void>;
   runtimeEnvironment?: "development" | "production";
   runtimeStatusFetcher?: () => Promise<RuntimeStatus>;
   savedRunStore?: SavedRunStore;
@@ -77,26 +64,16 @@ export function IntakeWorkspace({
   initialRuntimeStatus,
   onStartGenerationRun,
   onStartImageGeneration,
-  runtimeEnvironment = process.env.NODE_ENV === "production"
-    ? "production"
-    : "development",
+  runtimeEnvironment = process.env.NODE_ENV === "production" ? "production" : "development",
   runtimeStatusFetcher = fetchRuntimeStatus,
   savedRunStore = indexedDbSavedRunStore,
 }: IntakeWorkspaceProps) {
   const initialActiveRun =
-    initialRuns.find((run) => run.id === initialActiveRunId) ??
-    initialRuns.at(0) ??
-    null;
-  const [sourceTweetUrl, setSourceTweetUrl] = useState(
-    initialActiveRun?.sourceTweetUrl ?? "",
-  );
-  const [usersDirection, setUsersDirection] = useState(
-    initialActiveRun?.usersDirection ?? "",
-  );
+    initialRuns.find((run) => run.id === initialActiveRunId) ?? initialRuns.at(0) ?? null;
+  const [sourceTweetUrl, setSourceTweetUrl] = useState(initialActiveRun?.sourceTweetUrl ?? "");
+  const [usersDirection, setUsersDirection] = useState(initialActiveRun?.usersDirection ?? "");
   const [runs, setRuns] = useState<GenerationRun[]>(initialRuns);
-  const [activeRunId, setActiveRunId] = useState<string | null>(
-    initialActiveRun?.id ?? null,
-  );
+  const [activeRunId, setActiveRunId] = useState<string | null>(initialActiveRun?.id ?? null);
   const [isRunsDrawerOpen, setIsRunsDrawerOpen] = useState(false);
   const [isDirectionPanelOpen, setIsDirectionPanelOpen] = useState(false);
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
@@ -105,18 +82,11 @@ export function IntakeWorkspace({
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(
     initialRuntimeStatus ?? null,
   );
-  const generationEventSources = useRef<Map<string, GenerationEventSource>>(
-    new Map(),
-  );
+  const generationEventSources = useRef<Map<string, GenerationEventSource>>(new Map());
   const enrichedRunState = useRef<
-    Map<
-      string,
-      Pick<GenerationRun, "imageGenerationState" | "newsLinkedImages">
-    >
+    Map<string, Pick<GenerationRun, "imageGenerationState" | "newsLinkedImages">>
   >(new Map());
-  const autosaveTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(
-    new Map(),
-  );
+  const autosaveTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
     return () => {
@@ -191,15 +161,13 @@ export function IntakeWorkspace({
   const hasRuns = runs.length > 0;
   const hasUsersDirection = usersDirection.trim().length > 0;
   const productionRunDisabled =
-    runtimeEnvironment === "production" &&
-    runtimeStatus?.productionReady !== true;
+    runtimeEnvironment === "production" && runtimeStatus?.productionReady !== true;
   const liveApisEnabled = runtimeStatus
     ? runtimeStatus.retrieval.credentials.twitterApiIoApiKey ||
       runtimeStatus.generation.credentials.aiGatewayApiKey
     : false;
   const runtimeNotice =
-    runtimeEnvironment === "development" &&
-    runtimeStatus?.enrichment.mode === "off"
+    runtimeEnvironment === "development" && runtimeStatus?.enrichment.mode === "off"
       ? {
           kind: "warning" as const,
           message: developmentImagesUnavailableMessage,
@@ -209,8 +177,7 @@ export function IntakeWorkspace({
             kind: "warning" as const,
             message: liveApiWarningMessage,
           }
-        : runtimeEnvironment === "production" &&
-            runtimeStatus?.productionReady === false
+        : runtimeEnvironment === "production" && runtimeStatus?.productionReady === false
           ? {
               kind: "blocked" as const,
               message: productionNotReadyMessage,
@@ -282,16 +249,12 @@ export function IntakeWorkspace({
   }
 
   function subscribeToGenerationRun(runId: string, intake: GenerationIntake) {
-    const eventSource = generationEventSourceFactory(
-      buildGenerationStreamUrl(intake),
-    );
+    const eventSource = generationEventSourceFactory(buildGenerationStreamUrl(intake));
 
     generationEventSources.current.set(runId, eventSource);
 
     eventSource.addEventListener("enrichment-completed", (message) => {
-      const event = parseGenerationStreamEvent(
-        JSON.parse((message as MessageEvent<string>).data),
-      );
+      const event = parseGenerationStreamEvent(JSON.parse((message as MessageEvent<string>).data));
 
       if (event.type !== "enrichment-completed") {
         return;
@@ -324,9 +287,7 @@ export function IntakeWorkspace({
     });
 
     eventSource.addEventListener("progress", (message) => {
-      const event = parseGenerationStreamEvent(
-        JSON.parse((message as MessageEvent<string>).data),
-      );
+      const event = parseGenerationStreamEvent(JSON.parse((message as MessageEvent<string>).data));
 
       if (event.type !== "progress") {
         return;
@@ -343,8 +304,7 @@ export function IntakeWorkspace({
             draftCount: event.draftCount,
             draftTarget: event.draftTarget,
             drafts: [...run.drafts, event.draft],
-            label:
-              run.label === genericRunningRunLabel ? event.label : run.label,
+            label: run.label === genericRunningRunLabel ? event.label : run.label,
             phase: "text-generation-running",
             sourceTweet: event.sourceTweet,
           };
@@ -353,17 +313,14 @@ export function IntakeWorkspace({
     });
 
     eventSource.addEventListener("completed", (message) => {
-      const event = parseGenerationStreamEvent(
-        JSON.parse((message as MessageEvent<string>).data),
-      );
+      const event = parseGenerationStreamEvent(JSON.parse((message as MessageEvent<string>).data));
 
       if (event.type !== "completed") {
         return;
       }
 
       const enrichedRun = enrichedRunState.current.get(runId);
-      const newsLinkedImages =
-        event.run.newsLinkedImages ?? enrichedRun?.newsLinkedImages;
+      const newsLinkedImages = event.run.newsLinkedImages ?? enrichedRun?.newsLinkedImages;
       const imageGenerationState =
         event.run.imageGenerationState ??
         enrichedRun?.imageGenerationState ??
@@ -416,9 +373,7 @@ export function IntakeWorkspace({
     });
 
     eventSource.addEventListener("failed", (message) => {
-      const event = parseGenerationStreamEvent(
-        JSON.parse((message as MessageEvent<string>).data),
-      );
+      const event = parseGenerationStreamEvent(JSON.parse((message as MessageEvent<string>).data));
 
       if (event.type !== "failed") {
         return;
@@ -495,9 +450,7 @@ export function IntakeWorkspace({
   }
 
   function startImageGeneration(input: ImageGenerationInput) {
-    const run = runs.find(
-      (candidateRun) => candidateRun.id === input.parentRunId,
-    );
+    const run = runs.find((candidateRun) => candidateRun.id === input.parentRunId);
 
     if (!run?.newsLinkedImages) {
       return;
@@ -547,19 +500,16 @@ export function IntakeWorkspace({
     streamFetcher: typeof fetch,
   ) {
     try {
-      const response = await streamFetcher(
-        "/api/generation-runs/image-generation/stream",
-        {
-          body: JSON.stringify({
-            input,
-            parentRun,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-          method: "POST",
+      const response = await streamFetcher("/api/generation-runs/image-generation/stream", {
+        body: JSON.stringify({
+          input,
+          parentRun,
+        }),
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        method: "POST",
+      });
 
       if (!response.ok) {
         throw new Error(await readImageGenerationErrorMessage(response));
@@ -601,18 +551,13 @@ export function IntakeWorkspace({
       }
     } catch (error) {
       const message =
-        error instanceof Error && error.message.trim()
-          ? error.message
-          : "Image generation failed.";
+        error instanceof Error && error.message.trim() ? error.message : "Image generation failed.";
 
       markImageGenerationFailed(input, message);
     }
   }
 
-  async function consumeImageGenerationEvents(
-    rawEvents: string,
-    input: ImageGenerationInput,
-  ) {
+  async function consumeImageGenerationEvents(rawEvents: string, input: ImageGenerationInput) {
     for (const rawEvent of rawEvents.trim().split("\n\n")) {
       if (rawEvent.trim().length > 0) {
         consumeImageGenerationEvent(rawEvent, input);
@@ -620,10 +565,7 @@ export function IntakeWorkspace({
     }
   }
 
-  function consumeImageGenerationEvent(
-    rawEvent: string,
-    input: ImageGenerationInput,
-  ) {
+  function consumeImageGenerationEvent(rawEvent: string, input: ImageGenerationInput) {
     const dataLines = rawEvent
       .split("\n")
       .filter((line) => line.startsWith("data: "))
@@ -633,9 +575,7 @@ export function IntakeWorkspace({
       return;
     }
 
-    const event = parseImageGenerationStreamEvent(
-      JSON.parse(dataLines.join("\n")),
-    );
+    const event = parseImageGenerationStreamEvent(JSON.parse(dataLines.join("\n")));
 
     setRuns((currentRuns) =>
       currentRuns.map((run) => {
@@ -662,12 +602,8 @@ export function IntakeWorkspace({
         }
 
         if (event.type === "image-set-failed") {
-          const failedImageSets = upsertById(
-            run.failedImageSets ?? [],
-            event.failedImageSet,
-          );
-          const selectedImageOriginals = event.failedImageSet
-            .selectedImageOriginal
+          const failedImageSets = upsertById(run.failedImageSets ?? [], event.failedImageSet);
+          const selectedImageOriginals = event.failedImageSet.selectedImageOriginal
             ? upsertById(
                 run.selectedImageOriginals ?? [],
                 event.failedImageSet.selectedImageOriginal,
@@ -684,12 +620,9 @@ export function IntakeWorkspace({
           return updatedRun;
         }
 
-        const imageGenerationState: NonNullable<
-          GenerationRun["imageGenerationState"]
-        > = {
+        const imageGenerationState: NonNullable<GenerationRun["imageGenerationState"]> = {
           selectedImageIds: input.selectedImageIds,
-          startedAt:
-            getImageGenerationStartedAt(run) ?? new Date().toISOString(),
+          startedAt: getImageGenerationStartedAt(run) ?? new Date().toISOString(),
           userImagePrompt: input.userImagePrompt,
           completedAt: event.state.completedAt,
           status: event.state.status,
@@ -700,8 +633,7 @@ export function IntakeWorkspace({
           failedImageSets: event.state.failedImageSets,
           imageGenerationState,
           imageModelProvenance:
-            event.state.imageSets.at(0)?.imageModelProvenance ??
-            run.imageModelProvenance,
+            event.state.imageSets.at(0)?.imageModelProvenance ?? run.imageModelProvenance,
           imageSets: event.state.imageSets,
           phase:
             event.state.status === "completed"
@@ -720,10 +652,7 @@ export function IntakeWorkspace({
     );
   }
 
-  function markImageGenerationFailed(
-    input: ImageGenerationInput,
-    message: string,
-  ) {
+  function markImageGenerationFailed(input: ImageGenerationInput, message: string) {
     const failedAt = new Date().toISOString();
 
     setRuns((currentRuns) =>
@@ -732,14 +661,12 @@ export function IntakeWorkspace({
           return run;
         }
 
-        const failedImageSets = input.selectedImageIds.map(
-          (selectedImageId) => ({
-            id: `failed-image-set-${selectedImageId}`,
-            failedAt,
-            message,
-            selectedImageId,
-          }),
-        );
+        const failedImageSets = input.selectedImageIds.map((selectedImageId) => ({
+          id: `failed-image-set-${selectedImageId}`,
+          failedAt,
+          message,
+          selectedImageId,
+        }));
 
         const updatedRun: GenerationRun = {
           ...run,
@@ -812,8 +739,7 @@ export function IntakeWorkspace({
       <div
         className={`mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] transition-[gap] duration-300 sm:min-h-[calc(100vh-3rem)] ${
           hasRuns ? "gap-4 sm:gap-6" : "gap-7 sm:gap-10"
-        }`}
-      >
+        }`}>
         <WorkspaceHeader />
 
         <IntakeForm
@@ -838,11 +764,7 @@ export function IntakeWorkspace({
       </div>
 
       {isRunsDrawerOpen ? (
-        <PanelOverlay
-          label="Runs drawer"
-          side="left"
-          onClose={() => setIsRunsDrawerOpen(false)}
-        >
+        <PanelOverlay label="Runs drawer" side="left" onClose={() => setIsRunsDrawerOpen(false)}>
           <RunsList
             activeRunId={activeRunId}
             runs={runs}
@@ -856,8 +778,7 @@ export function IntakeWorkspace({
         <PanelOverlay
           label="User's direction panel"
           side="right"
-          onClose={() => setIsDirectionPanelOpen(false)}
-        >
+          onClose={() => setIsDirectionPanelOpen(false)}>
           <UsersDirectionPanel
             usersDirection={usersDirection}
             onUsersDirectionChange={updateUsersDirection}
@@ -875,19 +796,14 @@ function mergeRuns(currentRuns: GenerationRun[], savedRuns: GenerationRun[]) {
   return [...currentRuns, ...unseenSavedRuns];
 }
 
-function upsertById<TItem extends { id: string }>(
-  items: TItem[],
-  nextItem: TItem,
-) {
+function upsertById<TItem extends { id: string }>(items: TItem[], nextItem: TItem) {
   const existingIndex = items.findIndex((item) => item.id === nextItem.id);
 
   if (existingIndex === -1) {
     return [...items, nextItem];
   }
 
-  return items.map((item, index) =>
-    index === existingIndex ? nextItem : item,
-  );
+  return items.map((item, index) => (index === existingIndex ? nextItem : item));
 }
 
 function getImageGenerationStartedAt(run: GenerationRun) {
@@ -905,19 +821,14 @@ function collectSelectedImageOriginals({
   failedImageSets,
   imageSets,
 }: {
-  currentSelectedImageOriginals: NonNullable<
-    GenerationRun["selectedImageOriginals"]
-  >;
+  currentSelectedImageOriginals: NonNullable<GenerationRun["selectedImageOriginals"]>;
   failedImageSets: NonNullable<GenerationRun["failedImageSets"]>;
   imageSets: NonNullable<GenerationRun["imageSets"]>;
 }) {
   let selectedImageOriginals = currentSelectedImageOriginals;
 
   for (const imageSet of imageSets) {
-    selectedImageOriginals = upsertById(
-      selectedImageOriginals,
-      imageSet.selectedImageOriginal,
-    );
+    selectedImageOriginals = upsertById(selectedImageOriginals, imageSet.selectedImageOriginal);
   }
 
   for (const failedImageSet of failedImageSets) {
@@ -969,14 +880,12 @@ function PanelOverlay({ children, label, onClose, side }: PanelOverlayProps) {
         aria-label={label}
         className={`absolute ${sideClass} top-0 grid h-full w-[min(26rem,100vw)] content-start overflow-y-auto border-slate-800/80 bg-[#08090c]/96 p-4 shadow-2xl shadow-black/45 sm:w-[min(26rem,calc(100vw-2rem))] sm:p-6 ${
           side === "left" ? "border-r" : "border-l"
-        }`}
-      >
+        }`}>
         <button
           type="button"
           aria-label={`Close ${label.toLowerCase()}`}
           onClick={onClose}
-          className="mb-5 ml-auto inline-flex h-9 w-9 items-center justify-center rounded-sm border border-slate-800 text-slate-500 transition hover:border-slate-600 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-        >
+          className="mb-5 ml-auto inline-flex h-9 w-9 items-center justify-center rounded-sm border border-slate-800 text-slate-500 transition hover:border-slate-600 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
           <CloseIcon />
         </button>
         {children}
@@ -995,8 +904,7 @@ function CloseIcon() {
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth="1.3"
-    >
+      strokeWidth="1.3">
       <path d="M6 6l12 12" />
       <path d="M18 6 6 18" />
     </svg>
@@ -1008,19 +916,12 @@ type UsersDirectionPanelProps = {
   onUsersDirectionChange: (usersDirection: string) => void;
 };
 
-function UsersDirectionPanel({
-  usersDirection,
-  onUsersDirectionChange,
-}: UsersDirectionPanelProps) {
+function UsersDirectionPanel({ usersDirection, onUsersDirectionChange }: UsersDirectionPanelProps) {
   return (
     <div className="grid gap-4">
       <div>
-        <p className="editorial-serif text-slate-100 text-xl">
-          User&apos;s Direction
-        </p>
-        <p className="mt-1 text-slate-500 text-xs uppercase tracking-[0.16em]">
-          Optional
-        </p>
+        <p className="editorial-serif text-slate-100 text-xl">User&apos;s Direction</p>
+        <p className="mt-1 text-slate-500 text-xs uppercase tracking-[0.16em]">Optional</p>
       </div>
       <textarea
         aria-label="User's Direction"

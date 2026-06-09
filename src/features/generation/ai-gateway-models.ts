@@ -12,21 +12,13 @@ const defaultAiGatewayImageModel = "google/gemini-2.5-flash-image";
 
 export function readConfiguredAiGatewayModels(env: AiGatewayModelEnvironment) {
   return {
-    anthropic:
-      readEnvValue(env.AI_GATEWAY_ANTHROPIC_MODEL) ??
-      defaultAiGatewayModels.anthropic,
-    google:
-      readEnvValue(env.AI_GATEWAY_GOOGLE_MODEL) ??
-      defaultAiGatewayModels.google,
-    openai:
-      readEnvValue(env.AI_GATEWAY_OPENAI_MODEL) ??
-      defaultAiGatewayModels.openai,
+    anthropic: readEnvValue(env.AI_GATEWAY_ANTHROPIC_MODEL) ?? defaultAiGatewayModels.anthropic,
+    google: readEnvValue(env.AI_GATEWAY_GOOGLE_MODEL) ?? defaultAiGatewayModels.google,
+    openai: readEnvValue(env.AI_GATEWAY_OPENAI_MODEL) ?? defaultAiGatewayModels.openai,
   } satisfies Record<GenerationProviderId, string>;
 }
 
-export function readConfiguredAiGatewayImageModel(
-  env: AiGatewayModelEnvironment,
-) {
+export function readConfiguredAiGatewayImageModel(env: AiGatewayModelEnvironment) {
   return readEnvValue(env.AI_GATEWAY_IMAGE_MODEL) ?? defaultAiGatewayImageModel;
 }
 

@@ -137,11 +137,7 @@ describe("runtime status route", () => {
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
         TWITTERAPI_IO_API_KEY: "twitter-secret",
       },
-      fetcher: buildModelCatalogFetcher([
-        "anthropic/launch",
-        "google/launch",
-        "openai/launch",
-      ]),
+      fetcher: buildModelCatalogFetcher(["anthropic/launch", "google/launch", "openai/launch"]),
     });
 
     await expect(response.json()).resolves.toMatchObject({
@@ -197,8 +193,7 @@ describe("runtime status route", () => {
         AI_GATEWAY_API_KEY: "gateway-secret",
         TWITTERAPI_IO_API_KEY: "twitter-secret",
       },
-      fetcher: async () =>
-        new Response("Gateway catalog unavailable.", { status: 503 }),
+      fetcher: async () => new Response("Gateway catalog unavailable.", { status: 503 }),
     });
 
     await expect(response.json()).resolves.toMatchObject({
@@ -223,10 +218,7 @@ describe("runtime status route", () => {
   });
 });
 
-function buildModelCatalogFetcher(
-  modelIds: string[],
-  requests: string[] = [],
-): typeof fetch {
+function buildModelCatalogFetcher(modelIds: string[], requests: string[] = []): typeof fetch {
   return async (input) => {
     requests.push(String(input));
 

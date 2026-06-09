@@ -303,7 +303,7 @@ Saved Runs persist the Joke Context Snapshot, Visual Joke Direction, Visual Joke
 
 ## Further Notes
 
-- The examples that shaped Visual Joke Taste were deliberately sharp. For Bryan Johnson and Kate Tolo's public microbiome post, a strong joke title was framed as "Bryan Johnson and Kate Tolo f**k and it's open-source" because it names central public actors, uses Earned Edge, and translates the story into a Tech-Native Punchline. The target is the public behavior and datafication mindset, not private humiliation.
+- The examples that shaped Visual Joke Taste were deliberately sharp. For Bryan Johnson and Kate Tolo's public microbiome post, a strong joke title was framed as "Bryan Johnson and Kate Tolo f\*\*k and it's open-source" because it names central public actors, uses Earned Edge, and translates the story into a Tech-Native Punchline. The target is the public behavior and datafication mindset, not private humiliation.
 - For Notion moving from `notion.so` to `notion.com`, strong joke title directions included "Notion is no longer a Somali company" and "After years, Notion is finally leaving Africa." These work because `.so` is a real country-code top-level domain and the joke uses Truthful Misdirection rather than claiming Notion literally moved headquarters.
 - The product should preserve the user's mental model: the app does the hard context and joke work, the user judges the output. The user should not become a research assistant, prompt engineer, or debugging participant.
 - The v3 PRD intentionally keeps Image Generation stable so the team can focus on the new Visual Joke Generation problem.
