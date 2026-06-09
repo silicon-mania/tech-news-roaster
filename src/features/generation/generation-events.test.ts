@@ -1,15 +1,24 @@
 import { describe, expect, test } from "vitest";
 import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
+import type { JokeContextSnapshot, VisualJokeSet } from "./generation-events";
 import {
   buildEnrichmentCompletedEvent,
   buildGenerationFailureEvent,
   buildStubbedGenerationEvents,
   parseCompletedGenerationRunPayload,
+  parseGenerationResultStates,
   parseGenerationStreamEvent,
   parseImageGenerationInput,
   parseImageGenerationStreamEvent,
+  parseJokeContextSnapshot,
   parseSavedGenerationRun,
+  parseSelectedVisualJoke,
+  parseStructuredJokeContext,
+  parseVisualJoke,
+  parseVisualJokeDirectionText,
+  parseVisualJokeMetadata,
+  parseVisualJokeSet,
 } from "./generation-events";
 
 describe("generation event contracts", () => {
@@ -300,6 +309,157 @@ describe("generation event contracts", () => {
       }),
     ).toThrow();
   });
+
+  test("validates v3 context, visual joke, and independent result-state contracts", () => {
+    const jokeContextSnapshot = parseJokeContextSnapshot(buildJokeContextSnapshot());
+    const visualJokeSet = parseVisualJokeSet(buildVisualJokeSet());
+    const generationResultStates = parseGenerationResultStates(
+      buildGenerationResultStates({
+        jokeContextSnapshot,
+        visualJokeSet,
+      }),
+    );
+
+    expect(parseStructuredJokeContext(buildStructuredJokeContext())).toMatchObject({
+      sourceTweetClaim: "The source tweet claims the launch removes the final workflow bottleneck.",
+    });
+    expect(parseVisualJokeDirectionText("  Dark, sharp tech satire only.  ")).toBe(
+      "Dark, sharp tech satire only.",
+    );
+    expect(parseVisualJokeMetadata(buildVisualJokeMetadata())).toMatchObject({
+      jokePattern: "truthful misdirection",
+    });
+    expect(parseVisualJoke(visualJokeSet.jokes[0])).toMatchObject({
+      recommended: true,
+      rank: 1,
+    });
+    expect(parseSelectedVisualJoke(null, visualJokeSet)).toBeNull();
+    expect(generationResultStates.newsLinkedImageDiscovery.status).toBe("failed");
+    expect(generationResultStates.textGeneration.status).toBe("completed");
+
+    expect(
+      parseCompletedGenerationRunPayload({
+        label: "Drafts for 2468",
+        sourceTweet: buildFixtureTweetContext("https://x.com/siliconmania/status/2468").sourceTweet,
+        drafts: buildStubbedGenerationEvents({
+          replySignals: buildReplySignals(
+            buildFixtureTweetContext("https://x.com/siliconmania/status/2468"),
+          ),
+          sourceTweet: buildFixtureTweetContext("https://x.com/siliconmania/status/2468")
+            .sourceTweet,
+          sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+          usersDirection: "Keep it skeptical.",
+        }).flatMap((event) => (event.type === "progress" ? [event.draft] : [])),
+        jokeContextSnapshot,
+        generationResultStates,
+        selectedVisualJoke: {
+          selectedAt: "2026-06-06T10:14:00.000Z",
+          visualJokeId: visualJokeSet.jokes[2].id,
+        },
+        visualJokeDirection: "Dark, sharp tech satire only.",
+        visualJokeSet,
+      }),
+    ).toMatchObject({
+      selectedVisualJoke: {
+        visualJokeId: visualJokeSet.jokes[2].id,
+      },
+      visualJokeSet: {
+        jokes: expect.arrayContaining([expect.objectContaining({ recommended: true, rank: 1 })]),
+      },
+    });
+  });
+
+  test("rejects invalid v3 joke context payloads", () => {
+    expect(() =>
+      parseStructuredJokeContext({
+        ...buildStructuredJokeContext(),
+        jokeableTensions: [],
+      }),
+    ).toThrow();
+
+    expect(() =>
+      parseJokeContextSnapshot({
+        ...buildJokeContextSnapshot(),
+        structuredContext: {
+          ...buildStructuredJokeContext(),
+          sourceTweetMediaExtraction: {
+            summary: "Media read",
+            visibleText: ["Headline"],
+            notableDetails: ["UI screenshot"],
+            mediaKinds: [],
+          },
+        },
+      }),
+    ).toThrow();
+  });
+
+  test("rejects invalid visual joke set sizes and missing recommended ordering", () => {
+    expect(() =>
+      parseVisualJokeSet({
+        ...buildVisualJokeSet(),
+        jokes: buildVisualJokes(4),
+      }),
+    ).toThrow();
+
+    expect(() =>
+      parseVisualJokeSet({
+        ...buildVisualJokeSet(),
+        jokes: [buildVisualJoke(0, { recommended: false }), ...buildVisualJokes(7).slice(1)],
+      }),
+    ).toThrow();
+  });
+
+  test("rejects malformed visual joke metadata and out-of-set selections", () => {
+    const visualJokeSet = parseVisualJokeSet(buildVisualJokeSet());
+
+    expect(() =>
+      parseVisualJokeMetadata({
+        ...buildVisualJokeMetadata(),
+        shortRationale: " ",
+      }),
+    ).toThrow();
+
+    expect(() =>
+      parseVisualJoke({
+        ...buildVisualJoke(0),
+        metadata: {
+          ...buildVisualJokeMetadata(),
+          referencedFact: " ",
+        },
+      }),
+    ).toThrow();
+
+    expect(() =>
+      parseSelectedVisualJoke(
+        {
+          selectedAt: "2026-06-06T10:14:00.000Z",
+          visualJokeId: "visual-joke-missing",
+        },
+        visualJokeSet,
+      ),
+    ).toThrow();
+
+    expect(() =>
+      parseCompletedGenerationRunPayload({
+        label: "Drafts for 2468",
+        sourceTweet: buildFixtureTweetContext("https://x.com/siliconmania/status/2468").sourceTweet,
+        drafts: buildStubbedGenerationEvents({
+          replySignals: buildReplySignals(
+            buildFixtureTweetContext("https://x.com/siliconmania/status/2468"),
+          ),
+          sourceTweet: buildFixtureTweetContext("https://x.com/siliconmania/status/2468")
+            .sourceTweet,
+          sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+          usersDirection: "Keep it skeptical.",
+        }).flatMap((event) => (event.type === "progress" ? [event.draft] : [])),
+        selectedVisualJoke: {
+          selectedAt: "2026-06-06T10:14:00.000Z",
+          visualJokeId: "visual-joke-missing",
+        },
+        visualJokeSet,
+      }),
+    ).toThrow();
+  });
 });
 
 function buildImageSet() {
@@ -342,5 +502,142 @@ function buildImageSet() {
         altText: "Generated visual variation 2.",
       },
     ],
+  };
+}
+
+function buildStructuredJokeContext() {
+  return {
+    sourceTweetClaim: "The source tweet claims the launch removes the final workflow bottleneck.",
+    sourceTweetMediaExtraction: {
+      summary: "A product UI screenshot emphasizes a new autopilot control surface.",
+      visibleText: ["Autopilot", "Ship faster"],
+      notableDetails: [
+        "A pricing badge dominates the layout.",
+        "The screenshot shows usage quotas.",
+      ],
+      mediaKinds: ["image"],
+    },
+    authorContext: {
+      displayName: "Silicon Mania",
+      handle: "siliconmania",
+      relationshipToTopic: "Operator watching platform incentives in public.",
+      role: "Tech publication",
+      authoritySignals: ["Frequent AI product analysis", "Known for startup commentary"],
+    },
+    replySignals: {
+      summary: "Replies focus on pricing pressure and whether the promise is actually new.",
+      representativeSnippets: [
+        {
+          authorHandle: "shipfaster",
+          replyId: "reply-1",
+          signal: "skepticism",
+          snippet: "So we automated the screenshot, not the work.",
+        },
+      ],
+    },
+    supportingFacts: [
+      "The launch centers on AI workflow automation.",
+      "Pricing and access tiers are central to the announcement.",
+    ],
+    unknowns: ["Adoption numbers are not public yet."],
+    jokeableTensions: [
+      "The product promises labor reduction while adding premium coordination overhead.",
+    ],
+    forbiddenAssumptions: ["Do not claim the launch replaces entire teams."],
+    jokeContextQuality: {
+      status: "strong",
+      summary: "The tweet, media, and replies provide enough context for grounded satire.",
+    },
+  };
+}
+
+function buildJokeContextSnapshot() {
+  return {
+    capturedAt: "2026-06-06T10:10:00.000Z",
+    sourceTweetId: "2468",
+    structuredContext: buildStructuredJokeContext(),
+  };
+}
+
+function buildVisualJokeMetadata() {
+  return {
+    jokePattern: "truthful misdirection",
+    jokeTarget: "platform pricing logic",
+    referencedFact: "The launch screenshot foregrounds premium workflow controls.",
+    shortRationale: "Turns the feature reveal into a pricing-pressure punchline.",
+  };
+}
+
+type VisualJokeFixture = {
+  id: string;
+  metadata: ReturnType<typeof buildVisualJokeMetadata>;
+  rank: number;
+  recommended: boolean;
+  text: string;
+};
+
+function buildVisualJoke(index: number, overrides: Partial<VisualJokeFixture> = {}) {
+  const joke = {
+    id: `visual-joke-${index + 1}`,
+    metadata: buildVisualJokeMetadata(),
+    rank: index + 1,
+    recommended: index === 0,
+    text: `Visual joke ${index + 1}`,
+  };
+
+  return {
+    ...joke,
+    ...overrides,
+  };
+}
+
+function buildVisualJokes(count: number) {
+  return Array.from({ length: count }, (_, index) => buildVisualJoke(index));
+}
+
+function buildVisualJokeSet() {
+  return {
+    generatedAt: "2026-06-06T10:12:00.000Z",
+    id: "visual-joke-set-1",
+    jokes: buildVisualJokes(8),
+    targetCount: 8,
+  };
+}
+
+function buildGenerationResultStates({
+  jokeContextSnapshot,
+  visualJokeSet,
+}: {
+  jokeContextSnapshot: JokeContextSnapshot;
+  visualJokeSet: VisualJokeSet;
+}) {
+  return {
+    contextGathering: {
+      status: "completed",
+      startedAt: "2026-06-06T10:08:00.000Z",
+      completedAt: "2026-06-06T10:10:00.000Z",
+      jokeContextSnapshot,
+    },
+    textGeneration: {
+      status: "completed",
+      startedAt: "2026-06-06T10:10:01.000Z",
+      completedAt: "2026-06-06T10:10:30.000Z",
+      draftCount: 3,
+    },
+    newsLinkedImageDiscovery: {
+      status: "failed",
+      startedAt: "2026-06-06T10:10:02.000Z",
+      failedAt: "2026-06-06T10:10:25.000Z",
+      message: "No qualifying news-linked images were found.",
+    },
+    visualJokeGeneration: {
+      status: "completed",
+      startedAt: "2026-06-06T10:10:03.000Z",
+      completedAt: "2026-06-06T10:10:40.000Z",
+      visualJokeSet,
+    },
+    imageGeneration: {
+      status: "not-started",
+    },
   };
 }

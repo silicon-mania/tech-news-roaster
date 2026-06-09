@@ -8,6 +8,7 @@ export const generationProviderIds = ["openai", "anthropic", "google"] as const;
 export type GenerationProviderId = (typeof generationProviderIds)[number];
 
 const generationProviderIdSchema = z.enum(generationProviderIds);
+const nonEmptyTrimmedStringSchema = z.string().trim().min(1);
 
 const runLocalIdSchema = z
   .string()
@@ -20,9 +21,9 @@ export const newsLinkedImageSchema = z
   .object({
     id: runLocalIdSchema,
     url: z.string().url(),
-    altText: z.string().min(1).optional(),
+    altText: nonEmptyTrimmedStringSchema.optional(),
     sourceUrl: z.string().url().optional(),
-    title: z.string().min(1).optional(),
+    title: nonEmptyTrimmedStringSchema.optional(),
   })
   .strict();
 
@@ -31,17 +32,17 @@ const selectedImageOriginalSchema = z
     id: runLocalIdSchema,
     newsLinkedImageId: runLocalIdSchema,
     url: z.string().url(),
-    altText: z.string().min(1).optional(),
+    altText: nonEmptyTrimmedStringSchema.optional(),
     preparedAt: z.string().datetime(),
     sourceUrl: z.string().url().optional(),
-    title: z.string().min(1).optional(),
+    title: nonEmptyTrimmedStringSchema.optional(),
   })
   .strict();
 
 const imageModelProvenanceSchema = z
   .object({
-    model: z.string().min(1),
-    provider: z.string().min(1).optional(),
+    model: nonEmptyTrimmedStringSchema,
+    provider: nonEmptyTrimmedStringSchema.optional(),
   })
   .strict();
 
@@ -50,9 +51,9 @@ const imageOptionKindSchema = z.enum(["original", "variation"]);
 const imageOptionSchema = z
   .object({
     id: runLocalIdSchema,
-    altText: z.string().min(1).optional(),
+    altText: nonEmptyTrimmedStringSchema.optional(),
     kind: imageOptionKindSchema,
-    label: z.string().min(1),
+    label: nonEmptyTrimmedStringSchema,
     url: z.string().url(),
   })
   .strict();
@@ -93,7 +94,7 @@ const failedImageSetSchema = z
   .object({
     id: runLocalIdSchema,
     failedAt: z.string().datetime(),
-    message: z.string().min(1),
+    message: nonEmptyTrimmedStringSchema,
     selectedImageId: runLocalIdSchema,
     selectedImageOriginal: selectedImageOriginalSchema.optional(),
   })
@@ -105,7 +106,7 @@ const imageGenerationInputSchema = z
   .object({
     parentRunId: runLocalIdSchema,
     selectedImageIds: selectedImageIdsSchema,
-    userImagePrompt: z.string().trim().min(1),
+    userImagePrompt: nonEmptyTrimmedStringSchema,
   })
   .strict();
 
@@ -134,7 +135,7 @@ const imageGenerationAttemptBaseSchema = z
   .object({
     selectedImageIds: selectedImageIdsSchema,
     startedAt: z.string().datetime(),
-    userImagePrompt: z.string().trim().min(1),
+    userImagePrompt: nonEmptyTrimmedStringSchema,
   })
   .strict();
 
@@ -161,6 +162,263 @@ const imageGenerationAttemptStateSchema = z.discriminatedUnion("status", [
   }),
 ]);
 
+const sourceTweetMediaKindSchema = z.enum(["image", "video", "gif", "unknown"]);
+
+const sourceTweetMediaExtractionSchema = z
+  .object({
+    summary: nonEmptyTrimmedStringSchema,
+    visibleText: z.array(nonEmptyTrimmedStringSchema),
+    notableDetails: z.array(nonEmptyTrimmedStringSchema),
+    mediaKinds: z.array(sourceTweetMediaKindSchema).min(1),
+  })
+  .strict();
+
+const authorContextSchema = z
+  .object({
+    authoritySignals: z.array(nonEmptyTrimmedStringSchema),
+    displayName: nonEmptyTrimmedStringSchema,
+    handle: nonEmptyTrimmedStringSchema,
+    relationshipToTopic: nonEmptyTrimmedStringSchema,
+    role: nonEmptyTrimmedStringSchema.optional(),
+  })
+  .strict();
+
+const representativeReplySignalSchema = z
+  .object({
+    authorHandle: nonEmptyTrimmedStringSchema.optional(),
+    replyId: runLocalIdSchema.optional(),
+    signal: nonEmptyTrimmedStringSchema,
+    snippet: nonEmptyTrimmedStringSchema,
+  })
+  .strict();
+
+const jokeContextQualitySchema = z
+  .object({
+    status: z.enum(["strong", "usable", "thin"]),
+    summary: nonEmptyTrimmedStringSchema,
+  })
+  .strict();
+
+const structuredJokeContextSchema = z
+  .object({
+    authorContext: authorContextSchema,
+    forbiddenAssumptions: z.array(nonEmptyTrimmedStringSchema),
+    jokeContextQuality: jokeContextQualitySchema,
+    jokeableTensions: z.array(nonEmptyTrimmedStringSchema).min(1),
+    replySignals: z
+      .object({
+        representativeSnippets: z.array(representativeReplySignalSchema).max(5),
+        summary: nonEmptyTrimmedStringSchema,
+      })
+      .strict(),
+    sourceTweetClaim: nonEmptyTrimmedStringSchema,
+    sourceTweetMediaExtraction: sourceTweetMediaExtractionSchema,
+    supportingFacts: z.array(nonEmptyTrimmedStringSchema),
+    unknowns: z.array(nonEmptyTrimmedStringSchema),
+  })
+  .strict();
+
+const jokeContextSnapshotSchema = z
+  .object({
+    capturedAt: z.string().datetime(),
+    sourceTweetId: nonEmptyTrimmedStringSchema,
+    structuredContext: structuredJokeContextSchema,
+  })
+  .strict();
+
+const visualJokeDirectionTextSchema = nonEmptyTrimmedStringSchema;
+
+const visualJokeMetadataSchema = z
+  .object({
+    jokePattern: nonEmptyTrimmedStringSchema,
+    jokeTarget: nonEmptyTrimmedStringSchema,
+    referencedFact: nonEmptyTrimmedStringSchema,
+    shortRationale: nonEmptyTrimmedStringSchema,
+  })
+  .strict();
+
+const visualJokeSchema = z
+  .object({
+    id: runLocalIdSchema,
+    metadata: visualJokeMetadataSchema,
+    rank: z.number().int().positive(),
+    recommended: z.boolean().default(false),
+    text: nonEmptyTrimmedStringSchema,
+  })
+  .strict();
+
+const visualJokeSetSchema = z
+  .object({
+    generatedAt: z.string().datetime(),
+    id: runLocalIdSchema,
+    jokes: z.array(visualJokeSchema).min(5).max(8),
+    targetCount: z.number().int().min(5).max(8).default(8),
+  })
+  .strict()
+  .superRefine((visualJokeSet, ctx) => {
+    const ids = new Set<string>();
+
+    visualJokeSet.jokes.forEach((joke, index) => {
+      if (ids.has(joke.id)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Visual Joke IDs must be unique within a Visual Joke Set.",
+          path: ["jokes", index, "id"],
+        });
+      }
+
+      ids.add(joke.id);
+
+      if (joke.rank !== index + 1) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Visual Jokes must be ranked in order starting at 1.",
+          path: ["jokes", index, "rank"],
+        });
+      }
+    });
+
+    if (!visualJokeSet.jokes[0]?.recommended) {
+      ctx.addIssue({
+        code: "custom",
+        message: "The first Visual Joke must be the Recommended Visual Joke.",
+        path: ["jokes", 0, "recommended"],
+      });
+    }
+
+    if (visualJokeSet.jokes.slice(1).some((joke) => joke.recommended)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Only the first Visual Joke can be marked recommended.",
+        path: ["jokes"],
+      });
+    }
+
+    if (visualJokeSet.targetCount < visualJokeSet.jokes.length) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Visual Joke target count cannot be smaller than the returned candidate count.",
+        path: ["targetCount"],
+      });
+    }
+  });
+
+const selectedVisualJokeSchema = z
+  .object({
+    selectedAt: z.string().datetime(),
+    visualJokeId: runLocalIdSchema,
+  })
+  .strict();
+
+const resultStageNotStartedSchema = z
+  .object({
+    status: z.literal("not-started"),
+  })
+  .strict();
+
+const resultStageRunningSchema = z
+  .object({
+    startedAt: z.string().datetime(),
+    status: z.literal("running"),
+  })
+  .strict();
+
+const resultStageFailedSchema = z
+  .object({
+    failedAt: z.string().datetime(),
+    message: nonEmptyTrimmedStringSchema,
+    startedAt: z.string().datetime(),
+    status: z.literal("failed"),
+  })
+  .strict();
+
+const contextGatheringStateSchema = z.discriminatedUnion("status", [
+  resultStageNotStartedSchema,
+  resultStageRunningSchema,
+  z
+    .object({
+      completedAt: z.string().datetime(),
+      jokeContextSnapshot: jokeContextSnapshotSchema,
+      startedAt: z.string().datetime(),
+      status: z.literal("completed"),
+    })
+    .strict(),
+  resultStageFailedSchema,
+]);
+
+const textGenerationStateSchema = z.discriminatedUnion("status", [
+  resultStageNotStartedSchema,
+  resultStageRunningSchema,
+  z
+    .object({
+      completedAt: z.string().datetime(),
+      draftCount: z.literal(draftTarget),
+      startedAt: z.string().datetime(),
+      status: z.literal("completed"),
+    })
+    .strict(),
+  resultStageFailedSchema,
+]);
+
+const newsLinkedImageDiscoveryStateSchema = z.discriminatedUnion("status", [
+  resultStageNotStartedSchema,
+  resultStageRunningSchema,
+  z
+    .object({
+      completedAt: z.string().datetime(),
+      newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5),
+      startedAt: z.string().datetime(),
+      status: z.literal("completed"),
+    })
+    .strict(),
+  resultStageFailedSchema,
+]);
+
+const visualJokeGenerationStateSchema = z.discriminatedUnion("status", [
+  resultStageNotStartedSchema,
+  resultStageRunningSchema,
+  z
+    .object({
+      completedAt: z.string().datetime(),
+      startedAt: z.string().datetime(),
+      status: z.literal("completed"),
+      visualJokeSet: visualJokeSetSchema,
+    })
+    .strict(),
+  resultStageFailedSchema,
+]);
+
+const generationResultStatesSchema = z
+  .object({
+    contextGathering: contextGatheringStateSchema,
+    imageGeneration: imageGenerationAttemptStateSchema,
+    newsLinkedImageDiscovery: newsLinkedImageDiscoveryStateSchema,
+    textGeneration: textGenerationStateSchema,
+    visualJokeGeneration: visualJokeGenerationStateSchema,
+  })
+  .strict()
+  .superRefine((states, ctx) => {
+    if (states.contextGathering.status === "completed") {
+      return;
+    }
+
+    if (states.textGeneration.status !== "not-started") {
+      ctx.addIssue({
+        code: "custom",
+        message: "Text Generation cannot start before Joke Context Gathering completes.",
+        path: ["textGeneration"],
+      });
+    }
+
+    if (states.visualJokeGeneration.status !== "not-started") {
+      ctx.addIssue({
+        code: "custom",
+        message: "Visual Joke Generation cannot start before Joke Context Gathering completes.",
+        path: ["visualJokeGeneration"],
+      });
+    }
+  });
+
 const generationRunPhaseSchema = z.enum([
   "enrichment-running",
   "text-generation-running",
@@ -173,20 +431,22 @@ const generationRunPhaseSchema = z.enum([
 
 const quoteTweetDraftSchema = z
   .object({
-    id: z.string().min(1),
-    angle: z.string().min(1),
+    id: nonEmptyTrimmedStringSchema,
+    angle: nonEmptyTrimmedStringSchema,
     fallbackForProvider: generationProviderIdSchema.optional(),
-    text: z.string().min(1),
-    modelProvenance: z.string().min(1),
+    text: nonEmptyTrimmedStringSchema,
+    modelProvenance: nonEmptyTrimmedStringSchema,
     provider: generationProviderIdSchema,
-    visibleRationale: z.string().min(1),
+    visibleRationale: nonEmptyTrimmedStringSchema,
   })
   .strict();
 
 const completedGenerationRunPayloadSchema = z
   .object({
-    fallbackDisclosure: z.string().min(1).optional(),
-    label: z.string().min(1),
+    fallbackDisclosure: nonEmptyTrimmedStringSchema.optional(),
+    generationResultStates: generationResultStatesSchema.optional(),
+    jokeContextSnapshot: jokeContextSnapshotSchema.optional(),
+    label: nonEmptyTrimmedStringSchema,
     sourceTweet: retrievedSourceTweetSchema,
     drafts: z
       .array(quoteTweetDraftSchema)
@@ -197,38 +457,90 @@ const completedGenerationRunPayloadSchema = z
     failedImageSets: z.array(failedImageSetSchema).max(2).optional(),
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
     phase: generationRunPhaseSchema.optional(),
+    selectedVisualJoke: selectedVisualJokeSchema.nullable().optional(),
     selectedImageOriginals: z.array(selectedImageOriginalSchema).max(2).optional(),
+    visualJokeDirection: visualJokeDirectionTextSchema.optional(),
+    visualJokeSet: visualJokeSetSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((run, ctx) => {
+    if (!run.selectedVisualJoke) {
+      return;
+    }
+
+    if (!run.visualJokeSet) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Selected Visual Joke requires a Visual Joke Set.",
+        path: ["selectedVisualJoke"],
+      });
+      return;
+    }
+
+    if (!run.visualJokeSet.jokes.some((joke) => joke.id === run.selectedVisualJoke?.visualJokeId)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Selected Visual Joke must belong to the run's Visual Joke Set.",
+        path: ["selectedVisualJoke", "visualJokeId"],
+      });
+    }
+  });
 
 const savedGenerationRunSchema = z
   .object({
     id: runLocalIdSchema,
-    label: z.string().min(1),
+    jokeContextSnapshot: jokeContextSnapshotSchema.optional(),
+    label: nonEmptyTrimmedStringSchema,
     sourceTweetUrl: z.string().url(),
     usersDirection: z.string(),
     status: z.enum(["running", "completed", "failed"]),
     draftCount: z.number().int().nonnegative(),
     draftTarget: z.literal(draftTarget),
     drafts: z.array(quoteTweetDraftSchema).max(draftTarget),
-    failureMessage: z.string().min(1).optional(),
-    fallbackDisclosure: z.string().min(1).optional(),
+    failureMessage: nonEmptyTrimmedStringSchema.optional(),
+    fallbackDisclosure: nonEmptyTrimmedStringSchema.optional(),
     failedImageSets: z.array(failedImageSetSchema).max(2).optional(),
+    generationResultStates: generationResultStatesSchema.optional(),
     imageGenerationState: imageGenerationAttemptStateSchema.optional(),
     imageModelProvenance: imageModelProvenanceSchema.optional(),
     imageSets: z.array(imageSetSchema).max(2).optional(),
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
     phase: generationRunPhaseSchema.optional(),
     savedAt: z.string().datetime().optional(),
+    selectedVisualJoke: selectedVisualJokeSchema.nullable().optional(),
     selectedImageOriginals: z.array(selectedImageOriginalSchema).max(2).optional(),
     sourceTweet: retrievedSourceTweetSchema.optional(),
+    visualJokeDirection: visualJokeDirectionTextSchema.optional(),
+    visualJokeSet: visualJokeSetSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((run, ctx) => {
+    if (!run.selectedVisualJoke) {
+      return;
+    }
+
+    if (!run.visualJokeSet) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Selected Visual Joke requires a Visual Joke Set.",
+        path: ["selectedVisualJoke"],
+      });
+      return;
+    }
+
+    if (!run.visualJokeSet.jokes.some((joke) => joke.id === run.selectedVisualJoke?.visualJokeId)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Selected Visual Joke must belong to the run's Visual Joke Set.",
+        path: ["selectedVisualJoke", "visualJokeId"],
+      });
+    }
+  });
 
 const generationProgressEventSchema = z
   .object({
     type: z.literal("progress"),
-    label: z.string().min(1),
+    label: nonEmptyTrimmedStringSchema,
     sourceTweet: retrievedSourceTweetSchema,
     draft: quoteTweetDraftSchema,
     draftCount: z.number().int().min(1).max(draftTarget),
@@ -254,7 +566,7 @@ const generationCompletedEventSchema = z
 const generationFailedEventSchema = z
   .object({
     type: z.literal("failed"),
-    message: z.string().min(1),
+    message: nonEmptyTrimmedStringSchema,
   })
   .strict();
 
@@ -297,8 +609,15 @@ export type FailedImageSet = z.infer<typeof failedImageSetSchema>;
 export type ImageGenerationInput = z.infer<typeof imageGenerationInputSchema>;
 export type ImageModelProvenance = z.infer<typeof imageModelProvenanceSchema>;
 export type ImageSet = z.infer<typeof imageSetSchema>;
+export type JokeContextSnapshot = z.infer<typeof jokeContextSnapshotSchema>;
+export type GenerationResultStates = z.infer<typeof generationResultStatesSchema>;
 export type QuoteTweetDraft = z.infer<typeof quoteTweetDraftSchema>;
 export type SelectedImageOriginal = z.infer<typeof selectedImageOriginalSchema>;
+export type SelectedVisualJoke = z.infer<typeof selectedVisualJokeSchema> | null;
+export type StructuredJokeContext = z.infer<typeof structuredJokeContextSchema>;
+export type VisualJoke = z.infer<typeof visualJokeSchema>;
+export type VisualJokeMetadata = z.infer<typeof visualJokeMetadataSchema>;
+export type VisualJokeSet = z.infer<typeof visualJokeSetSchema>;
 export type CompletedGenerationRunPayload = z.infer<typeof completedGenerationRunPayloadSchema>;
 export type GenerationStreamEvent = z.infer<typeof generationStreamEventSchema>;
 export type ImageGenerationStreamEvent = z.infer<typeof imageGenerationStreamEventSchema>;
@@ -329,6 +648,56 @@ export function parseImageGenerationStreamEvent(event: unknown): ImageGeneration
 
 export function parseImageGenerationInput(input: unknown): ImageGenerationInput {
   return imageGenerationInputSchema.parse(input);
+}
+
+export function parseStructuredJokeContext(input: unknown): StructuredJokeContext {
+  return structuredJokeContextSchema.parse(input);
+}
+
+export function parseJokeContextSnapshot(snapshot: unknown): JokeContextSnapshot {
+  return jokeContextSnapshotSchema.parse(snapshot);
+}
+
+export function parseVisualJokeDirectionText(direction: unknown): string {
+  return visualJokeDirectionTextSchema.parse(direction);
+}
+
+export function parseVisualJokeMetadata(metadata: unknown): VisualJokeMetadata {
+  return visualJokeMetadataSchema.parse(metadata);
+}
+
+export function parseVisualJoke(visualJoke: unknown): VisualJoke {
+  return visualJokeSchema.parse(visualJoke);
+}
+
+export function parseVisualJokeSet(visualJokeSet: unknown): VisualJokeSet {
+  return visualJokeSetSchema.parse(visualJokeSet);
+}
+
+export function parseSelectedVisualJoke(
+  selectedVisualJoke: unknown,
+  visualJokeSet?: VisualJokeSet,
+): SelectedVisualJoke {
+  return z
+    .nullable(selectedVisualJokeSchema)
+    .superRefine((selection, ctx) => {
+      if (!selection || !visualJokeSet) {
+        return;
+      }
+
+      if (!visualJokeSet.jokes.some((joke) => joke.id === selection.visualJokeId)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Selected Visual Joke must belong to the provided Visual Joke Set.",
+          path: ["visualJokeId"],
+        });
+      }
+    })
+    .parse(selectedVisualJoke);
+}
+
+export function parseGenerationResultStates(input: unknown): GenerationResultStates {
+  return generationResultStatesSchema.parse(input);
 }
 
 export function parseSelectedImageOriginal(original: unknown): SelectedImageOriginal {
