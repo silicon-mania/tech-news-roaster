@@ -64,6 +64,13 @@ export type OutsideXEnrichmentService = (
   input: OutsideXEnrichmentInput,
 ) => Promise<OutsideXEnrichmentContext>;
 
+export class OutsideXEnrichmentUnavailableError extends Error {
+  constructor(message = "Outside-X enrichment endpoint is not configured.") {
+    super(message);
+    this.name = "OutsideXEnrichmentUnavailableError";
+  }
+}
+
 export function buildReplySignals(
   tweetContext: RetrievedTweetContext,
 ): ReplySignal[] {
@@ -91,11 +98,12 @@ export async function retrieveOutsideXEnrichment({
   const endpoint = process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
 
   if (!endpoint) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("Outside-X enrichment endpoint is not configured.");
-    }
+    throw new OutsideXEnrichmentUnavailableError();
+  }
+  const apiKey = process.env.OUTSIDE_X_ENRICHMENT_API_KEY?.trim();
 
-    return buildFixtureOutsideXEnrichment(sourceTweet);
+  if (!apiKey) {
+    throw new Error("Outside-X enrichment API key is not configured.");
   }
 
   const response = await fetch(endpoint, {
@@ -105,6 +113,7 @@ export async function retrieveOutsideXEnrichment({
       usersDirection,
     }),
     headers: {
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     method: "POST",
@@ -128,44 +137,5 @@ function normalizeOutsideXEnrichmentContext(
       ...image,
       id: `news-linked-image-${index + 1}`,
     })),
-  });
-}
-
-function buildFixtureOutsideXEnrichment(
-  sourceTweet: RetrievedSourceTweet,
-): OutsideXEnrichmentContext {
-  return outsideXEnrichmentContextSchema.parse({
-    retrievedAt: new Date(0).toISOString(),
-    items: [
-      {
-        title: "Local outside-X context",
-        summary:
-          "Local development context keeps mandatory enrichment available without an external provider.",
-        url: "https://example.com/local-outside-x-context",
-      },
-    ],
-    newsLinkedImages: [
-      {
-        id: "news-linked-image-1",
-        url: `https://picsum.photos/seed/${sourceTweet.id}-1/320/240`,
-        altText: "First placeholder visual candidate for the source tweet.",
-        sourceUrl: sourceTweet.url,
-        title: "Source news visual 1",
-      },
-      {
-        id: "news-linked-image-2",
-        url: `https://picsum.photos/seed/${sourceTweet.id}-2/320/240`,
-        altText: "Second placeholder visual candidate for the source tweet.",
-        sourceUrl: sourceTweet.url,
-        title: "Source news visual 2",
-      },
-      {
-        id: "news-linked-image-3",
-        url: `https://picsum.photos/seed/${sourceTweet.id}-3/320/240`,
-        altText: "Third placeholder visual candidate for the source tweet.",
-        sourceUrl: sourceTweet.url,
-        title: "Source news visual 3",
-      },
-    ],
   });
 }

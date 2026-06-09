@@ -7,7 +7,13 @@ import {
 import { GET, streamGenerationRun } from "./route";
 
 describe("generation stream route", () => {
-  test("returns validated SSE progress and completed events", async () => {
+  test("returns validated SSE progress and completed events without placeholder images in local development", async () => {
+    const previousEndpoint = process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
+    const previousApiKey = process.env.OUTSIDE_X_ENRICHMENT_API_KEY;
+
+    delete process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
+    delete process.env.OUTSIDE_X_ENRICHMENT_API_KEY;
+
     const response = await GET(
       new Request(
         "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F1234&usersDirection=Keep+it+spiky.",
@@ -35,33 +41,13 @@ describe("generation stream route", () => {
       });
 
     expect(events.map((event) => event.type)).toEqual([
-      "enrichment-completed",
       "progress",
       "progress",
       "progress",
       "completed",
     ]);
+    expect(JSON.stringify(events)).not.toContain("picsum");
     expect(events[0]).toMatchObject({
-      type: "enrichment-completed",
-      sourceTweet: expect.objectContaining({
-        text: expect.stringContaining("agent workspace"),
-      }),
-      newsLinkedImages: expect.arrayContaining([
-        expect.objectContaining({
-          id: "news-linked-image-1",
-          url: "https://picsum.photos/seed/1234-1/320/240",
-        }),
-        expect.objectContaining({
-          id: "news-linked-image-2",
-          url: "https://picsum.photos/seed/1234-2/320/240",
-        }),
-        expect.objectContaining({
-          id: "news-linked-image-3",
-          url: "https://picsum.photos/seed/1234-3/320/240",
-        }),
-      ]),
-    });
-    expect(events[1]).toMatchObject({
       type: "progress",
       label: "Drafts for 1234",
       draftCount: 1,
@@ -69,7 +55,7 @@ describe("generation stream route", () => {
         text: expect.stringContaining("agent workspace"),
       }),
     });
-    expect(events[4]).toMatchObject({
+    expect(events[3]).toMatchObject({
       type: "completed",
       run: {
         label: "Drafts for 1234",
@@ -105,6 +91,9 @@ describe("generation stream route", () => {
         expect(event).not.toHaveProperty("retrievedAt");
       }
     }
+
+    restoreEnvValue("OUTSIDE_X_ENRICHMENT_ENDPOINT", previousEndpoint);
+    restoreEnvValue("OUTSIDE_X_ENRICHMENT_API_KEY", previousApiKey);
   });
 
   test("emits a failed event when source tweet retrieval fails", async () => {
@@ -391,13 +380,12 @@ describe("generation stream route", () => {
     const events = await readStreamEvents(response);
 
     expect(events.map((event) => event.type)).toEqual([
-      "enrichment-completed",
       "progress",
       "progress",
       "progress",
       "completed",
     ]);
-    expect(events[2]).toMatchObject({
+    expect(events[1]).toMatchObject({
       type: "progress",
       draft: {
         fallbackForProvider: "anthropic",
@@ -405,7 +393,7 @@ describe("generation stream route", () => {
         visibleRationale: "Fallback rationale.",
       },
     });
-    expect(events[4]).toMatchObject({
+    expect(events[3]).toMatchObject({
       type: "completed",
       run: {
         fallbackDisclosure: expect.stringContaining("Anthropic"),
@@ -452,6 +440,15 @@ function buildThinTweetContext(): RetrievedTweetContext {
     },
     replies: [],
   };
+}
+
+function restoreEnvValue(name: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+
+  process.env[name] = value;
 }
 
 function buildEnrichmentContext() {

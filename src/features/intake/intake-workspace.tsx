@@ -50,6 +50,8 @@ type IntakeWorkspaceProps = {
 };
 
 const genericRunningRunLabel = "New generation run";
+const developmentImagesUnavailableMessage =
+  "News-linked images unavailable. Set OUTSIDE_X_ENRICHMENT_ENDPOINT to enable image generation.";
 const liveApiWarningMessage = "Live APIs enabled. Runs may use paid quota.";
 const productionNotReadyMessage = "Live integrations are not configured.";
 
@@ -196,18 +198,24 @@ export function IntakeWorkspace({
       runtimeStatus.generation.credentials.aiGatewayApiKey
     : false;
   const runtimeNotice =
-    runtimeEnvironment === "development" && liveApisEnabled
+    runtimeEnvironment === "development" &&
+    runtimeStatus?.enrichment.mode === "off"
       ? {
           kind: "warning" as const,
-          message: liveApiWarningMessage,
+          message: developmentImagesUnavailableMessage,
         }
-      : runtimeEnvironment === "production" &&
-          runtimeStatus?.productionReady === false
+      : runtimeEnvironment === "development" && liveApisEnabled
         ? {
-            kind: "blocked" as const,
-            message: productionNotReadyMessage,
+            kind: "warning" as const,
+            message: liveApiWarningMessage,
           }
-        : undefined;
+        : runtimeEnvironment === "production" &&
+            runtimeStatus?.productionReady === false
+          ? {
+              kind: "blocked" as const,
+              message: productionNotReadyMessage,
+            }
+          : undefined;
 
   useEffect(() => {
     if (!activeRunSourceTweetUrl) {

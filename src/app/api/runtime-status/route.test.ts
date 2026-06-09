@@ -33,6 +33,12 @@ describe("runtime status route", () => {
         aiGatewayApiKey: false,
         twitterApiIoApiKey: false,
       },
+      enrichment: {
+        credentials: {
+          apiKey: false,
+        },
+        mode: "off",
+      },
       productionReady: false,
     });
     expect(serializedStatus).not.toContain("TWITTERAPI_IO_API_KEY");
@@ -47,6 +53,8 @@ describe("runtime status route", () => {
         AI_GATEWAY_API_KEY: "gateway-secret",
         AI_GATEWAY_GOOGLE_MODEL: "google/launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
+        OUTSIDE_X_ENRICHMENT_API_KEY: "enrichment-secret",
+        OUTSIDE_X_ENRICHMENT_ENDPOINT: "https://enrichment.example.test/enrich",
         TWITTERAPI_IO_API_KEY: "twitter-secret",
       },
       fetcher: buildModelCatalogFetcher(
@@ -88,15 +96,23 @@ describe("runtime status route", () => {
           },
         },
       },
+      enrichment: {
+        credentials: {
+          apiKey: true,
+        },
+        mode: "configured",
+      },
       productionReady: true,
     });
     expect(serializedStatus).not.toContain("gateway-secret");
+    expect(serializedStatus).not.toContain("enrichment-secret");
     expect(serializedStatus).not.toContain("twitter-secret");
   });
 
-  test("reports optional outside-X enrichment configuration", async () => {
+  test("reports outside-X enrichment endpoint and bearer token configuration", async () => {
     const response = await runtimeStatus({
       env: {
+        OUTSIDE_X_ENRICHMENT_API_KEY: "enrichment-secret",
         OUTSIDE_X_ENRICHMENT_ENDPOINT: "https://enrichment.example.test",
       },
       fetcher: buildModelCatalogFetcher([]),
@@ -104,8 +120,38 @@ describe("runtime status route", () => {
 
     await expect(response.json()).resolves.toMatchObject({
       enrichment: {
+        credentials: {
+          apiKey: true,
+        },
         mode: "configured",
       },
+    });
+  });
+
+  test("marks production not ready without the outside-X enrichment endpoint and bearer token", async () => {
+    const response = await runtimeStatus({
+      env: {
+        AI_GATEWAY_ANTHROPIC_MODEL: "anthropic/launch",
+        AI_GATEWAY_API_KEY: "gateway-secret",
+        AI_GATEWAY_GOOGLE_MODEL: "google/launch",
+        AI_GATEWAY_OPENAI_MODEL: "openai/launch",
+        TWITTERAPI_IO_API_KEY: "twitter-secret",
+      },
+      fetcher: buildModelCatalogFetcher([
+        "anthropic/launch",
+        "google/launch",
+        "openai/launch",
+      ]),
+    });
+
+    await expect(response.json()).resolves.toMatchObject({
+      enrichment: {
+        credentials: {
+          apiKey: false,
+        },
+        mode: "off",
+      },
+      productionReady: false,
     });
   });
 

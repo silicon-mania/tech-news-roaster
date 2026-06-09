@@ -1,6 +1,8 @@
+import type { OutsideXEnrichmentContext } from "@/features/enrichment/outside-x-enrichment";
 import {
   buildReplySignals,
   type OutsideXEnrichmentService,
+  OutsideXEnrichmentUnavailableError,
   retrieveOutsideXEnrichment,
 } from "@/features/enrichment/outside-x-enrichment";
 import {
@@ -104,20 +106,24 @@ async function buildGenerationRunEvents({
   }
 
   const replySignals = buildReplySignals(tweetContext);
-  const enrichmentContext = await retrieveMandatoryOutsideXEnrichment({
+  const enrichmentResult = await retrieveMandatoryOutsideXEnrichment({
     enrich,
     replySignals,
     sourceTweet: tweetContext.sourceTweet,
     usersDirection,
   });
 
-  if (!enrichmentContext) {
+  if (enrichmentResult.status === "failed") {
     return [
       buildGenerationFailureEvent(
         "Outside-X enrichment could not provide news-linked images.",
       ),
     ];
   }
+  const enrichmentContext =
+    enrichmentResult.status === "available"
+      ? enrichmentResult.enrichmentContext
+      : undefined;
 
   try {
     const completedRun = await orchestrate({
@@ -127,15 +133,20 @@ async function buildGenerationRunEvents({
       sourceTweetUrl,
       usersDirection,
     });
+    const completedEvents = buildCompletedGenerationRunEvents({
+      run: completedRun,
+    });
+
+    if (!enrichmentContext) {
+      return completedEvents;
+    }
 
     return [
       buildEnrichmentCompletedEvent({
         newsLinkedImages: enrichmentContext.newsLinkedImages,
         sourceTweet: tweetContext.sourceTweet,
       }),
-      ...buildCompletedGenerationRunEvents({
-        run: completedRun,
-      }),
+      ...completedEvents,
     ];
   } catch (error) {
     console.error("Generation orchestration failed.", error);
@@ -155,7 +166,18 @@ async function retrieveMandatoryOutsideXEnrichment({
   usersDirection,
 }: Parameters<OutsideXEnrichmentService>[0] & {
   enrich: OutsideXEnrichmentService;
-}) {
+}): Promise<
+  | {
+      enrichmentContext: OutsideXEnrichmentContext;
+      status: "available";
+    }
+  | {
+      status: "failed";
+    }
+  | {
+      status: "unavailable-in-development";
+    }
+> {
   try {
     const enrichmentContext = await enrich({
       replySignals,
@@ -164,11 +186,27 @@ async function retrieveMandatoryOutsideXEnrichment({
     });
 
     if (enrichmentContext.newsLinkedImages.length === 0) {
-      return null;
+      return {
+        status: "failed",
+      };
     }
 
-    return enrichmentContext;
-  } catch {
-    return null;
+    return {
+      enrichmentContext,
+      status: "available",
+    };
+  } catch (error) {
+    if (
+      error instanceof OutsideXEnrichmentUnavailableError &&
+      process.env.NODE_ENV !== "production"
+    ) {
+      return {
+        status: "unavailable-in-development",
+      };
+    }
+
+    return {
+      status: "failed",
+    };
   }
 }

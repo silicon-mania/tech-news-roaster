@@ -22,6 +22,9 @@ type AiGatewayModelStatus = {
 
 export type RuntimeStatus = {
   enrichment: {
+    credentials: {
+      apiKey: boolean;
+    };
     mode: "configured" | "off";
   };
   generation: {
@@ -66,6 +69,12 @@ export async function readRuntimeStatus({
   fetcher = fetch,
 }: RuntimeStatusOptions = {}): Promise<RuntimeStatus> {
   const twitterApiIoApiKey = hasEnvValue(env.TWITTERAPI_IO_API_KEY);
+  const outsideXEnrichmentApiKey = hasEnvValue(
+    env.OUTSIDE_X_ENRICHMENT_API_KEY,
+  );
+  const outsideXEnrichmentEndpoint = hasEnvValue(
+    env.OUTSIDE_X_ENRICHMENT_ENDPOINT,
+  );
   const aiGatewayApiKey =
     hasEnvValue(env.AI_GATEWAY_API_KEY) ||
     hasEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
@@ -88,9 +97,10 @@ export async function readRuntimeStatus({
 
   return {
     enrichment: {
-      mode: hasEnvValue(env.OUTSIDE_X_ENRICHMENT_ENDPOINT)
-        ? "configured"
-        : "off",
+      credentials: {
+        apiKey: outsideXEnrichmentApiKey,
+      },
+      mode: outsideXEnrichmentEndpoint ? "configured" : "off",
     },
     generation: {
       aiGateway: {
@@ -107,7 +117,11 @@ export async function readRuntimeStatus({
       twitterApiIoApiKey,
     },
     productionReady:
-      twitterApiIoApiKey && aiGatewayApiKey && allConfiguredModelsAvailable,
+      twitterApiIoApiKey &&
+      aiGatewayApiKey &&
+      outsideXEnrichmentEndpoint &&
+      outsideXEnrichmentApiKey &&
+      allConfiguredModelsAvailable,
     retrieval: {
       credentials: {
         twitterApiIoApiKey,

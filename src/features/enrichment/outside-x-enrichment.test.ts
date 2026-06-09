@@ -2,12 +2,14 @@ import { describe, expect, test, vi } from "vitest";
 import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
 import {
   buildReplySignals,
+  OutsideXEnrichmentUnavailableError,
   retrieveOutsideXEnrichment,
 } from "./outside-x-enrichment";
 
 describe("outside-X enrichment", () => {
   test("normalizes hidden context and news-linked images with stable run-local IDs", async () => {
     const previousEndpoint = process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
+    const previousApiKey = process.env.OUTSIDE_X_ENRICHMENT_API_KEY;
     const previousFetch = globalThis.fetch;
     const tweetContext = buildFixtureTweetContext(
       "https://x.com/siliconmania/status/2468",
@@ -43,6 +45,7 @@ describe("outside-X enrichment", () => {
 
     process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT =
       "https://outside-x.example/enrich";
+    process.env.OUTSIDE_X_ENRICHMENT_API_KEY = "outside-x-secret";
     globalThis.fetch = fetcher;
 
     try {
@@ -55,6 +58,9 @@ describe("outside-X enrichment", () => {
       expect(fetcher).toHaveBeenCalledWith(
         "https://outside-x.example/enrich",
         expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Bearer outside-x-secret",
+          }),
           method: "POST",
         }),
       );
@@ -74,6 +80,58 @@ describe("outside-X enrichment", () => {
       });
     } finally {
       restoreEnvValue("OUTSIDE_X_ENRICHMENT_ENDPOINT", previousEndpoint);
+      restoreEnvValue("OUTSIDE_X_ENRICHMENT_API_KEY", previousApiKey);
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("does not build placeholder images when the endpoint is unset", async () => {
+    const previousEndpoint = process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
+    const tweetContext = buildFixtureTweetContext(
+      "https://x.com/siliconmania/status/2468",
+    );
+
+    delete process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
+
+    try {
+      await expect(
+        retrieveOutsideXEnrichment({
+          sourceTweet: tweetContext.sourceTweet,
+          replySignals: buildReplySignals(tweetContext),
+          usersDirection: "",
+        }),
+      ).rejects.toBeInstanceOf(OutsideXEnrichmentUnavailableError);
+    } finally {
+      restoreEnvValue("OUTSIDE_X_ENRICHMENT_ENDPOINT", previousEndpoint);
+    }
+  });
+
+  test("requires a bearer token when the endpoint is configured", async () => {
+    const previousEndpoint = process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
+    const previousApiKey = process.env.OUTSIDE_X_ENRICHMENT_API_KEY;
+    const previousFetch = globalThis.fetch;
+    const tweetContext = buildFixtureTweetContext(
+      "https://x.com/siliconmania/status/2468",
+    );
+    const fetcher = vi.fn();
+
+    process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT =
+      "https://outside-x.example/enrich";
+    delete process.env.OUTSIDE_X_ENRICHMENT_API_KEY;
+    globalThis.fetch = fetcher;
+
+    try {
+      await expect(
+        retrieveOutsideXEnrichment({
+          sourceTweet: tweetContext.sourceTweet,
+          replySignals: buildReplySignals(tweetContext),
+          usersDirection: "",
+        }),
+      ).rejects.toThrow("Outside-X enrichment API key is not configured.");
+      expect(fetcher).not.toHaveBeenCalled();
+    } finally {
+      restoreEnvValue("OUTSIDE_X_ENRICHMENT_ENDPOINT", previousEndpoint);
+      restoreEnvValue("OUTSIDE_X_ENRICHMENT_API_KEY", previousApiKey);
       globalThis.fetch = previousFetch;
     }
   });

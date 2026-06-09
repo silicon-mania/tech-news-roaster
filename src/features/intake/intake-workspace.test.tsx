@@ -211,6 +211,9 @@ function buildRuntimeStatus(
 ): RuntimeStatus {
   const status: RuntimeStatus = {
     enrichment: {
+      credentials: {
+        apiKey: false,
+      },
       mode: "off",
     },
     generation: {
@@ -491,6 +494,12 @@ describe("IntakeWorkspace", () => {
     const startGenerationRun = vi.fn();
     const { sourceTweetUrlInput, generateButton } = renderWorkspace({
       initialRuntimeStatus: buildRuntimeStatus({
+        enrichment: {
+          credentials: {
+            apiKey: true,
+          },
+          mode: "configured",
+        },
         generation: {
           ...buildRuntimeStatus().generation,
           credentials: {
@@ -505,6 +514,41 @@ describe("IntakeWorkspace", () => {
 
     expect(
       screen.getByText("Live APIs enabled. Runs may use paid quota."),
+    ).toBeInTheDocument();
+    expect(generateButton).toBeEnabled();
+
+    await user.type(
+      sourceTweetUrlInput,
+      "https://x.com/siliconmania/status/1234567890",
+    );
+    await user.click(generateButton);
+
+    expect(startGenerationRun).toHaveBeenCalledWith({
+      sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
+      usersDirection: "",
+    });
+  });
+
+  test("warns in development when news-linked images are unavailable", async () => {
+    const user = userEvent.setup();
+    const startGenerationRun = vi.fn();
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      initialRuntimeStatus: buildRuntimeStatus({
+        enrichment: {
+          credentials: {
+            apiKey: false,
+          },
+          mode: "off",
+        },
+      }),
+      onStartGenerationRun: startGenerationRun,
+      runtimeEnvironment: "development",
+    });
+
+    expect(
+      screen.getByText(
+        "News-linked images unavailable. Set OUTSIDE_X_ENRICHMENT_ENDPOINT to enable image generation.",
+      ),
     ).toBeInTheDocument();
     expect(generateButton).toBeEnabled();
 
@@ -1050,8 +1094,8 @@ describe("IntakeWorkspace", () => {
       name: /failed image set 1/i,
     });
 
-    expect(within(imageResultsArea).getAllByText(/image model:/i)).toHaveLength(
-      1,
+    expect(imageGenerationArea).toHaveTextContent(
+      imageSet.imageModelProvenance.model,
     );
     expect(
       within(imageResultsArea).getByRole("article", {
