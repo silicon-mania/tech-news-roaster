@@ -516,6 +516,39 @@ export function IntakeWorkspace({
     scheduleRunAutosave(editedRun);
   }
 
+  function updateSelectedVisualJoke(runId: string, visualJokeId: string | null) {
+    const run = runs.find((candidateRun) => candidateRun.id === runId);
+
+    if (!run?.visualJokeSet) {
+      return;
+    }
+
+    if (visualJokeId && !run.visualJokeSet.jokes.some((joke) => joke.id === visualJokeId)) {
+      return;
+    }
+
+    const updatedRun: GenerationRun = {
+      ...run,
+      selectedVisualJoke: visualJokeId
+        ? {
+            selectedAt: new Date().toISOString(),
+            visualJokeId,
+          }
+        : null,
+    };
+
+    setRuns((currentRuns) =>
+      currentRuns.map((currentRun) => {
+        if (currentRun.id !== runId) {
+          return currentRun;
+        }
+
+        return updatedRun;
+      }),
+    );
+    scheduleRunAutosave(updatedRun);
+  }
+
   function startImageGeneration(input: ImageGenerationInput) {
     const run = runs.find((candidateRun) => candidateRun.id === input.parentRunId);
 
@@ -826,6 +859,7 @@ export function IntakeWorkspace({
         <ActiveRunPanel
           activeRun={activeRun}
           onDraftTextChange={updateDraftText}
+          onSelectedVisualJokeChange={updateSelectedVisualJoke}
           onStartImageGeneration={startImageGeneration}
         />
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, Download, Expand, Loader2, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Copy, Download, Expand, Loader2, X } from "lucide-react";
 import Image from "next/image";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
@@ -11,6 +11,7 @@ import type {
   ImageModelProvenance,
   ImageSet,
   NewsLinkedImage,
+  VisualJokeSet,
 } from "@/features/generation/generation-events";
 import { draftTarget, parseImageGenerationInput } from "@/features/generation/generation-events";
 import { getRunPhaseLabel } from "../run-phase";
@@ -20,12 +21,14 @@ import { DraftComparison } from "./draft-comparison";
 type ActiveRunPanelProps = {
   activeRun: GenerationRun | null;
   onDraftTextChange: (draftId: string, text: string) => void;
+  onSelectedVisualJokeChange: (runId: string, visualJokeId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
 };
 
 export function ActiveRunPanel({
   activeRun,
   onDraftTextChange,
+  onSelectedVisualJokeChange,
   onStartImageGeneration,
 }: ActiveRunPanelProps) {
   if (!activeRun) {
@@ -47,12 +50,21 @@ export function ActiveRunPanel({
       onStartImageGeneration={onStartImageGeneration}
     />
   ) : null;
+  const visualJokeArea = activeRun.visualJokeSet ? (
+    <VisualJokeArea
+      run={activeRun}
+      visualJokeSet={activeRun.visualJokeSet}
+      onSelectedVisualJokeChange={onSelectedVisualJokeChange}
+    />
+  ) : null;
 
   if (activeRun.status === "running") {
     return (
       <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
         {sourceTweetPreview}
-        <RunWorkspaceLayout imageGenerationArea={imageGenerationArea}>
+        <RunWorkspaceLayout
+          imageGenerationArea={imageGenerationArea}
+          visualJokeArea={visualJokeArea}>
           <GenerationWaitingState run={activeRun} />
         </RunWorkspaceLayout>
       </section>
@@ -63,7 +75,9 @@ export function ActiveRunPanel({
     return (
       <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
         {sourceTweetPreview}
-        <RunWorkspaceLayout imageGenerationArea={imageGenerationArea}>
+        <RunWorkspaceLayout
+          imageGenerationArea={imageGenerationArea}
+          visualJokeArea={visualJokeArea}>
           <GenerationFailureState run={activeRun} />
         </RunWorkspaceLayout>
       </section>
@@ -77,7 +91,7 @@ export function ActiveRunPanel({
       aria-label="Completed draft canvas"
       className="mx-auto grid w-full max-w-5xl gap-3 self-start">
       {sourceTweetPreview}
-      <RunWorkspaceLayout imageGenerationArea={imageGenerationArea}>
+      <RunWorkspaceLayout imageGenerationArea={imageGenerationArea} visualJokeArea={visualJokeArea}>
         {hasCompleteDraftStack ? (
           <DraftComparison
             drafts={activeRun.drafts}
@@ -95,17 +109,20 @@ export function ActiveRunPanel({
 function RunWorkspaceLayout({
   children,
   imageGenerationArea,
+  visualJokeArea,
 }: {
   children: ReactNode;
   imageGenerationArea: ReactNode;
+  visualJokeArea: ReactNode;
 }) {
-  if (!imageGenerationArea) {
+  if (!imageGenerationArea && !visualJokeArea) {
     return children;
   }
 
   return (
     <div className="grid items-start gap-4">
       <div className="min-w-0">{children}</div>
+      {visualJokeArea}
       {imageGenerationArea}
     </div>
   );
@@ -290,6 +307,88 @@ function ImageGenerationAreaStatus({ run }: { run: GenerationRun }) {
       {kind === "failed" ? <X aria-hidden className="h-3.5 w-3.5 shrink-0 text-rose-400" /> : null}
       <span>{label}</span>
     </p>
+  );
+}
+
+function VisualJokeArea({
+  run,
+  visualJokeSet,
+  onSelectedVisualJokeChange,
+}: {
+  run: GenerationRun;
+  visualJokeSet: VisualJokeSet;
+  onSelectedVisualJokeChange: (runId: string, visualJokeId: string | null) => void;
+}) {
+  const selectedVisualJokeId = run.selectedVisualJoke?.visualJokeId ?? null;
+
+  return (
+    <>
+      <h1 className="font-medium text-slate-100 text-lg md:text-2xl">Visual jokes</h1>
+      <section
+        aria-label="Visual Joke Creative Result Area"
+        className="grid gap-3 bg-slate-950/35 p-3">
+        <ul className="grid gap-2">
+          {visualJokeSet.jokes.map((joke, index) => {
+            const isSelected = selectedVisualJokeId === joke.id;
+
+            return (
+              <li key={joke.id}>
+                <article
+                  aria-label={`Visual joke ${index + 1}`}
+                  className={`grid gap-3 rounded-sm border p-3 transition ${
+                    isSelected
+                      ? "border-sky-300/50 bg-sky-300/10"
+                      : "border-white/8 bg-slate-950/45"
+                  }`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span className="text-slate-500 text-xs uppercase tracking-[0.14em]">
+                        #{index + 1}
+                      </span>
+                      {index === 0 ? (
+                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-emerald-200 text-xs uppercase tracking-[0.14em]">
+                          Recommended
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label={`Copy visual joke ${index + 1}`}
+                        onClick={() => void copyVisualJokeText(joke.text)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
+                        <Copy aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={
+                          isSelected
+                            ? `Clear visual joke ${index + 1} selection`
+                            : `Select visual joke ${index + 1}`
+                        }
+                        aria-pressed={isSelected}
+                        onClick={() =>
+                          onSelectedVisualJokeChange(run.id, isSelected ? null : joke.id)
+                        }
+                        className={`inline-flex h-8 min-w-20 items-center justify-center rounded-sm border px-2 font-medium text-xs transition focus:outline-none focus:ring-2 focus:ring-sky-300/20 ${
+                          isSelected
+                            ? "border-sky-300/50 bg-sky-300/15 text-sky-100"
+                            : "border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                        }`}>
+                        {isSelected ? "Selected" : "Select"}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="break-words text-slate-100 text-sm leading-6 sm:text-base sm:leading-7">
+                    {joke.text}
+                  </p>
+                </article>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    </>
   );
 }
 
@@ -666,6 +765,14 @@ function getDisplayImageUrl(image: NewsLinkedImage, index: number) {
   }
 
   return image.url;
+}
+
+async function copyVisualJokeText(text: string) {
+  try {
+    await navigator.clipboard?.writeText(text);
+  } catch {
+    // Clipboard permissions can be denied in automated or locked-down browsers.
+  }
 }
 
 function GenerationFailureState({ run }: { run: GenerationRun }) {
