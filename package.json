@@ -9,7 +9,6 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "biome check --write .",
-    "format": "prettier --write .",
     "knip": "knip",
     "test": "vitest run"
   },
@@ -44,7 +43,6 @@
     "jsdom": "^29.1.1",
     "knip": "^6.15.0",
     "postcss": "^8.5.15",
-    "prettier": "^3.8.4",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"

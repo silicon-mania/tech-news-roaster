@@ -51,8 +51,8 @@ export function ActiveRunPanel({
   ) : null;
   const hasImageGenerationContent = Boolean(
     activeRun.newsLinkedImages?.length ||
-    activeRun.imageSets?.length ||
-    activeRun.failedImageSets?.length,
+      activeRun.imageSets?.length ||
+      activeRun.failedImageSets?.length,
   );
   const imageGenerationArea = hasImageGenerationContent ? (
     <ImageGenerationArea
