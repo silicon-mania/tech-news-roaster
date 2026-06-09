@@ -1,8 +1,5 @@
 import { z } from "zod";
-import type {
-  OutsideXEnrichmentContext,
-  ReplySignal,
-} from "@/features/enrichment/outside-x-enrichment";
+import type { ReplySignal } from "@/features/enrichment/outside-x-enrichment";
 import type { RetrievedSourceTweet } from "@/features/tweet-retrieval/tweet-retrieval";
 import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
 import {
@@ -29,7 +26,6 @@ export type GenerationProvider = {
 
 export type ProviderGenerationInput = {
   angle: string;
-  enrichmentContext?: OutsideXEnrichmentContext;
   fallbackForProvider?: GenerationProviderId;
   replySignals: ReplySignal[];
   sourceTweet: RetrievedSourceTweet;
@@ -38,7 +34,6 @@ export type ProviderGenerationInput = {
 };
 
 export type GenerationOrchestratorInput = {
-  enrichmentContext?: OutsideXEnrichmentContext;
   replySignals: ReplySignal[];
   sourceTweet: RetrievedSourceTweet;
   sourceTweetUrl: string;
@@ -350,7 +345,6 @@ function buildDraft({
 
 function buildProviderPrompt({
   angle,
-  enrichmentContext,
   fallbackForProvider,
   replySignals,
   sourceTweet,
@@ -365,16 +359,15 @@ function buildProviderPrompt({
     },
     constraints: [
       "Use the source tweet as the visible anchor.",
-      "Use reply signals and outside-X enrichment only as context.",
+      "Use reply signals only as supporting context.",
       "Explore the requested angle distinctly from the other providers.",
       "Respect the user's direction when it is relevant.",
-      "Do not mention hidden enrichment, provider orchestration, or fallback in the draft text.",
+      "Do not mention provider orchestration or fallback in the draft text.",
     ],
     angle,
     fallbackForProvider,
     sourceTweet,
     replySignals,
-    enrichmentContext,
     usersDirection,
   });
 }
@@ -417,13 +410,11 @@ function buildLocalDraftText({
 
 function buildLocalVisibleRationale({
   angle,
-  enrichmentContext,
   replySignals,
   usersDirection,
 }: ProviderGenerationInput) {
   const contextParts = [
     replySignals.length > 0 ? "reply signals" : null,
-    enrichmentContext && enrichmentContext.items.length > 0 ? "hidden outside-X context" : null,
     usersDirection.trim() ? "Direction covered" : null,
   ].filter(Boolean);
   const contextClause = contextParts.length > 0 ? ` Uses ${contextParts.join(", ")}.` : "";

@@ -1,20 +1,27 @@
-import type { OutsideXEnrichmentContext } from "@/features/enrichment/outside-x-enrichment";
-import {
-  buildReplySignals,
-  type OutsideXEnrichmentService,
-  OutsideXEnrichmentUnavailableError,
-  retrieveOutsideXEnrichment,
-} from "@/features/enrichment/outside-x-enrichment";
+import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import {
   buildCompletedGenerationRunEvents,
   buildEnrichmentCompletedEvent,
   buildGenerationFailureEvent,
+  type GenerationResultStates,
+  type JokeContextSnapshot,
+  type NewsLinkedImage,
   parseGenerationStreamEvent,
 } from "@/features/generation/generation-events";
 import {
   type GenerationOrchestrator,
   orchestrateThreeProviderGeneration,
 } from "@/features/generation/generation-orchestrator";
+import {
+  gatherJokeContext,
+  JokeContextGatheringError,
+  type JokeContextGatheringInput,
+} from "@/features/joke-context-gathering/joke-context-gathering";
+import {
+  discoverNewsLinkedImages,
+  type NewsLinkedImageDiscoveryService,
+  NewsLinkedImageDiscoveryUnavailableError,
+} from "@/features/news-linked-image-discovery/news-linked-image-discovery";
 import {
   retrieveTweetContext,
   TweetRetrievalError,
@@ -30,8 +37,9 @@ export async function GET(request: Request) {
 export async function streamGenerationRun(
   request: Request,
   dependencies: {
+    discoverNewsLinkedImages?: NewsLinkedImageDiscoveryService;
+    gatherJokeContext?: (input: JokeContextGatheringInput) => Promise<JokeContextSnapshot>;
     orchestrateGeneration?: GenerationOrchestrator;
-    retrieveOutsideXEnrichment?: OutsideXEnrichmentService;
     retrieveTweetContext?: TweetRetrievalService;
   } = {},
 ) {
@@ -39,11 +47,13 @@ export async function streamGenerationRun(
   const sourceTweetUrl = requestUrl.searchParams.get("sourceTweetUrl") ?? "";
   const usersDirection = requestUrl.searchParams.get("usersDirection") ?? "";
   const encoder = new TextEncoder();
+  const discover = dependencies.discoverNewsLinkedImages ?? discoverNewsLinkedImages;
+  const gather = dependencies.gatherJokeContext ?? gatherJokeContext;
   const retrieve = dependencies.retrieveTweetContext ?? retrieveTweetContext;
-  const enrich = dependencies.retrieveOutsideXEnrichment ?? retrieveOutsideXEnrichment;
   const orchestrate = dependencies.orchestrateGeneration ?? orchestrateThreeProviderGeneration;
   const events = await buildGenerationRunEvents({
-    enrich,
+    discover,
+    gather,
     orchestrate,
     retrieve,
     sourceTweetUrl,
@@ -76,13 +86,15 @@ export async function streamGenerationRun(
 }
 
 async function buildGenerationRunEvents({
-  enrich,
+  discover,
+  gather,
   orchestrate,
   retrieve,
   sourceTweetUrl,
   usersDirection,
 }: {
-  enrich: OutsideXEnrichmentService;
+  discover: NewsLinkedImageDiscoveryService;
+  gather: (input: JokeContextGatheringInput) => Promise<JokeContextSnapshot>;
   orchestrate: GenerationOrchestrator;
   retrieve: TweetRetrievalService;
   sourceTweetUrl: string;
@@ -102,40 +114,55 @@ async function buildGenerationRunEvents({
   }
 
   const replySignals = buildReplySignals(tweetContext);
-  const enrichmentResult = await retrieveMandatoryOutsideXEnrichment({
-    enrich,
+  const jokeContextResult = await retrieveJokeContextSnapshot({
+    gather,
+    tweetContext,
+  });
+
+  if (jokeContextResult.status === "failed") {
+    return [buildGenerationFailureEvent(jokeContextResult.message)];
+  }
+
+  const newsLinkedImageDiscoveryResult = await retrieveNewsLinkedImageDiscovery({
+    discover,
     replySignals,
     sourceTweet: tweetContext.sourceTweet,
     usersDirection,
   });
-
-  if (enrichmentResult.status === "failed") {
-    return [
-      buildGenerationFailureEvent("Outside-X enrichment could not provide news-linked images."),
-    ];
-  }
-  const enrichmentContext =
-    enrichmentResult.status === "available" ? enrichmentResult.enrichmentContext : undefined;
+  const textGenerationStartedAt = new Date().toISOString();
 
   try {
     const completedRun = await orchestrate({
-      enrichmentContext,
       replySignals,
       sourceTweet: tweetContext.sourceTweet,
       sourceTweetUrl,
       usersDirection,
     });
+    const textGenerationCompletedAt = new Date().toISOString();
     const completedEvents = buildCompletedGenerationRunEvents({
-      run: completedRun,
+      run: {
+        ...completedRun,
+        generationResultStates: buildInitialGenerationResultStates({
+          jokeContextResult,
+          newsLinkedImageDiscoveryResult,
+          textGenerationCompletedAt,
+          textGenerationStartedAt,
+        }),
+        jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
+        newsLinkedImages:
+          newsLinkedImageDiscoveryResult.status === "available"
+            ? newsLinkedImageDiscoveryResult.newsLinkedImages
+            : undefined,
+      },
     });
 
-    if (!enrichmentContext) {
+    if (newsLinkedImageDiscoveryResult.status !== "available") {
       return completedEvents;
     }
 
     return [
       buildEnrichmentCompletedEvent({
-        newsLinkedImages: enrichmentContext.newsLinkedImages,
+        newsLinkedImages: newsLinkedImageDiscoveryResult.newsLinkedImages,
         sourceTweet: tweetContext.sourceTweet,
       }),
       ...completedEvents,
@@ -147,54 +174,161 @@ async function buildGenerationRunEvents({
   }
 }
 
-async function retrieveMandatoryOutsideXEnrichment({
-  enrich,
+async function retrieveJokeContextSnapshot({
+  gather,
+  tweetContext,
+}: JokeContextGatheringInput & {
+  gather: (input: JokeContextGatheringInput) => Promise<JokeContextSnapshot>;
+}): Promise<
+  | {
+      completedAt: string;
+      jokeContextSnapshot: JokeContextSnapshot;
+      startedAt: string;
+      status: "completed";
+    }
+  | {
+      message: string;
+      status: "failed";
+    }
+> {
+  const startedAt = new Date().toISOString();
+
+  try {
+    const jokeContextSnapshot = await gather({ tweetContext });
+
+    return {
+      completedAt: new Date().toISOString(),
+      jokeContextSnapshot,
+      startedAt,
+      status: "completed",
+    };
+  } catch (error) {
+    const message =
+      error instanceof JokeContextGatheringError
+        ? error.userMessage
+        : "Joke context gathering could not form usable context.";
+
+    return {
+      message,
+      status: "failed",
+    };
+  }
+}
+
+async function retrieveNewsLinkedImageDiscovery({
+  discover,
   replySignals,
   sourceTweet,
   usersDirection,
-}: Parameters<OutsideXEnrichmentService>[0] & {
-  enrich: OutsideXEnrichmentService;
+}: Parameters<NewsLinkedImageDiscoveryService>[0] & {
+  discover: NewsLinkedImageDiscoveryService;
 }): Promise<
   | {
-      enrichmentContext: OutsideXEnrichmentContext;
+      completedAt: string;
+      newsLinkedImages: NewsLinkedImage[];
+      startedAt: string;
       status: "available";
     }
   | {
+      failedAt: string;
+      message: string;
+      startedAt: string;
       status: "failed";
     }
-  | {
-      status: "unavailable-in-development";
-    }
 > {
+  const startedAt = new Date().toISOString();
+
   try {
-    const enrichmentContext = await enrich({
+    const discoveryResult = await discover({
       replySignals,
       sourceTweet,
       usersDirection,
     });
 
-    if (enrichmentContext.newsLinkedImages.length === 0) {
+    if (discoveryResult.newsLinkedImages.length === 0) {
       return {
+        failedAt: new Date().toISOString(),
+        message: "News-linked image discovery could not find qualifying images.",
+        startedAt,
         status: "failed",
       };
     }
 
     return {
-      enrichmentContext,
+      completedAt: new Date().toISOString(),
+      newsLinkedImages: discoveryResult.newsLinkedImages,
+      startedAt,
       status: "available",
     };
   } catch (error) {
     if (
-      error instanceof OutsideXEnrichmentUnavailableError &&
+      error instanceof NewsLinkedImageDiscoveryUnavailableError &&
       process.env.NODE_ENV !== "production"
     ) {
       return {
-        status: "unavailable-in-development",
+        failedAt: new Date().toISOString(),
+        message:
+          "News-linked image discovery is unavailable in local development without OUTSIDE_X_ENRICHMENT_ENDPOINT.",
+        startedAt,
+        status: "failed",
       };
     }
 
     return {
+      failedAt: new Date().toISOString(),
+      message: "News-linked image discovery could not find qualifying images.",
+      startedAt,
       status: "failed",
     };
   }
+}
+
+function buildInitialGenerationResultStates({
+  jokeContextResult,
+  newsLinkedImageDiscoveryResult,
+  textGenerationCompletedAt,
+  textGenerationStartedAt,
+}: {
+  jokeContextResult: Extract<
+    Awaited<ReturnType<typeof retrieveJokeContextSnapshot>>,
+    { status: "completed" }
+  >;
+  newsLinkedImageDiscoveryResult: Awaited<ReturnType<typeof retrieveNewsLinkedImageDiscovery>>;
+  textGenerationCompletedAt: string;
+  textGenerationStartedAt: string;
+}): GenerationResultStates {
+  return {
+    contextGathering: {
+      completedAt: jokeContextResult.completedAt,
+      jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
+      startedAt: jokeContextResult.startedAt,
+      status: "completed",
+    },
+    imageGeneration: {
+      status: "not-started",
+    },
+    newsLinkedImageDiscovery:
+      newsLinkedImageDiscoveryResult.status === "available"
+        ? {
+            completedAt: newsLinkedImageDiscoveryResult.completedAt,
+            newsLinkedImages: newsLinkedImageDiscoveryResult.newsLinkedImages,
+            startedAt: newsLinkedImageDiscoveryResult.startedAt,
+            status: "completed",
+          }
+        : {
+            failedAt: newsLinkedImageDiscoveryResult.failedAt,
+            message: newsLinkedImageDiscoveryResult.message,
+            startedAt: newsLinkedImageDiscoveryResult.startedAt,
+            status: "failed",
+          },
+    textGeneration: {
+      completedAt: textGenerationCompletedAt,
+      draftCount: 3,
+      startedAt: textGenerationStartedAt,
+      status: "completed",
+    },
+    visualJokeGeneration: {
+      status: "not-started",
+    },
+  };
 }

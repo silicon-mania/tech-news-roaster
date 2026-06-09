@@ -58,10 +58,6 @@ export type OutsideXEnrichmentInput = {
   usersDirection: string;
 };
 
-export type OutsideXEnrichmentService = (
-  input: OutsideXEnrichmentInput,
-) => Promise<OutsideXEnrichmentContext>;
-
 export class OutsideXEnrichmentUnavailableError extends Error {
   constructor(message = "Outside-X enrichment endpoint is not configured.") {
     super(message);

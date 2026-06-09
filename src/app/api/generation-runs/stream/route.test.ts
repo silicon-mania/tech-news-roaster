@@ -1,5 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
-import { parseGenerationStreamEvent } from "@/features/generation/generation-events";
+import {
+  parseGenerationStreamEvent,
+  parseJokeContextSnapshot,
+} from "@/features/generation/generation-events";
+import { JokeContextGatheringError } from "@/features/joke-context-gathering/joke-context-gathering";
 import {
   buildFixtureTweetContext,
   type RetrievedTweetContext,
@@ -22,19 +26,7 @@ describe("generation stream route", () => {
 
     expect(response.headers.get("Content-Type")).toContain("text/event-stream");
 
-    const rawEvents = await response.text();
-    const events = rawEvents
-      .trim()
-      .split("\n\n")
-      .map((rawEvent) => {
-        const dataLine = rawEvent.split("\n").find((line) => line.startsWith("data: "));
-
-        if (!dataLine) {
-          throw new Error("Missing SSE data line.");
-        }
-
-        return parseGenerationStreamEvent(JSON.parse(dataLine.replace("data: ", "")));
-      });
+    const events = await readStreamEvents(response);
 
     expect(events.map((event) => event.type)).toEqual([
       "progress",
@@ -75,6 +67,18 @@ describe("generation stream route", () => {
             visibleRationale: expect.any(String),
           }),
         ]),
+        generationResultStates: {
+          contextGathering: {
+            status: "completed",
+          },
+          newsLinkedImageDiscovery: {
+            message: expect.stringContaining("local development"),
+            status: "failed",
+          },
+        },
+        jokeContextSnapshot: expect.objectContaining({
+          sourceTweetId: "1234",
+        }),
       },
     });
     for (const event of events) {
@@ -103,19 +107,12 @@ describe("generation stream route", () => {
         },
       },
     );
+    const [event] = await readStreamEvents(response);
 
-    const rawEvents = await response.text();
-    const dataLine = rawEvents
-      .trim()
-      .split("\n")
-      .find((line) => line.startsWith("data: "));
-
-    expect(parseGenerationStreamEvent(JSON.parse(dataLine?.replace("data: ", "") ?? "{}"))).toEqual(
-      {
-        type: "failed",
-        message: "Source tweet could not be retrieved.",
-      },
-    );
+    expect(event).toEqual({
+      type: "failed",
+      message: "Source tweet could not be retrieved.",
+    });
   });
 
   test("passes the accepted Source Tweet URL through the retrieval boundary", async () => {
@@ -139,9 +136,10 @@ describe("generation stream route", () => {
     expect(await response.text()).toContain("Retrieved source tweet text from the service.");
   });
 
-  test("requests outside-X enrichment before text generation for every run", async () => {
+  test("requests joke context gathering and news-linked image discovery before text generation", async () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/1357");
-    const enrichmentRequests: unknown[] = [];
+    const discoveryRequests: unknown[] = [];
+    const gatherRequests: unknown[] = [];
     const orchestrationRequests: unknown[] = [];
     const callOrder: string[] = [];
     const response = await streamGenerationRun(
@@ -149,54 +147,32 @@ describe("generation stream route", () => {
         "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F1357&usersDirection=Make+the+launch+risk+clear.",
       ),
       {
+        discoverNewsLinkedImages: async (input) => {
+          callOrder.push("discover-images");
+          discoveryRequests.push(input);
+
+          return buildNewsLinkedImageDiscoveryResult();
+        },
+        gatherJokeContext: async (input) => {
+          callOrder.push("gather-context");
+          gatherRequests.push(input);
+
+          return buildJokeContextSnapshot("1357");
+        },
         orchestrateGeneration: async (input) => {
           callOrder.push("orchestrate");
           orchestrationRequests.push(input);
 
-          return {
-            label: "Drafts for 1357",
-            sourceTweet: input.sourceTweet,
-            drafts: [
-              {
-                angle: "platform leverage",
-                id: "draft-openai",
-                modelProvenance: "test-model",
-                provider: "openai",
-                text: "Quote-tweet draft: OpenAI draft.",
-                visibleRationale: "OpenAI rationale.",
-              },
-              {
-                angle: "incentive shift",
-                id: "draft-anthropic",
-                modelProvenance: "test-model",
-                provider: "anthropic",
-                text: "Quote-tweet draft: Anthropic draft.",
-                visibleRationale: "Anthropic rationale.",
-              },
-              {
-                angle: "distribution bet",
-                id: "draft-google",
-                modelProvenance: "test-model",
-                provider: "google",
-                text: "Quote-tweet draft: Google draft.",
-                visibleRationale: "Google rationale.",
-              },
-            ],
-          };
-        },
-        retrieveOutsideXEnrichment: async (input) => {
-          callOrder.push("enrich");
-          enrichmentRequests.push(input);
-
-          return buildEnrichmentContext();
+          return buildCompletedRun(input.sourceTweet, "1357");
         },
         retrieveTweetContext: async () => tweetContext,
       },
     );
     const events = await readStreamEvents(response);
 
-    expect(callOrder).toEqual(["enrich", "orchestrate"]);
-    expect(enrichmentRequests).toEqual([
+    expect(callOrder).toEqual(["gather-context", "discover-images", "orchestrate"]);
+    expect(gatherRequests).toEqual([{ tweetContext }]);
+    expect(discoveryRequests).toEqual([
       {
         sourceTweet: tweetContext.sourceTweet,
         usersDirection: "Make the launch risk clear.",
@@ -209,104 +185,133 @@ describe("generation stream route", () => {
       },
     ]);
     expect(orchestrationRequests).toEqual([
-      expect.objectContaining({
+      {
+        replySignals: expect.arrayContaining([
+          expect.objectContaining({
+            id: "1357-reply-1",
+          }),
+        ]),
         sourceTweet: tweetContext.sourceTweet,
-        enrichmentContext: buildEnrichmentContext(),
-      }),
+        sourceTweetUrl: "https://x.com/siliconmania/status/1357",
+        usersDirection: "Make the launch risk clear.",
+      },
     ]);
+    expect(events[0]).toMatchObject({
+      type: "enrichment-completed",
+      sourceTweet: tweetContext.sourceTweet,
+      newsLinkedImages: buildNewsLinkedImageDiscoveryResult().newsLinkedImages,
+    });
     expect(events.at(-1)).toMatchObject({
       type: "completed",
       run: {
         sourceTweet: tweetContext.sourceTweet,
+        jokeContextSnapshot: {
+          sourceTweetId: "1357",
+        },
+        generationResultStates: {
+          contextGathering: {
+            status: "completed",
+          },
+          newsLinkedImageDiscovery: {
+            status: "completed",
+          },
+        },
       },
     });
-    expect(events[0]).toMatchObject({
-      type: "enrichment-completed",
-      sourceTweet: tweetContext.sourceTweet,
-      newsLinkedImages: buildEnrichmentContext().newsLinkedImages,
-    });
-    expect(JSON.stringify(events)).not.toContain("Outside report");
-    expect(JSON.stringify(events)).not.toContain("broader platform shift");
   });
 
-  test("emits a failed event when outside-X enrichment returns zero images", async () => {
+  test("keeps a successful joke context snapshot when news-linked image discovery returns zero images", async () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/9999");
-    const orchestrateGeneration = vi.fn();
+    const orchestrateGeneration = vi.fn(async (input) =>
+      buildCompletedRun(input.sourceTweet, "9999"),
+    );
     const response = await streamGenerationRun(
       new Request(
         "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F9999",
       ),
       {
-        orchestrateGeneration,
-        retrieveOutsideXEnrichment: async () => ({
-          retrievedAt: "2026-06-05T10:20:00.000Z",
-          items: [
-            {
-              title: "Outside report",
-              summary: "The launch is tied to a broader platform shift.",
-              url: "https://example.com/report",
-            },
-          ],
+        discoverNewsLinkedImages: async () => ({
+          discoveredAt: "2026-06-05T10:20:00.000Z",
           newsLinkedImages: [],
         }),
+        gatherJokeContext: async () => buildJokeContextSnapshot("9999"),
+        orchestrateGeneration,
         retrieveTweetContext: async () => tweetContext,
       },
     );
     const events = await readStreamEvents(response);
 
-    expect(orchestrateGeneration).not.toHaveBeenCalled();
-    expect(events).toEqual([
-      {
-        type: "failed",
-        message: "Outside-X enrichment could not provide news-linked images.",
-      },
+    expect(orchestrateGeneration).toHaveBeenCalledTimes(1);
+    expect(events.map((event) => event.type)).toEqual([
+      "progress",
+      "progress",
+      "progress",
+      "completed",
     ]);
+    expect(events.at(-1)).toMatchObject({
+      type: "completed",
+      run: {
+        jokeContextSnapshot: {
+          sourceTweetId: "9999",
+        },
+        generationResultStates: {
+          contextGathering: {
+            status: "completed",
+          },
+          newsLinkedImageDiscovery: {
+            message: "News-linked image discovery could not find qualifying images.",
+            status: "failed",
+          },
+        },
+      },
+    });
   });
 
-  test("emits a failed event when outside-X enrichment fails", async () => {
+  test("fails the run before creative branches begin when joke context gathering fails", async () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/9999");
+    const discoverNewsLinkedImages = vi.fn();
     const orchestrateGeneration = vi.fn();
     const response = await streamGenerationRun(
       new Request(
         "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F9999",
       ),
       {
-        orchestrateGeneration,
-        retrieveOutsideXEnrichment: async () => {
-          throw new Error("Search provider unavailable.");
+        discoverNewsLinkedImages,
+        gatherJokeContext: async () => {
+          throw new JokeContextGatheringError();
         },
+        orchestrateGeneration,
         retrieveTweetContext: async () => tweetContext,
       },
     );
-    const events = await readStreamEvents(response);
+    const [event] = await readStreamEvents(response);
 
+    expect(discoverNewsLinkedImages).not.toHaveBeenCalled();
     expect(orchestrateGeneration).not.toHaveBeenCalled();
-    expect(events).toEqual([
-      {
-        type: "failed",
-        message: "Outside-X enrichment could not provide news-linked images.",
-      },
-    ]);
+    expect(event).toEqual({
+      type: "failed",
+      message: "Joke context gathering could not form usable context.",
+    });
   });
 
-  test("passes mandatory outside-X enrichment through for thin sources", async () => {
-    const enrichmentRequests: unknown[] = [];
+  test("passes news-linked image discovery through for thin sources", async () => {
+    const discoveryRequests: unknown[] = [];
     const thinContext = buildThinTweetContext();
     const response = await streamGenerationRun(
       new Request(
         "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F9999",
       ),
       {
-        retrieveOutsideXEnrichment: async (input) => {
-          enrichmentRequests.push(input);
+        discoverNewsLinkedImages: async (input) => {
+          discoveryRequests.push(input);
 
-          return buildEnrichmentContext();
+          return buildNewsLinkedImageDiscoveryResult();
         },
         retrieveTweetContext: async () => thinContext,
       },
     );
 
-    expect(enrichmentRequests).toEqual([
+    expect(discoveryRequests).toEqual([
       {
         sourceTweet: thinContext.sourceTweet,
         usersDirection: "",
@@ -427,16 +432,86 @@ function restoreEnvValue(name: string, value: string | undefined) {
   process.env[name] = value;
 }
 
-function buildEnrichmentContext() {
+function buildCompletedRun(
+  sourceTweet: RetrievedTweetContext["sourceTweet"],
+  sourceTweetId: string,
+) {
   return {
-    retrievedAt: "2026-06-05T10:20:00.000Z",
-    items: [
+    label: `Drafts for ${sourceTweetId}`,
+    sourceTweet,
+    drafts: [
       {
-        title: "Outside report",
-        summary: "The launch is tied to a broader platform shift.",
-        url: "https://example.com/report",
+        angle: "platform leverage",
+        id: "draft-openai",
+        modelProvenance: "test-model",
+        provider: "openai" as const,
+        text: "Quote-tweet draft: OpenAI draft.",
+        visibleRationale: "OpenAI rationale.",
+      },
+      {
+        angle: "incentive shift",
+        id: "draft-anthropic",
+        modelProvenance: "test-model",
+        provider: "anthropic" as const,
+        text: "Quote-tweet draft: Anthropic draft.",
+        visibleRationale: "Anthropic rationale.",
+      },
+      {
+        angle: "distribution bet",
+        id: "draft-google",
+        modelProvenance: "test-model",
+        provider: "google" as const,
+        text: "Quote-tweet draft: Google draft.",
+        visibleRationale: "Google rationale.",
       },
     ],
+  };
+}
+
+function buildJokeContextSnapshot(sourceTweetId: string) {
+  return parseJokeContextSnapshot({
+    capturedAt: "2026-06-06T10:10:00.000Z",
+    sourceTweetId,
+    structuredContext: {
+      authorContext: {
+        authoritySignals: ["Operator is close to the launch."],
+        displayName: "Silicon Mania",
+        handle: "@siliconmania",
+        relationshipToTopic: "Announcing its own workflow launch.",
+      },
+      forbiddenAssumptions: ["Do not invent missing product details."],
+      jokeContextQuality: {
+        status: "usable",
+        summary: "Enough context exists to support grounded jokes.",
+      },
+      jokeableTensions: ["The launch promises simplicity while increasing platform dependence."],
+      replySignals: {
+        representativeSnippets: [
+          {
+            authorHandle: "@replyguy",
+            replyId: `${sourceTweetId}-reply-1`,
+            signal: "Audience reads this as workflow lock-in.",
+            snippet: "Cool, now every workflow starts looking locked in.",
+          },
+        ],
+        summary: "Replies focus on workflow lock-in and operator pressure.",
+      },
+      sourceTweetClaim: "The source tweet claims the launch removes the final workflow bottleneck.",
+      sourceTweetMediaExtraction: {
+        mediaKinds: ["image"],
+        notableDetails: ["Launch card shows one-click workflow automation."],
+        summary: "The media shows a workflow automation launch card.",
+        visibleText: ["One-click workflow automation"],
+      },
+      supportingFacts: ["The rollout is framed as an operator productivity update."],
+      unknowns: ["No pricing detail is confirmed in the source tweet."],
+    },
+  });
+}
+
+function buildNewsLinkedImageDiscoveryResult() {
+  return {
+    discoveredAt: "2026-06-05T10:20:00.000Z",
     newsLinkedImages: [
       {
         id: "news-linked-image-1",
