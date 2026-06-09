@@ -326,6 +326,7 @@ const resultStageRunningSchema = z
 
 const resultStageFailedSchema = z
   .object({
+    debugLog: z.array(nonEmptyTrimmedStringSchema).optional(),
     failedAt: z.string().datetime(),
     message: nonEmptyTrimmedStringSchema,
     startedAt: z.string().datetime(),

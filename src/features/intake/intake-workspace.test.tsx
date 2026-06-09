@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
@@ -1273,6 +1273,188 @@ describe("IntakeWorkspace", () => {
     });
   });
 
+  test("opens quiet context and direction reveals without turning context into a control surface", async () => {
+    const user = userEvent.setup();
+    const jokeContextSnapshot = buildJokeContextSnapshot("1234567890");
+    const visualJokeDirection =
+      "Visual Joke Direction line one.\nPreserve this exact internal direction.";
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          jokeContextSnapshot,
+          visualJokeDirection,
+          visualJokeSet: buildVisualJokeSet(),
+        }),
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: /open joke context snapshot/i }));
+
+    const contextDialog = screen.getByRole("dialog", {
+      name: /joke context snapshot/i,
+    });
+
+    expect(contextDialog).toHaveTextContent("Source Tweet Claim");
+    expect(contextDialog).toHaveTextContent(
+      "The source tweet claims the launch removes the final workflow bottleneck.",
+    );
+    expect(contextDialog).toHaveTextContent("Jokeable Tensions");
+    expect(contextDialog).not.toHaveTextContent(/approve|retry|repair/i);
+    expect(within(contextDialog).queryByRole("textbox")).not.toBeInTheDocument();
+
+    await user.click(
+      within(contextDialog).getByRole("button", {
+        name: /close joke context snapshot/i,
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: /open visual joke direction/i }));
+
+    const directionDialog = screen.getByRole("dialog", {
+      name: /visual joke direction/i,
+    });
+
+    expect(
+      within(directionDialog).getByText(
+        (_content, element) =>
+          element?.tagName.toLowerCase() === "pre" && element.textContent === visualJokeDirection,
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(directionDialog).getByRole("button", {
+        name: /close visual joke direction/i,
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: /open visual joke direction/i }));
+
+    expect(
+      within(screen.getByRole("dialog", { name: /visual joke direction/i })).getByText(
+        (_content, element) =>
+          element?.tagName.toLowerCase() === "pre" && element.textContent === visualJokeDirection,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test("keeps context and visual joke failure details behind quiet reveals", async () => {
+    const user = userEvent.setup();
+    const generationEventSources: FakeGenerationEventSource[] = [];
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      generationEventSources,
+    });
+    const sourceTweetUrl = "https://x.com/siliconmania/status/1234567890";
+    const tweetContext = buildFixtureTweetContext(sourceTweetUrl);
+
+    await user.type(sourceTweetUrlInput, sourceTweetUrl);
+    await user.click(generateButton);
+
+    act(() => {
+      generationEventSources[0]?.emit(
+        buildGenerationRunStateEvent({
+          generationResultStates: {
+            contextGathering: {
+              debugLog: ["Started fixture context gathering.", "Tweet text stayed too thin."],
+              failedAt: "2026-06-06T10:10:00.000Z",
+              message: "Joke context gathering could not form usable context.",
+              startedAt: "2026-06-06T10:08:00.000Z",
+              status: "failed",
+            },
+            imageGeneration: {
+              status: "not-started",
+            },
+            newsLinkedImageDiscovery: {
+              status: "not-started",
+            },
+            textGeneration: {
+              status: "not-started",
+            },
+            visualJokeGeneration: {
+              status: "not-started",
+            },
+          },
+          label: "Drafts for 1234567890",
+          sourceTweet: tweetContext.sourceTweet,
+        }),
+      );
+      generationEventSources[0]?.emit(
+        buildGenerationFailureEvent("Joke context gathering could not form usable context."),
+      );
+    });
+
+    const failureState = screen.getByRole("region", {
+      name: /generation failure state/i,
+    });
+
+    expect(failureState).toHaveTextContent("Joke context gathering could not form usable context.");
+    expect(failureState).not.toHaveTextContent("Tweet text stayed too thin.");
+
+    await user.click(
+      within(failureState).getByRole("button", {
+        name: /open joke context debug log/i,
+      }),
+    );
+
+    expect(screen.getByRole("dialog", { name: /joke context debug log/i })).toHaveTextContent(
+      "Tweet text stayed too thin.",
+    );
+
+    await user.click(screen.getByRole("button", { name: /close joke context debug log/i }));
+
+    cleanup();
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          generationResultStates: {
+            contextGathering: {
+              completedAt: "2026-06-06T10:10:00.000Z",
+              jokeContextSnapshot: buildJokeContextSnapshot("1234567890"),
+              startedAt: "2026-06-06T10:08:00.000Z",
+              status: "completed",
+            },
+            imageGeneration: {
+              status: "not-started",
+            },
+            newsLinkedImageDiscovery: {
+              status: "not-started",
+            },
+            textGeneration: {
+              completedAt: "2026-06-06T10:13:00.000Z",
+              draftCount: 3,
+              startedAt: "2026-06-06T10:11:00.000Z",
+              status: "completed",
+            },
+            visualJokeGeneration: {
+              failedAt: "2026-06-06T10:14:00.000Z",
+              message: "Visual joke generation hit a provider timeout.",
+              startedAt: "2026-06-06T10:11:00.000Z",
+              status: "failed",
+            },
+          },
+        }),
+      ],
+    });
+
+    const visualJokeArea = screen.getByRole("region", {
+      name: /visual joke creative result area/i,
+    });
+
+    expect(visualJokeArea).toHaveTextContent("This result area could not be completed.");
+    expect(visualJokeArea).not.toHaveTextContent("provider timeout");
+
+    await user.click(
+      within(visualJokeArea).getByRole("button", {
+        name: /open visual joke failure details/i,
+      }),
+    );
+
+    expect(screen.getByRole("dialog", { name: /visual joke failure details/i })).toHaveTextContent(
+      "Visual joke generation hit a provider timeout.",
+    );
+  });
+
   test("renders image sets, failed image states, modal navigation, and image downloads", async () => {
     const user = userEvent.setup();
     const newsLinkedImages = buildNewsLinkedImages();
@@ -1318,8 +1500,8 @@ describe("IntakeWorkspace", () => {
     ).toHaveTextContent("Original");
     expect(imageResultsArea).toHaveTextContent("Variation 1");
     expect(imageResultsArea).toHaveTextContent("Variation 2");
-    expect(failedState).toHaveTextContent("The configured image model failed.");
-    expect(within(failedState).queryByRole("button")).not.toBeInTheDocument();
+    expect(failedState).toHaveTextContent("This image set could not be generated.");
+    expect(failedState).not.toHaveTextContent("The configured image model failed.");
     expect(within(failedState).queryByRole("link")).not.toBeInTheDocument();
     expect(
       within(imageResultsArea).getByRole("link", {
@@ -1331,6 +1513,18 @@ describe("IntakeWorkspace", () => {
         name: /copy draft 1/i,
       }),
     ).toBeInTheDocument();
+
+    await user.click(
+      within(failedState).getByRole("button", {
+        name: /open quiet failure details for failed image set 1/i,
+      }),
+    );
+
+    expect(screen.getByRole("dialog", { name: /quiet failure details/i })).toHaveTextContent(
+      "The configured image model failed.",
+    );
+
+    await user.click(screen.getByRole("button", { name: /close quiet failure details/i }));
 
     await user.click(
       within(imageResultsArea).getByRole("button", {
@@ -1468,7 +1662,7 @@ describe("IntakeWorkspace", () => {
       ).toHaveTextContent("Variation 2"),
     );
     expect(imageGenerationArea).toHaveTextContent("Partial image failure");
-    expect(imageGenerationArea).toHaveTextContent("The configured image model failed.");
+    expect(imageGenerationArea).not.toHaveTextContent("The configured image model failed.");
     await waitFor(() =>
       expect(savedRunStore.save).toHaveBeenCalledWith(
         expect.objectContaining({

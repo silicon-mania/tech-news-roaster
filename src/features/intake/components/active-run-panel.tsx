@@ -1,6 +1,16 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, Copy, Download, Expand, Loader2, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Download,
+  Expand,
+  Eye,
+  Loader2,
+  X,
+} from "lucide-react";
 import Image from "next/image";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
@@ -10,6 +20,7 @@ import type {
   ImageGenerationInput,
   ImageModelProvenance,
   ImageSet,
+  JokeContextSnapshot,
   NewsLinkedImage,
   VisualJokeSet,
 } from "@/features/generation/generation-events";
@@ -56,6 +67,13 @@ export function ActiveRunPanel({
       visualJokeSet={activeRun.visualJokeSet}
       onSelectedVisualJokeChange={onSelectedVisualJokeChange}
     />
+  ) : getStageFailure(activeRun.generationResultStates?.visualJokeGeneration) ? (
+    <CreativeFailureArea
+      ariaLabel="Visual Joke Creative Result Area"
+      detailsLabel="Visual Joke Failure Details"
+      heading="Visual jokes"
+      failure={getStageFailure(activeRun.generationResultStates?.visualJokeGeneration)}
+    />
   ) : null;
 
   if (activeRun.status === "running") {
@@ -65,6 +83,7 @@ export function ActiveRunPanel({
         <RunWorkspaceLayout
           imageGenerationArea={imageGenerationArea}
           visualJokeArea={visualJokeArea}>
+          <QuietRunReveals run={activeRun} />
           <GenerationWaitingState run={activeRun} />
         </RunWorkspaceLayout>
       </section>
@@ -78,6 +97,7 @@ export function ActiveRunPanel({
         <RunWorkspaceLayout
           imageGenerationArea={imageGenerationArea}
           visualJokeArea={visualJokeArea}>
+          <QuietRunReveals run={activeRun} />
           <GenerationFailureState run={activeRun} />
         </RunWorkspaceLayout>
       </section>
@@ -92,11 +112,19 @@ export function ActiveRunPanel({
       className="mx-auto grid w-full max-w-5xl gap-3 self-start">
       {sourceTweetPreview}
       <RunWorkspaceLayout imageGenerationArea={imageGenerationArea} visualJokeArea={visualJokeArea}>
+        <QuietRunReveals run={activeRun} />
         {hasCompleteDraftStack ? (
           <DraftComparison
             drafts={activeRun.drafts}
             fallbackDisclosure={activeRun.fallbackDisclosure}
             onDraftTextChange={onDraftTextChange}
+          />
+        ) : getStageFailure(activeRun.generationResultStates?.textGeneration) ? (
+          <CreativeFailureArea
+            ariaLabel="Text Generation Creative Result Area"
+            detailsLabel="Text Generation Failure Details"
+            heading="Drafts"
+            failure={getStageFailure(activeRun.generationResultStates?.textGeneration)}
           />
         ) : (
           <GenerationWaitingState run={activeRun} />
@@ -150,6 +178,189 @@ function SourceTweetPreview({ text }: { text: string }) {
         </div>
       </div>
     </aside>
+  );
+}
+
+function QuietRunReveals({ run }: { run: GenerationRun }) {
+  const [activeReveal, setActiveReveal] = useState<"context" | "direction" | null>(null);
+  const jokeContextSnapshot = getJokeContextSnapshot(run);
+  const hasVisualJokeDirection = Boolean(run.visualJokeDirection?.trim());
+
+  if (!jokeContextSnapshot && !hasVisualJokeDirection) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {jokeContextSnapshot ? (
+        <button
+          type="button"
+          aria-label="Open Joke Context Snapshot"
+          onClick={() => setActiveReveal("context")}
+          className="inline-flex h-8 items-center gap-2 rounded-sm border border-slate-800 bg-slate-950/45 px-2.5 text-slate-400 text-xs transition hover:border-slate-600 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
+          <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Context
+        </button>
+      ) : null}
+      {hasVisualJokeDirection ? (
+        <button
+          type="button"
+          aria-label="Open Visual Joke Direction"
+          onClick={() => setActiveReveal("direction")}
+          className="inline-flex h-8 items-center gap-2 rounded-sm border border-slate-800 bg-slate-950/45 px-2.5 text-slate-400 text-xs transition hover:border-slate-600 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
+          <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Direction
+        </button>
+      ) : null}
+      {activeReveal === "context" && jokeContextSnapshot ? (
+        <TextRevealModal
+          label="Joke Context Snapshot"
+          title="Joke Context Snapshot"
+          onClose={() => setActiveReveal(null)}>
+          <JokeContextSnapshotDetails snapshot={jokeContextSnapshot} />
+        </TextRevealModal>
+      ) : null}
+      {activeReveal === "direction" && run.visualJokeDirection ? (
+        <TextRevealModal
+          label="Visual Joke Direction"
+          title="Visual Joke Direction"
+          onClose={() => setActiveReveal(null)}>
+          <pre className="whitespace-pre-wrap break-words rounded-sm border border-white/8 bg-slate-950/60 p-3 text-slate-200 text-sm leading-6">
+            {run.visualJokeDirection}
+          </pre>
+        </TextRevealModal>
+      ) : null}
+    </div>
+  );
+}
+
+function JokeContextSnapshotDetails({ snapshot }: { snapshot: JokeContextSnapshot }) {
+  const context = snapshot.structuredContext;
+  const sections = [
+    {
+      title: "Source Tweet Claim",
+      content: context.sourceTweetClaim,
+    },
+    {
+      title: "Source Tweet Media Extraction",
+      content: [
+        context.sourceTweetMediaExtraction.summary,
+        ...context.sourceTweetMediaExtraction.visibleText.map((text) => `Visible text: ${text}`),
+        ...context.sourceTweetMediaExtraction.notableDetails.map((detail) => `Detail: ${detail}`),
+        `Media kinds: ${context.sourceTweetMediaExtraction.mediaKinds.join(", ")}`,
+      ],
+    },
+    {
+      title: "Author Context",
+      content: [
+        `${context.authorContext.displayName} (${context.authorContext.handle})`,
+        context.authorContext.role ? `Role: ${context.authorContext.role}` : null,
+        context.authorContext.relationshipToTopic,
+        ...context.authorContext.authoritySignals,
+      ].filter((line): line is string => Boolean(line)),
+    },
+    {
+      title: "Reply Signals",
+      content: [
+        context.replySignals.summary,
+        ...context.replySignals.representativeSnippets.map((reply) =>
+          [reply.authorHandle, reply.signal, reply.snippet].filter(Boolean).join(" - "),
+        ),
+      ],
+    },
+    {
+      title: "Supporting Facts",
+      content: context.supportingFacts,
+    },
+    {
+      title: "Unknowns",
+      content: context.unknowns,
+    },
+    {
+      title: "Jokeable Tensions",
+      content: context.jokeableTensions,
+    },
+    {
+      title: "Forbidden Assumptions",
+      content: context.forbiddenAssumptions,
+    },
+    {
+      title: "Joke Context Quality",
+      content: `${context.jokeContextQuality.status}: ${context.jokeContextQuality.summary}`,
+    },
+  ];
+
+  return (
+    <div className="grid gap-3">
+      <p className="text-slate-500 text-xs">
+        Source tweet {snapshot.sourceTweetId} - {snapshot.capturedAt}
+      </p>
+      {sections.map((section) => (
+        <section
+          aria-label={section.title}
+          className="grid gap-2 rounded-sm border border-white/8 bg-slate-950/45 p-3"
+          key={section.title}>
+          <h2 className="font-medium text-slate-100 text-sm">{section.title}</h2>
+          {Array.isArray(section.content) ? (
+            <ul className="grid gap-1.5 text-slate-300 text-sm leading-6">
+              {section.content.map((item) => (
+                <li className="break-words" key={item}>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="break-words text-slate-300 text-sm leading-6">{section.content}</p>
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function TextRevealModal({
+  children,
+  label,
+  onClose,
+  title,
+}: {
+  children: ReactNode;
+  label: string;
+  onClose: () => void;
+  title: string;
+}) {
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div
+      aria-label={label}
+      aria-modal="true"
+      className="fixed inset-0 z-50 grid bg-slate-950/96 p-3 text-slate-100 backdrop-blur-sm sm:p-5"
+      role="dialog">
+      <div className="mx-auto grid h-full w-full max-w-3xl grid-rows-[auto_1fr] gap-4 overflow-hidden">
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-medium text-sm">{title}</p>
+          <button
+            type="button"
+            aria-label={`Close ${label}`}
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
+            <X aria-hidden className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="min-h-0 overflow-y-auto pb-2">{children}</div>
+      </div>
+    </div>
   );
 }
 
@@ -392,6 +603,54 @@ function VisualJokeArea({
   );
 }
 
+function CreativeFailureArea({
+  ariaLabel,
+  detailsLabel,
+  failure,
+  heading,
+}: {
+  ariaLabel: string;
+  detailsLabel: string;
+  failure: StageFailure | undefined;
+  heading: string;
+}) {
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  if (!failure) {
+    return null;
+  }
+
+  return (
+    <>
+      <h1 className="font-medium text-slate-100 text-lg md:text-2xl">{heading}</h1>
+      <section aria-label={ariaLabel} className="grid gap-3 bg-slate-950/35 p-3">
+        <article className="grid gap-2 rounded-sm border border-rose-400/20 bg-rose-950/10 p-3">
+          <p className="font-medium text-rose-100 text-sm">{heading} failed</p>
+          <p className="text-rose-200/80 text-xs leading-5">
+            This result area could not be completed.
+          </p>
+          <button
+            type="button"
+            aria-label={`Open ${detailsLabel}`}
+            onClick={() => setIsDetailsOpen(true)}
+            className="inline-flex h-8 w-fit items-center gap-2 rounded-sm border border-rose-300/20 bg-rose-300/10 px-2.5 text-rose-100 text-xs transition hover:border-rose-200/40 focus:outline-none focus:ring-2 focus:ring-rose-200/20">
+            <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Details
+          </button>
+        </article>
+      </section>
+      {isDetailsOpen ? (
+        <TextRevealModal
+          label={detailsLabel}
+          title={detailsLabel}
+          onClose={() => setIsDetailsOpen(false)}>
+          <FailureDetails failure={failure} />
+        </TextRevealModal>
+      ) : null}
+    </>
+  );
+}
+
 function ImageGenerationArea({
   parentRunId,
   run,
@@ -548,6 +807,7 @@ function ImageResultsArea({
     imageSetId: string;
     optionId: string;
   } | null>(null);
+  const [activeFailureId, setActiveFailureId] = useState<string | null>(null);
   const activeImageSet = activeModal
     ? imageSets.find((imageSet) => imageSet.id === activeModal.imageSetId)
     : null;
@@ -555,6 +815,9 @@ function ImageResultsArea({
     activeImageSet && activeModal
       ? activeImageSet.options.findIndex((option) => option.id === activeModal.optionId)
       : -1;
+  const activeFailedImageSet = activeFailureId
+    ? failedImageSets.find((failedImageSet) => failedImageSet.id === activeFailureId)
+    : null;
 
   return (
     <section aria-label="Image results area" className="grid gap-3">
@@ -635,10 +898,33 @@ function ImageResultsArea({
             className="grid gap-1 rounded-sm border border-rose-400/20 bg-rose-950/10 p-3"
             key={failedImageSet.id}>
             <p className="font-medium text-rose-100 text-sm">Image set failed</p>
-            <p className="text-rose-200/80 text-xs leading-5">{failedImageSet.message}</p>
+            <p className="text-rose-200/80 text-xs leading-5">
+              This image set could not be generated.
+            </p>
+            <button
+              type="button"
+              aria-label={`Open Quiet Failure Details for failed image set ${failedIndex + 1}`}
+              onClick={() => setActiveFailureId(failedImageSet.id)}
+              className="inline-flex h-8 w-fit items-center gap-2 rounded-sm border border-rose-300/20 bg-rose-300/10 px-2.5 text-rose-100 text-xs transition hover:border-rose-200/40 focus:outline-none focus:ring-2 focus:ring-rose-200/20">
+              <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Details
+            </button>
           </article>
         ))}
       </div>
+      {activeFailedImageSet ? (
+        <TextRevealModal
+          label="Quiet Failure Details"
+          title="Quiet Failure Details"
+          onClose={() => setActiveFailureId(null)}>
+          <FailureDetails
+            failure={{
+              message: activeFailedImageSet.message,
+              failedAt: activeFailedImageSet.failedAt,
+            }}
+          />
+        </TextRevealModal>
+      ) : null}
       {activeImageSet && activeOptionIndex >= 0 ? (
         <ImageOptionModal
           imageSet={activeImageSet}
@@ -745,6 +1031,62 @@ function ImageOptionModal({
   );
 }
 
+type StageFailure = {
+  debugLog?: string[];
+  failedAt?: string;
+  message: string;
+  startedAt?: string;
+};
+
+function FailureDetails({ failure }: { failure: StageFailure }) {
+  const lines = [
+    failure.startedAt ? `Started: ${failure.startedAt}` : null,
+    failure.failedAt ? `Failed: ${failure.failedAt}` : null,
+    `Message: ${failure.message}`,
+    ...(failure.debugLog ?? []).map((entry, index) => `${index + 1}. ${entry}`),
+  ].filter((line): line is string => Boolean(line));
+
+  return (
+    <pre className="whitespace-pre-wrap break-words rounded-sm border border-white/8 bg-slate-950/60 p-3 text-slate-200 text-sm leading-6">
+      {lines.join("\n")}
+    </pre>
+  );
+}
+
+function getStageFailure(
+  stage:
+    | GenerationResultStates["contextGathering"]
+    | GenerationResultStates["newsLinkedImageDiscovery"]
+    | GenerationResultStates["textGeneration"]
+    | GenerationResultStates["visualJokeGeneration"]
+    | undefined,
+): StageFailure | undefined {
+  if (stage?.status !== "failed") {
+    return undefined;
+  }
+
+  return {
+    debugLog: "debugLog" in stage ? stage.debugLog : undefined,
+    failedAt: stage.failedAt,
+    message: stage.message,
+    startedAt: stage.startedAt,
+  };
+}
+
+function getJokeContextSnapshot(run: GenerationRun) {
+  if (run.jokeContextSnapshot) {
+    return run.jokeContextSnapshot;
+  }
+
+  const contextGathering = run.generationResultStates?.contextGathering;
+
+  if (contextGathering?.status === "completed") {
+    return contextGathering.jokeContextSnapshot;
+  }
+
+  return undefined;
+}
+
 function getImageTitle(image: NewsLinkedImage, index: number) {
   return image.title ?? `News-linked image ${index + 1}`;
 }
@@ -776,14 +1118,37 @@ async function copyVisualJokeText(text: string) {
 }
 
 function GenerationFailureState({ run }: { run: GenerationRun }) {
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const contextFailure = getStageFailure(run.generationResultStates?.contextGathering);
+
   return (
     <section
       aria-label="Generation failure state"
       aria-live="polite"
       className="grid min-h-[20rem] place-items-center sm:min-h-[24rem]">
-      <p className="max-w-sm text-center text-rose-200 text-sm leading-6">
-        {run.failureMessage ?? "Source tweet could not be retrieved."}
-      </p>
+      <div className="grid justify-items-center gap-3">
+        <p className="max-w-sm text-center text-rose-200 text-sm leading-6">
+          {run.failureMessage ?? "Source tweet could not be retrieved."}
+        </p>
+        {contextFailure?.debugLog?.length ? (
+          <button
+            type="button"
+            aria-label="Open Joke Context Debug Log"
+            onClick={() => setIsDetailsOpen(true)}
+            className="inline-flex h-8 items-center gap-2 rounded-sm border border-rose-300/20 bg-rose-300/10 px-2.5 text-rose-100 text-xs transition hover:border-rose-200/40 focus:outline-none focus:ring-2 focus:ring-rose-200/20">
+            <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Details
+          </button>
+        ) : null}
+        {isDetailsOpen && contextFailure ? (
+          <TextRevealModal
+            label="Joke Context Debug Log"
+            title="Joke Context Debug Log"
+            onClose={() => setIsDetailsOpen(false)}>
+            <FailureDetails failure={contextFailure} />
+          </TextRevealModal>
+        ) : null}
+      </div>
     </section>
   );
 }

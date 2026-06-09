@@ -134,6 +134,14 @@ async function buildGenerationRunEvents({
   });
 
   if (jokeContextResult.status === "failed") {
+    events.push(
+      buildGenerationRunStateEvent({
+        generationResultStates: buildContextGatheringFailedStates(jokeContextResult),
+        label: runLabel,
+        sourceTweet: tweetContext.sourceTweet,
+      }),
+    );
+
     return [...events, buildGenerationFailureEvent(jokeContextResult.message)];
   }
 
@@ -285,7 +293,10 @@ async function retrieveJokeContextSnapshot({
       status: "completed";
     }
   | {
+      debugLog?: string[];
+      failedAt: string;
       message: string;
+      startedAt: string;
       status: "failed";
     }
 > {
@@ -307,7 +318,10 @@ async function retrieveJokeContextSnapshot({
         : "Joke context gathering could not form usable context.";
 
     return {
+      debugLog: error instanceof JokeContextGatheringError ? error.debugLog : undefined,
+      failedAt: new Date().toISOString(),
       message,
+      startedAt: effectiveStartedAt,
       status: "failed",
     };
   }
@@ -414,6 +428,35 @@ function buildContextGatheringCompletedStates(
       jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
       startedAt: jokeContextResult.startedAt,
       status: "completed",
+    },
+    imageGeneration: {
+      status: "not-started",
+    },
+    newsLinkedImageDiscovery: {
+      status: "not-started",
+    },
+    textGeneration: {
+      status: "not-started",
+    },
+    visualJokeGeneration: {
+      status: "not-started",
+    },
+  };
+}
+
+function buildContextGatheringFailedStates(
+  jokeContextResult: Extract<
+    Awaited<ReturnType<typeof retrieveJokeContextSnapshot>>,
+    { status: "failed" }
+  >,
+): GenerationResultStates {
+  return {
+    contextGathering: {
+      debugLog: jokeContextResult.debugLog,
+      failedAt: jokeContextResult.failedAt,
+      message: jokeContextResult.message,
+      startedAt: jokeContextResult.startedAt,
+      status: "failed",
     },
     imageGeneration: {
       status: "not-started",

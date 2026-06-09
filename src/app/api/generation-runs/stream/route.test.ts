@@ -354,7 +354,10 @@ describe("generation stream route", () => {
       {
         discoverNewsLinkedImages,
         gatherJokeContext: async () => {
-          throw new JokeContextGatheringError();
+          throw new JokeContextGatheringError("Context could not be trusted.", [
+            "Started fixture context gathering.",
+            "Tweet text was too thin.",
+          ]);
         },
         orchestrateGeneration,
         retrieveTweetContext: async () => tweetContext,
@@ -372,7 +375,23 @@ describe("generation stream route", () => {
         },
       },
     });
-    expect(events[1]).toEqual({
+    expect(events[1]).toMatchObject({
+      type: "run-state",
+      generationResultStates: {
+        contextGathering: {
+          debugLog: ["Started fixture context gathering.", "Tweet text was too thin."],
+          message: "Joke context gathering could not form usable context.",
+          status: "failed",
+        },
+        textGeneration: {
+          status: "not-started",
+        },
+        visualJokeGeneration: {
+          status: "not-started",
+        },
+      },
+    });
+    expect(events[2]).toEqual({
       type: "failed",
       message: "Joke context gathering could not form usable context.",
     });

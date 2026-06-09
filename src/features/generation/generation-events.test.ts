@@ -338,6 +338,32 @@ describe("generation event contracts", () => {
     expect(generationResultStates.newsLinkedImageDiscovery.status).toBe("failed");
     expect(generationResultStates.textGeneration.status).toBe("completed");
     expect(
+      parseGenerationResultStates({
+        contextGathering: {
+          debugLog: ["Started context gathering.", "No usable claim remained."],
+          failedAt: "2026-06-06T10:10:00.000Z",
+          message: "Joke context gathering could not form usable context.",
+          startedAt: "2026-06-06T10:08:00.000Z",
+          status: "failed",
+        },
+        imageGeneration: {
+          status: "not-started",
+        },
+        newsLinkedImageDiscovery: {
+          status: "not-started",
+        },
+        textGeneration: {
+          status: "not-started",
+        },
+        visualJokeGeneration: {
+          status: "not-started",
+        },
+      }).contextGathering,
+    ).toMatchObject({
+      debugLog: ["Started context gathering.", "No usable claim remained."],
+      status: "failed",
+    });
+    expect(
       parseGenerationStreamEvent(
         buildGenerationRunStateEvent({
           generationResultStates,
