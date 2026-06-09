@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import {
+  buildCompletedGenerationRunEvents,
   buildEnrichmentCompletedEvent,
   buildGenerationFailureEvent,
   buildGenerationRunStateEvent,
@@ -175,6 +176,69 @@ function buildCompletedRun(overrides: Partial<GenerationRun> = {}): GenerationRu
     ],
     ...overrides,
   };
+}
+
+function buildCompletedV3Run(overrides: Partial<GenerationRun> = {}): GenerationRun {
+  const sourceTweetId = "1234567890";
+  const newsLinkedImages = buildNewsLinkedImages();
+  const imageSet = buildImageSet(newsLinkedImages[0]);
+  const failedImageSet = buildFailedImageSet(newsLinkedImages[1]);
+  const jokeContextSnapshot = buildJokeContextSnapshot(sourceTweetId);
+  const visualJokeSet = buildVisualJokeSet();
+  const imageGenerationState: NonNullable<GenerationRun["imageGenerationState"]> = {
+    completedAt: "2026-06-06T10:25:00.000Z",
+    selectedImageIds: [newsLinkedImages[0].id, newsLinkedImages[1].id],
+    startedAt: "2026-06-06T10:20:00.000Z",
+    status: "partially-failed",
+    userImagePrompt: "Make the image feel launch-ready.",
+  };
+  const generationResultStates: NonNullable<GenerationRun["generationResultStates"]> = {
+    contextGathering: {
+      completedAt: "2026-06-06T10:10:00.000Z",
+      jokeContextSnapshot,
+      startedAt: "2026-06-06T10:08:00.000Z",
+      status: "completed",
+    },
+    imageGeneration: imageGenerationState,
+    newsLinkedImageDiscovery: {
+      completedAt: "2026-06-06T10:13:00.000Z",
+      newsLinkedImages,
+      startedAt: "2026-06-06T10:11:00.000Z",
+      status: "completed",
+    },
+    textGeneration: {
+      completedAt: "2026-06-06T10:14:00.000Z",
+      draftCount: 3,
+      startedAt: "2026-06-06T10:11:00.000Z",
+      status: "completed",
+    },
+    visualJokeGeneration: {
+      completedAt: "2026-06-06T10:15:00.000Z",
+      startedAt: "2026-06-06T10:11:00.000Z",
+      status: "completed",
+      visualJokeSet,
+    },
+  };
+
+  return buildCompletedRun({
+    failedImageSets: [failedImageSet],
+    generationResultStates,
+    imageGenerationState,
+    imageModelProvenance: imageSet.imageModelProvenance,
+    imageSets: [imageSet],
+    jokeContextSnapshot,
+    newsLinkedImages,
+    phase: "image-generation-partially-failed",
+    savedAt: "2026-06-06T10:26:00.000Z",
+    selectedImageOriginals: [imageSet.selectedImageOriginal],
+    selectedVisualJoke: {
+      selectedAt: "2026-06-06T10:16:00.000Z",
+      visualJokeId: visualJokeSet.jokes[1].id,
+    },
+    visualJokeDirection: "Ground every visual joke in the source media and lock-in replies.",
+    visualJokeSet,
+    ...overrides,
+  });
 }
 
 function buildSavedDraft({
@@ -1228,6 +1292,7 @@ describe("IntakeWorkspace", () => {
         }),
       ),
     );
+    expect(savedRunStore.save.mock.calls.at(-1)?.[0].visualJokeSet).toBe(visualJokeSet);
     expect(
       within(visualJokeArea).getByRole("button", {
         name: /clear visual joke 2 selection/i,
@@ -1248,6 +1313,7 @@ describe("IntakeWorkspace", () => {
         }),
       ),
     );
+    expect(savedRunStore.save.mock.calls.at(-1)?.[0].visualJokeSet).toBe(visualJokeSet);
 
     await user.click(
       within(imageGenerationArea).getByRole("button", {
@@ -1834,6 +1900,68 @@ describe("IntakeWorkspace", () => {
     ).toBeInTheDocument();
   });
 
+  test("automatically saves completed v3 runs with context, visual jokes, selection, image state, and independent result states", async () => {
+    const user = userEvent.setup();
+    const generationEventSources: FakeGenerationEventSource[] = [];
+    const savedRunStore = createMemorySavedRunStore();
+    const sourceTweetUrl = "https://x.com/siliconmania/status/1234567890";
+    const completedV3Run = buildCompletedV3Run();
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      generationEventSources,
+      savedRunStore,
+    });
+
+    await user.type(sourceTweetUrlInput, sourceTweetUrl);
+    await user.click(generateButton);
+
+    if (!completedV3Run.sourceTweet) {
+      throw new Error("Expected completed v3 fixture to include a Source Tweet.");
+    }
+
+    const events = buildCompletedGenerationRunEvents({
+      run: {
+        drafts: completedV3Run.drafts,
+        failedImageSets: completedV3Run.failedImageSets,
+        generationResultStates: completedV3Run.generationResultStates,
+        imageGenerationState: completedV3Run.imageGenerationState,
+        imageModelProvenance: completedV3Run.imageModelProvenance,
+        imageSets: completedV3Run.imageSets,
+        jokeContextSnapshot: completedV3Run.jokeContextSnapshot,
+        label: completedV3Run.label,
+        newsLinkedImages: completedV3Run.newsLinkedImages,
+        phase: completedV3Run.phase,
+        selectedImageOriginals: completedV3Run.selectedImageOriginals,
+        selectedVisualJoke: completedV3Run.selectedVisualJoke,
+        sourceTweet: completedV3Run.sourceTweet,
+        visualJokeDirection: completedV3Run.visualJokeDirection,
+        visualJokeSet: completedV3Run.visualJokeSet,
+      },
+    });
+
+    act(() => {
+      for (const event of events) {
+        generationEventSources[0]?.emit(event);
+      }
+    });
+
+    await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
+    expect(savedRunStore.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        drafts: completedV3Run.drafts,
+        failedImageSets: completedV3Run.failedImageSets,
+        generationResultStates: completedV3Run.generationResultStates,
+        imageGenerationState: completedV3Run.imageGenerationState,
+        imageSets: completedV3Run.imageSets,
+        jokeContextSnapshot: completedV3Run.jokeContextSnapshot,
+        newsLinkedImages: completedV3Run.newsLinkedImages,
+        selectedImageOriginals: completedV3Run.selectedImageOriginals,
+        selectedVisualJoke: completedV3Run.selectedVisualJoke,
+        visualJokeDirection: completedV3Run.visualJokeDirection,
+        visualJokeSet: completedV3Run.visualJokeSet,
+      }),
+    );
+  });
+
   test("reopens Saved Runs from the drawer without regenerating", async () => {
     const user = userEvent.setup();
     const savedRunStore = createMemorySavedRunStore([
@@ -1863,6 +1991,85 @@ describe("IntakeWorkspace", () => {
       }),
     ).toHaveTextContent("agent workspace");
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
+  });
+
+  test("reopens v3 Saved Runs with selected visual jokes, exact joke sets, failures, and no regeneration", async () => {
+    const user = userEvent.setup();
+    const startGenerationRun = vi.fn();
+    const startImageGeneration = vi.fn();
+    const imageGenerationStreamFetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(""),
+    );
+    const savedRun = buildCompletedV3Run({
+      label: "Persisted v3 run",
+      usersDirection: "Keep the saved direction.",
+    });
+    const savedRunStore = createMemorySavedRunStore([savedRun]);
+    const { generationStreamUrls, sourceTweetUrlInput } = renderWorkspace({
+      imageGenerationStreamFetcher,
+      onStartGenerationRun: startGenerationRun,
+      onStartImageGeneration: startImageGeneration,
+      savedRunStore,
+    });
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /open runs drawer, 1 runs/i,
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /persisted v3 run/i,
+      }),
+    );
+
+    expect(generationStreamUrls).toEqual([]);
+    expect(startGenerationRun).not.toHaveBeenCalled();
+    expect(startImageGeneration).not.toHaveBeenCalled();
+    expect(imageGenerationStreamFetcher).not.toHaveBeenCalled();
+    expect(sourceTweetUrlInput).toHaveValue("https://x.com/siliconmania/status/1234567890");
+
+    await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
+    expect(screen.getByRole("textbox", { name: /^user's direction$/i })).toHaveValue(
+      "Keep the saved direction.",
+    );
+    await user.click(screen.getByRole("button", { name: /close user's direction panel/i }));
+
+    await user.click(screen.getByRole("button", { name: /open joke context snapshot/i }));
+    expect(screen.getByRole("dialog", { name: /joke context snapshot/i })).toHaveTextContent(
+      "The source tweet claims the launch removes the final workflow bottleneck.",
+    );
+    await user.click(screen.getByRole("button", { name: /close joke context snapshot/i }));
+
+    await user.click(screen.getByRole("button", { name: /open visual joke direction/i }));
+    expect(screen.getByRole("dialog", { name: /visual joke direction/i })).toHaveTextContent(
+      "Ground every visual joke in the source media and lock-in replies.",
+    );
+    await user.click(screen.getByRole("button", { name: /close visual joke direction/i }));
+
+    const visualJokeArea = screen.getByRole("region", {
+      name: /visual joke creative result area/i,
+    });
+    expect(within(visualJokeArea).getAllByRole("article")).toHaveLength(5);
+    expect(
+      within(visualJokeArea).getByRole("button", {
+        name: /clear visual joke 2 selection/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(visualJokeArea).toHaveTextContent(
+      "A launch graphic where confetti falls only on the terms-of-service checkbox.",
+    );
+
+    const imageGenerationArea = screen.getByRole("complementary", {
+      name: /image generation area/i,
+    });
+    expect(
+      within(imageGenerationArea).getByRole("region", {
+        name: /image results area/i,
+      }),
+    ).toHaveTextContent("Variation 2");
+    expect(imageGenerationArea).toHaveTextContent("Image set failed");
+    expect(imageGenerationArea).not.toHaveTextContent("The configured image model failed.");
   });
 
   test("reopens text-successful Saved Runs with unstarted image generation still eligible", async () => {
@@ -2281,7 +2488,7 @@ describe("IntakeWorkspace", () => {
       expect.objectContaining({
         id: expect.stringMatching(/^run-/),
         sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
-        usersDirection: "",
+        usersDirection: "Keep it dry.",
       }),
     );
   });

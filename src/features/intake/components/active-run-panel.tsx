@@ -557,9 +557,7 @@ function VisualJokeArea({
                         #{index + 1}
                       </span>
                       {index === 0 ? (
-                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-emerald-200 text-xs uppercase tracking-[0.14em]">
-                          Recommended
-                        </span>
+                        <span className="text-white/30 text-sm">(Recommended)</span>
                       ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">

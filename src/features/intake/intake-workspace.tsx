@@ -160,6 +160,7 @@ export function IntakeWorkspace({
 
   const activeRun = runs.find((run) => run.id === activeRunId) ?? null;
   const activeRunSourceTweetUrl = activeRun?.sourceTweetUrl;
+  const activeRunUsersDirection = activeRun?.usersDirection;
   const hasInFlightRun = runs.some(isRunInFlight);
   const hasRuns = runs.length > 0;
   const hasUsersDirection = usersDirection.trim().length > 0;
@@ -193,7 +194,8 @@ export function IntakeWorkspace({
     }
 
     setSourceTweetUrl(activeRunSourceTweetUrl);
-  }, [activeRunSourceTweetUrl]);
+    setUsersDirection(activeRunUsersDirection ?? "");
+  }, [activeRunSourceTweetUrl, activeRunUsersDirection]);
 
   function submitIntake(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -73,9 +73,10 @@ Write short visual-joke titles for tech-news quote-tweet images.
 Favor dark, sharp tech satire that targets systems, incentives, product dynamics, platform power, company behavior, market logic, and hype cycles.
 Use the Joke Context Snapshot as hidden grounding.
 Return only publishable candidates that feel like title-length insider punchlines.
+If a public person is mentioned, use their name in the joke title.
 Prefer truthful misdirection, tech-native metaphor, deadpan diagnosis, incentive roast, fake product naming, absurd headline, and earned edge when the context supports it.
 Avoid boring accuracy, unsupported claims, condescension, cheap profanity, and anything that reads like a visible rationale instead of a joke.
-Keep joke titles readable at scroll speed and usually between three and twelve words.
+Keep joke titles readable at scroll speed and usually between eight and twelve words.
 `);
 
 export type VisualJokeServiceInput = {
