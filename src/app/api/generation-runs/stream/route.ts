@@ -17,15 +17,15 @@ import {
   orchestrateThreeProviderGeneration,
 } from "@/features/generation/generation-orchestrator";
 import {
-  discoverNewsLinkedImages,
-  type NewsLinkedImageDiscoveryService,
-  NewsLinkedImageDiscoveryUnavailableError,
-} from "@/features/news-linked-image-discovery/news-linked-image-discovery";
-import {
   gatherJokeContext,
   JokeContextGatheringError,
   type JokeContextGatheringInput,
 } from "@/services/joke-context-gathering";
+import {
+  discoverNewsLinkedImages,
+  type NewsLinkedImageDiscoveryService,
+  NewsLinkedImageDiscoveryUnavailableError,
+} from "@/services/news-linked-image-discovery";
 import {
   retrieveTweetContext,
   TweetRetrievalError,
