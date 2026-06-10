@@ -9,9 +9,5 @@ export async function GET() {
 export async function runtimeStatus(dependencies: Parameters<typeof readRuntimeStatus>[0] = {}) {
   const status = await readRuntimeStatus(dependencies);
 
-  return Response.json(status, {
-    headers: {
-      "Cache-Control": "no-store",
-    },
-  });
+  return Response.json(status, { headers: { "Cache-Control": "no-store" } });
 }

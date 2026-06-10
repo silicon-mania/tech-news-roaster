@@ -193,7 +193,7 @@ describe("image generation stream route", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      message: expect.stringContaining("Unrecognized keys"),
+      message: expect.stringContaining("Unrecognized key"),
     });
   });
 

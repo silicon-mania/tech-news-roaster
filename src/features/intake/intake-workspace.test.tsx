@@ -1155,7 +1155,7 @@ describe("IntakeWorkspace", () => {
       name: /image generation area/i,
     });
 
-    expect(responsiveWorkspace).toHaveClass("lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]");
+    expect(responsiveWorkspace).not.toHaveClass("lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]");
     expect(
       draftStack.compareDocumentPosition(visualJokeArea) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
@@ -1511,6 +1511,20 @@ describe("IntakeWorkspace", () => {
       ],
     });
 
+    const draftStack = screen.getByRole("region", {
+      name: /completed draft stack/i,
+    });
+    const directionButton = screen.getByRole("button", {
+      name: /open visual joke direction/i,
+    });
+
+    expect(screen.queryByText(/^Direction$/)).not.toBeInTheDocument();
+    expect(directionButton).toHaveClass("rounded");
+    expect(directionButton).toHaveClass("hover:bg-slate-800/45");
+    expect(
+      draftStack.compareDocumentPosition(directionButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
     await user.click(screen.getByRole("button", { name: /open joke context snapshot/i }));
 
     const contextDialog = screen.getByRole("dialog", {
@@ -1530,7 +1544,7 @@ describe("IntakeWorkspace", () => {
         name: /close joke context snapshot/i,
       }),
     );
-    await user.click(screen.getByRole("button", { name: /open visual joke direction/i }));
+    await user.click(directionButton);
 
     const directionDialog = screen.getByRole("dialog", {
       name: /visual joke direction/i,
