@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   Check,
@@ -10,10 +10,10 @@ import {
   Eye,
   Loader2,
   X,
-} from 'lucide-react';
-import Image from 'next/image';
-import type { FormEvent, ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+} from "lucide-react";
+import Image from "next/image";
+import type { FormEvent, ReactNode } from "react";
+import { useEffect, useState } from "react";
 import type {
   FailedImageSet,
   GenerationResultStates,
@@ -23,22 +23,16 @@ import type {
   JokeContextSnapshot,
   NewsLinkedImage,
   VisualJokeSet,
-} from '@/features/generation/generation-events';
-import {
-  draftTarget,
-  parseImageGenerationInput,
-} from '@/features/generation/generation-events';
-import { getRunPhaseLabel } from '../run-phase';
-import type { GenerationRun } from '../types';
-import { DraftComparison } from './draft-comparison';
+} from "@/features/generation/generation-events";
+import { draftTarget, parseImageGenerationInput } from "@/features/generation/generation-events";
+import { getRunPhaseLabel } from "../run-phase";
+import type { GenerationRun } from "../types";
+import { DraftComparison } from "./draft-comparison";
 
 type ActiveRunPanelProps = {
   activeRun: GenerationRun | null;
   onDraftTextChange: (draftId: string, text: string) => void;
-  onSelectedVisualJokeChange: (
-    runId: string,
-    visualJokeId: string | null
-  ) => void;
+  onSelectedVisualJokeChange: (runId: string, visualJokeId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
 };
 
@@ -49,12 +43,7 @@ export function ActiveRunPanel({
   onStartImageGeneration,
 }: ActiveRunPanelProps) {
   if (!activeRun) {
-    return (
-      <section
-        aria-label="Empty draft canvas"
-        className="min-h-72 sm:min-h-88"
-      />
-    );
+    return <section aria-label="Empty draft canvas" className="min-h-72 sm:min-h-88" />;
   }
 
   const sourceTweetPreview = activeRun.sourceTweet ? (
@@ -63,10 +52,10 @@ export function ActiveRunPanel({
   const hasImageGenerationContent = Boolean(
     activeRun.newsLinkedImages?.length ||
       activeRun.imageSets?.length ||
-      activeRun.failedImageSets?.length
+      activeRun.failedImageSets?.length,
   );
   const imageDiscoveryFailure = getStageFailure(
-    activeRun.generationResultStates?.newsLinkedImageDiscovery
+    activeRun.generationResultStates?.newsLinkedImageDiscovery,
   );
   const imageGenerationArea = hasImageGenerationContent ? (
     <ImageGenerationArea
@@ -88,27 +77,22 @@ export function ActiveRunPanel({
       visualJokeSet={activeRun.visualJokeSet}
       onSelectedVisualJokeChange={onSelectedVisualJokeChange}
     />
-  ) : getStageFailure(
-      activeRun.generationResultStates?.visualJokeGeneration
-    ) ? (
+  ) : getStageFailure(activeRun.generationResultStates?.visualJokeGeneration) ? (
     <CreativeFailureArea
       ariaLabel="Visual Joke Creative Result Area"
       detailsLabel="Visual Joke Failure Details"
       heading="Visual jokes"
-      failure={getStageFailure(
-        activeRun.generationResultStates?.visualJokeGeneration
-      )}
+      failure={getStageFailure(activeRun.generationResultStates?.visualJokeGeneration)}
     />
   ) : null;
 
-  if (activeRun.status === 'running') {
+  if (activeRun.status === "running") {
     return (
       <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
         {sourceTweetPreview}
         <RunWorkspaceLayout
           imageGenerationArea={imageGenerationArea}
-          visualJokeArea={visualJokeArea}
-        >
+          visualJokeArea={visualJokeArea}>
           <QuietRunReveals run={activeRun} />
           <GenerationWaitingState run={activeRun} />
         </RunWorkspaceLayout>
@@ -116,14 +100,13 @@ export function ActiveRunPanel({
     );
   }
 
-  if (activeRun.status === 'failed') {
+  if (activeRun.status === "failed") {
     return (
       <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
         {sourceTweetPreview}
         <RunWorkspaceLayout
           imageGenerationArea={imageGenerationArea}
-          visualJokeArea={visualJokeArea}
-        >
+          visualJokeArea={visualJokeArea}>
           <QuietRunReveals run={activeRun} />
           <GenerationFailureState run={activeRun} />
         </RunWorkspaceLayout>
@@ -131,19 +114,14 @@ export function ActiveRunPanel({
     );
   }
   const hasCompleteDraftStack =
-    activeRun.drafts.length === draftTarget &&
-    activeRun.draftCount === draftTarget;
+    activeRun.drafts.length === draftTarget && activeRun.draftCount === draftTarget;
 
   return (
     <section
       aria-label="Completed draft canvas"
-      className="mx-auto grid w-full max-w-5xl gap-3 self-start"
-    >
+      className="mx-auto grid w-full max-w-5xl gap-3 self-start">
       {sourceTweetPreview}
-      <RunWorkspaceLayout
-        imageGenerationArea={imageGenerationArea}
-        visualJokeArea={visualJokeArea}
-      >
+      <RunWorkspaceLayout imageGenerationArea={imageGenerationArea} visualJokeArea={visualJokeArea}>
         <QuietRunReveals run={activeRun} />
         {hasCompleteDraftStack ? (
           <DraftComparison
@@ -151,16 +129,12 @@ export function ActiveRunPanel({
             fallbackDisclosure={activeRun.fallbackDisclosure}
             onDraftTextChange={onDraftTextChange}
           />
-        ) : getStageFailure(
-            activeRun.generationResultStates?.textGeneration
-          ) ? (
+        ) : getStageFailure(activeRun.generationResultStates?.textGeneration) ? (
           <CreativeFailureArea
             ariaLabel="Text Generation Creative Result Area"
             detailsLabel="Text Generation Failure Details"
             heading="Drafts"
-            failure={getStageFailure(
-              activeRun.generationResultStates?.textGeneration
-            )}
+            failure={getStageFailure(activeRun.generationResultStates?.textGeneration)}
           />
         ) : (
           <GenerationWaitingState run={activeRun} />
@@ -184,10 +158,7 @@ function RunWorkspaceLayout({
   }
 
   return (
-    <section
-      aria-label="Responsive creative workspace"
-      className="grid items-start gap-4"
-    >
+    <section aria-label="Responsive creative workspace" className="grid items-start gap-4">
       <div className="min-w-0">{children}</div>
       {visualJokeArea}
       {imageGenerationArea}
@@ -199,8 +170,7 @@ function SourceTweetPreview({ text }: { text: string }) {
   return (
     <aside
       aria-label="Source Tweet Preview"
-      className="top-2 z-10 px-3.5 mb-6 shadow-lg shadow-black/30 backdrop-blur-sm max-w-3xl mx-auto"
-    >
+      className="top-2 z-10 px-3.5 mb-6 shadow-lg shadow-black/30 backdrop-blur-sm max-w-3xl mx-auto">
       <div className="flex items-start gap-3">
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-white/10 bg-slate-950/90 p-1.5">
           <Image
@@ -214,9 +184,7 @@ function SourceTweetPreview({ text }: { text: string }) {
         </span>
         <div className="grid min-w-0 gap-1">
           <p className="text-xs text-slate-500">Source post</p>
-          <p className="line-clamp-2 wrap-break-word text-slate-200 text-sm leading-6">
-            {text}
-          </p>
+          <p className="line-clamp-2 wrap-break-word text-slate-200 text-sm leading-6">{text}</p>
         </div>
       </div>
     </aside>
@@ -238,8 +206,7 @@ function QuietRunReveals({ run }: { run: GenerationRun }) {
           type="button"
           aria-label="Open Joke Context Snapshot"
           onClick={() => setIsContextOpen(true)}
-          className="inline-flex h-8 items-center gap-2 rounded-sm border border-slate-800 bg-slate-950/45 px-2.5 text-slate-400 text-xs transition hover:border-slate-600 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-        >
+          className="inline-flex h-8 items-center gap-2 rounded-sm border border-slate-800 bg-slate-950/45 px-2.5 text-slate-400 text-xs transition hover:border-slate-600 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
           <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Context
         </button>
@@ -248,8 +215,7 @@ function QuietRunReveals({ run }: { run: GenerationRun }) {
         <TextRevealModal
           label="Joke Context Snapshot"
           title="Joke Context Snapshot"
-          onClose={() => setIsContextOpen(false)}
-        >
+          onClose={() => setIsContextOpen(false)}>
           <JokeContextSnapshotDetails snapshot={jokeContextSnapshot} />
         </TextRevealModal>
       ) : null}
@@ -257,72 +223,58 @@ function QuietRunReveals({ run }: { run: GenerationRun }) {
   );
 }
 
-function JokeContextSnapshotDetails({
-  snapshot,
-}: {
-  snapshot: JokeContextSnapshot;
-}) {
+function JokeContextSnapshotDetails({ snapshot }: { snapshot: JokeContextSnapshot }) {
   const context = snapshot.structuredContext;
   const sections = [
     {
-      title: 'Source Tweet Claim',
+      title: "Source Tweet Claim",
       content: context.sourceTweetClaim,
     },
     {
-      title: 'Source Tweet Media Extraction',
+      title: "Source Tweet Media Extraction",
       content: [
         context.sourceTweetMediaExtraction.summary,
-        ...context.sourceTweetMediaExtraction.visibleText.map(
-          (text) => `Visible text: ${text}`
-        ),
-        ...context.sourceTweetMediaExtraction.notableDetails.map(
-          (detail) => `Detail: ${detail}`
-        ),
-        `Media kinds: ${context.sourceTweetMediaExtraction.mediaKinds.join(
-          ', '
-        )}`,
+        ...context.sourceTweetMediaExtraction.visibleText.map((text) => `Visible text: ${text}`),
+        ...context.sourceTweetMediaExtraction.notableDetails.map((detail) => `Detail: ${detail}`),
+        `Media kinds: ${context.sourceTweetMediaExtraction.mediaKinds.join(", ")}`,
       ],
     },
     {
-      title: 'Author Context',
+      title: "Author Context",
       content: [
         `${context.authorContext.displayName} (${context.authorContext.handle})`,
-        context.authorContext.role
-          ? `Role: ${context.authorContext.role}`
-          : null,
+        context.authorContext.role ? `Role: ${context.authorContext.role}` : null,
         context.authorContext.relationshipToTopic,
         ...context.authorContext.authoritySignals,
       ].filter((line): line is string => Boolean(line)),
     },
     {
-      title: 'Reply Signals',
+      title: "Reply Signals",
       content: [
         context.replySignals.summary,
         ...context.replySignals.representativeSnippets.map((reply) =>
-          [reply.authorHandle, reply.signal, reply.snippet]
-            .filter(Boolean)
-            .join(' - ')
+          [reply.authorHandle, reply.signal, reply.snippet].filter(Boolean).join(" - "),
         ),
       ],
     },
     {
-      title: 'Supporting Facts',
+      title: "Supporting Facts",
       content: context.supportingFacts,
     },
     {
-      title: 'Unknowns',
+      title: "Unknowns",
       content: context.unknowns,
     },
     {
-      title: 'Jokeable Tensions',
+      title: "Jokeable Tensions",
       content: context.jokeableTensions,
     },
     {
-      title: 'Forbidden Assumptions',
+      title: "Forbidden Assumptions",
       content: context.forbiddenAssumptions,
     },
     {
-      title: 'Joke Context Quality',
+      title: "Joke Context Quality",
       content: `${context.jokeContextQuality.status}: ${context.jokeContextQuality.summary}`,
     },
   ];
@@ -336,11 +288,8 @@ function JokeContextSnapshotDetails({
         <section
           aria-label={section.title}
           className="grid gap-2 rounded-sm border border-white/8 bg-slate-950/45 p-3"
-          key={section.title}
-        >
-          <h2 className="font-medium text-slate-100 text-sm">
-            {section.title}
-          </h2>
+          key={section.title}>
+          <h2 className="font-medium text-slate-100 text-sm">{section.title}</h2>
           {Array.isArray(section.content) ? (
             <ul className="grid gap-1.5 text-slate-300 text-sm leading-6">
               {section.content.map((item) => (
@@ -350,9 +299,7 @@ function JokeContextSnapshotDetails({
               ))}
             </ul>
           ) : (
-            <p className="break-words text-slate-300 text-sm leading-6">
-              {section.content}
-            </p>
+            <p className="break-words text-slate-300 text-sm leading-6">{section.content}</p>
           )}
         </section>
       ))}
@@ -373,14 +320,14 @@ function TextRevealModal({
 }) {
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         onClose();
       }
     }
 
-    document.addEventListener('keydown', closeOnEscape);
+    document.addEventListener("keydown", closeOnEscape);
 
-    return () => document.removeEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
 
   return (
@@ -388,8 +335,7 @@ function TextRevealModal({
       aria-label={label}
       aria-modal="true"
       className="fixed inset-0 z-50 grid bg-slate-950/96 p-3 text-slate-100 backdrop-blur-sm sm:p-5"
-      role="dialog"
-    >
+      role="dialog">
       <div className="mx-auto grid h-full w-full max-w-3xl grid-rows-[auto_1fr] gap-4 overflow-hidden">
         <div className="flex items-center justify-between gap-3">
           <p className="font-medium text-sm">{title}</p>
@@ -397,8 +343,7 @@ function TextRevealModal({
             type="button"
             aria-label={`Close ${label}`}
             onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-          >
+            className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
             <X aria-hidden className="h-4 w-4" />
           </button>
         </div>
@@ -409,37 +354,28 @@ function TextRevealModal({
 }
 
 function GenerationWaitingState({ run }: { run: GenerationRun }) {
-  const progressStages = buildGenerationProgressStages(
-    run.generationResultStates
-  );
+  const progressStages = buildGenerationProgressStages(run.generationResultStates);
 
   return (
     <section
       aria-label="Generation waiting state"
       aria-live="polite"
-      className="grid min-h-80 place-items-center sm:min-h-96"
-    >
+      className="grid min-h-80 place-items-center sm:min-h-96">
       <div className="grid w-full max-w-3xl justify-items-center gap-5 text-center">
         <p className="editorial-serif text-6xl text-slate-100 tracking-normal sm:text-7xl">
           {run.draftCount}/{run.draftTarget}
         </p>
-        <p className="text-slate-500 text-xs uppercase tracking-[0.18em]">
-          drafts
-        </p>
+        <p className="text-slate-500 text-xs uppercase tracking-[0.18em]">drafts</p>
         <p className="text-slate-400 text-sm">{getRunPhaseLabel(run)}</p>
         {progressStages.length > 0 ? (
           <ul
             aria-label="Generation progress"
-            className="grid w-full gap-1.5 rounded-sm border border-white/10 bg-white/5 p-2 text-left sm:grid-cols-2 lg:grid-cols-5"
-          >
+            className="grid w-full gap-1.5 rounded-sm border border-white/10 bg-white/5 p-2 text-left sm:grid-cols-2 lg:grid-cols-5">
             {progressStages.map((stage) => (
               <li
                 key={stage.label}
-                className="grid min-w-0 gap-1 rounded-sm border border-white/8 bg-slate-950/50 px-2.5 py-2"
-              >
-                <span className="truncate text-slate-200 text-xs">
-                  {stage.label}
-                </span>
+                className="grid min-w-0 gap-1 rounded-sm border border-white/8 bg-slate-950/50 px-2.5 py-2">
+                <span className="truncate text-slate-200 text-xs">{stage.label}</span>
                 <span className={stage.className}>{stage.statusLabel}</span>
               </li>
             ))}
@@ -450,116 +386,101 @@ function GenerationWaitingState({ run }: { run: GenerationRun }) {
   );
 }
 
-function buildGenerationProgressStages(
-  generationResultStates: GenerationResultStates | undefined
-) {
+function buildGenerationProgressStages(generationResultStates: GenerationResultStates | undefined) {
   if (!generationResultStates) {
     return [];
   }
   const contextStatus = generationResultStates.contextGathering.status;
-  const imageDiscoveryStatus =
-    generationResultStates.newsLinkedImageDiscovery.status;
+  const imageDiscoveryStatus = generationResultStates.newsLinkedImageDiscovery.status;
 
   return [
     {
-      label: 'Context gathering',
+      label: "Context gathering",
       ...describeStageStatus(contextStatus),
     },
     {
-      label: 'Draft creation',
+      label: "Draft creation",
       ...describeStageStatus(generationResultStates.textGeneration.status, {
-        blocked: contextStatus === 'failed',
-        queued: contextStatus === 'not-started' || contextStatus === 'running',
+        blocked: contextStatus === "failed",
+        queued: contextStatus === "not-started" || contextStatus === "running",
       }),
     },
     {
-      label: 'Image discovery',
+      label: "Image discovery",
       ...describeStageStatus(imageDiscoveryStatus, {
-        blocked: contextStatus === 'failed',
-        queued: contextStatus === 'not-started' || contextStatus === 'running',
+        blocked: contextStatus === "failed",
+        queued: contextStatus === "not-started" || contextStatus === "running",
       }),
     },
     {
-      label: 'Visual jokes',
-      ...describeStageStatus(
-        generationResultStates.visualJokeGeneration.status,
-        {
-          blocked: contextStatus === 'failed',
-          queued:
-            contextStatus === 'not-started' || contextStatus === 'running',
-        }
-      ),
+      label: "Visual jokes",
+      ...describeStageStatus(generationResultStates.visualJokeGeneration.status, {
+        blocked: contextStatus === "failed",
+        queued: contextStatus === "not-started" || contextStatus === "running",
+      }),
     },
     {
-      label: 'Image generation',
+      label: "Image generation",
       ...describeStageStatus(generationResultStates.imageGeneration.status, {
-        blocked:
-          contextStatus === 'failed' || imageDiscoveryStatus === 'failed',
-        queued:
-          imageDiscoveryStatus === 'not-started' ||
-          imageDiscoveryStatus === 'running',
+        blocked: contextStatus === "failed" || imageDiscoveryStatus === "failed",
+        queued: imageDiscoveryStatus === "not-started" || imageDiscoveryStatus === "running",
       }),
     },
   ];
 }
 
 function describeStageStatus(
-  status:
-    | 'not-started'
-    | 'running'
-    | 'completed'
-    | 'failed'
-    | 'partially-failed',
-  options: { blocked?: boolean; queued?: boolean } = {}
+  status: "not-started" | "running" | "completed" | "failed" | "partially-failed",
+  options: { blocked?: boolean; queued?: boolean } = {},
 ) {
-  if (status === 'running') {
+  if (status === "running") {
     return {
       className:
-        'inline-flex items-center rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-1 text-sky-200 text-xs',
-      statusLabel: 'Running',
+        "inline-flex items-center rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-1 text-sky-200 text-xs",
+      statusLabel: "Running",
     };
   }
 
-  if (status === 'completed') {
+  if (status === "completed") {
     return {
       className:
-        'inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-emerald-200 text-xs',
-      statusLabel: 'Complete',
+        "inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-emerald-200 text-xs",
+      statusLabel: "Complete",
     };
   }
 
-  if (status === 'failed' || status === 'partially-failed') {
+  if (status === "failed" || status === "partially-failed") {
     return {
       className:
-        'inline-flex items-center rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-1 text-rose-200 text-xs',
-      statusLabel: status === 'failed' ? 'Failed' : 'Partial',
+        "inline-flex items-center rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-1 text-rose-200 text-xs",
+      statusLabel: status === "failed" ? "Failed" : "Partial",
     };
   }
 
-  if (status === 'not-started' && options.blocked) {
+  if (status === "not-started" && options.blocked) {
     return {
       className:
-        'inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-500 text-[0.68rem]',
-      statusLabel: 'Unavailable',
+        "inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-500 text-[0.68rem]",
+      statusLabel: "Unavailable",
     };
   }
 
-  if (status === 'not-started' && options.queued) {
+  if (status === "not-started" && options.queued) {
     return {
       className:
-        'inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-400 text-[0.68rem]',
-      statusLabel: 'Queued',
+        "inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-400 text-[0.68rem]",
+      statusLabel: "Queued",
     };
   }
 
   return {
     className:
-      'inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-400 text-[0.68rem]',
-    statusLabel: 'Not started',
+      "inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-400 text-[0.68rem]",
+    statusLabel: "Not started",
   };
 }
 
-type ImageGenerationAreaStatusKind = 'loading' | 'success' | 'failed';
+type ImageGenerationAreaStatusKind = "loading" | "success" | "failed";
 
 function getImageGenerationAreaStatus(run: GenerationRun): {
   kind: ImageGenerationAreaStatusKind;
@@ -568,64 +489,53 @@ function getImageGenerationAreaStatus(run: GenerationRun): {
   const label = getRunPhaseLabel(run);
   const imageGenerationStatus = run.imageGenerationState?.status;
 
-  if (run.phase === 'failed' || run.status === 'failed') {
-    return { kind: 'failed', label };
+  if (run.phase === "failed" || run.status === "failed") {
+    return { kind: "failed", label };
   }
 
   if (
-    imageGenerationStatus === 'failed' ||
-    imageGenerationStatus === 'partially-failed' ||
-    run.phase === 'image-generation-partially-failed'
+    imageGenerationStatus === "failed" ||
+    imageGenerationStatus === "partially-failed" ||
+    run.phase === "image-generation-partially-failed"
   ) {
-    return { kind: 'failed', label };
+    return { kind: "failed", label };
+  }
+
+  if (imageGenerationStatus === "completed" || run.phase === "image-generation-complete") {
+    return { kind: "success", label };
   }
 
   if (
-    imageGenerationStatus === 'completed' ||
-    run.phase === 'image-generation-complete'
+    imageGenerationStatus === "running" ||
+    imageGenerationStatus === "not-started" ||
+    run.phase === "image-generation-running" ||
+    run.phase === "enrichment-running" ||
+    run.phase === "text-generation-running" ||
+    run.phase === "waiting-for-image-selection" ||
+    (!run.phase && run.status === "running")
   ) {
-    return { kind: 'success', label };
+    return { kind: "loading", label };
   }
 
-  if (
-    imageGenerationStatus === 'running' ||
-    imageGenerationStatus === 'not-started' ||
-    run.phase === 'image-generation-running' ||
-    run.phase === 'enrichment-running' ||
-    run.phase === 'text-generation-running' ||
-    run.phase === 'waiting-for-image-selection' ||
-    (!run.phase && run.status === 'running')
-  ) {
-    return { kind: 'loading', label };
+  if (run.status === "completed" && (run.imageSets?.length ?? 0) > 0) {
+    return { kind: "success", label };
   }
 
-  if (run.status === 'completed' && (run.imageSets?.length ?? 0) > 0) {
-    return { kind: 'success', label };
-  }
-
-  return { kind: 'loading', label };
+  return { kind: "loading", label };
 }
 
 function ImageGenerationAreaStatus({ run }: { run: GenerationRun }) {
   const { kind, label } = getImageGenerationAreaStatus(run);
 
   return (
-    <p
-      className="inline-flex items-center gap-1.5 text-slate-500 text-xs"
-      role="status"
-    >
-      {kind === 'loading' ? (
-        <Loader2
-          aria-hidden
-          className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-300"
-        />
+    <p className="inline-flex items-center gap-1.5 text-slate-500 text-xs" role="status">
+      {kind === "loading" ? (
+        <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-300" />
       ) : null}
-      {kind === 'success' ? (
+      {kind === "success" ? (
         <Check aria-hidden className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
       ) : null}
-      {kind === 'failed' ? (
-        <X aria-hidden className="h-3.5 w-3.5 shrink-0 text-rose-400" />
-      ) : null}
+      {kind === "failed" ? <X aria-hidden className="h-3.5 w-3.5 shrink-0 text-rose-400" /> : null}
       <span>{label}</span>
     </p>
   );
@@ -638,10 +548,7 @@ function VisualJokeArea({
 }: {
   run: GenerationRun;
   visualJokeSet: VisualJokeSet;
-  onSelectedVisualJokeChange: (
-    runId: string,
-    visualJokeId: string | null
-  ) => void;
+  onSelectedVisualJokeChange: (runId: string, visualJokeId: string | null) => void;
 }) {
   const selectedVisualJokeId = run.selectedVisualJoke?.visualJokeId ?? null;
   const [isDirectionOpen, setIsDirectionOpen] = useState(false);
@@ -650,24 +557,20 @@ function VisualJokeArea({
   return (
     <>
       <div className="flex min-w-0 items-center gap-2">
-        <h1 className="font-medium text-slate-100 text-lg md:text-2xl">
-          Visual jokes
-        </h1>
+        <h1 className="font-medium text-slate-100 text-lg md:text-2xl">Visual jokes</h1>
         {hasVisualJokeDirection ? (
           <button
             type="button"
             aria-label="Open Visual Joke Direction"
             onClick={() => setIsDirectionOpen(true)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:rounded-sm hover:bg-slate-800/45 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-          >
+            className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 transition hover:rounded-sm hover:bg-slate-800/45 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
             <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           </button>
         ) : null}
       </div>
       <section
         aria-label="Visual Joke Creative Result Area"
-        className="grid gap-3 bg-slate-950/35 p-3"
-      >
+        className="grid gap-3 bg-slate-950/35 p-3">
         <ul className="grid gap-2">
           {visualJokeSet.jokes.map((joke, index) => {
             const isSelected = selectedVisualJokeId === joke.id;
@@ -678,19 +581,16 @@ function VisualJokeArea({
                   aria-label={`Visual joke ${index + 1}`}
                   className={`grid gap-3 rounded-sm border p-3 transition ${
                     isSelected
-                      ? 'border-sky-300/50 bg-sky-300/10'
-                      : 'border-white/8 bg-slate-950/45'
-                  }`}
-                >
+                      ? "border-sky-300/50 bg-sky-300/10"
+                      : "border-white/8 bg-slate-950/45"
+                  }`}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <span className="text-slate-500 text-xs uppercase tracking-[0.14em]">
                         #{index + 1}
                       </span>
                       {index === 0 ? (
-                        <span className="text-white/30 text-sm">
-                          (Recommended)
-                        </span>
+                        <span className="text-white/30 text-sm">(Recommended)</span>
                       ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -698,13 +598,8 @@ function VisualJokeArea({
                         type="button"
                         aria-label={`Copy visual joke ${index + 1}`}
                         onClick={() => void copyVisualJokeText(joke.text)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-                      >
-                        <Copy
-                          aria-hidden
-                          className="h-3.5 w-3.5"
-                          strokeWidth={1.75}
-                        />
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
+                        <Copy aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                       </button>
                       <button
                         type="button"
@@ -715,18 +610,14 @@ function VisualJokeArea({
                         }
                         aria-pressed={isSelected}
                         onClick={() =>
-                          onSelectedVisualJokeChange(
-                            run.id,
-                            isSelected ? null : joke.id
-                          )
+                          onSelectedVisualJokeChange(run.id, isSelected ? null : joke.id)
                         }
                         className={`inline-flex h-8 min-w-20 items-center justify-center rounded-sm border px-2 font-medium text-xs transition focus:outline-none focus:ring-2 focus:ring-sky-300/20 ${
                           isSelected
-                            ? 'border-sky-300/50 bg-sky-300/15 text-sky-100'
-                            : 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-500 hover:text-slate-100'
-                        }`}
-                      >
-                        {isSelected ? 'Selected' : 'Select'}
+                            ? "border-sky-300/50 bg-sky-300/15 text-sky-100"
+                            : "border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                        }`}>
+                        {isSelected ? "Selected" : "Select"}
                       </button>
                     </div>
                   </div>
@@ -743,8 +634,7 @@ function VisualJokeArea({
         <TextRevealModal
           label="Visual Joke Direction"
           title="Visual Joke Direction"
-          onClose={() => setIsDirectionOpen(false)}
-        >
+          onClose={() => setIsDirectionOpen(false)}>
           <pre className="whitespace-pre-wrap break-words rounded-sm border border-white/8 bg-slate-950/60 p-3 text-slate-200 text-sm leading-6">
             {run.visualJokeDirection}
           </pre>
@@ -773,13 +663,8 @@ function CreativeFailureArea({
 
   return (
     <>
-      <h1 className="font-medium text-slate-100 text-lg md:text-2xl">
-        {heading}
-      </h1>
-      <section
-        aria-label={ariaLabel}
-        className="grid gap-3 bg-slate-950/35 p-3"
-      >
+      <h1 className="font-medium text-slate-100 text-lg md:text-2xl">{heading}</h1>
+      <section aria-label={ariaLabel} className="grid gap-3 bg-slate-950/35 p-3">
         <article className="grid gap-2 rounded-sm border border-rose-400/20 bg-rose-950/10 p-3">
           <p className="font-medium text-rose-100 text-sm">{heading} failed</p>
           <p className="text-rose-200/80 text-xs leading-5">
@@ -789,8 +674,7 @@ function CreativeFailureArea({
             type="button"
             aria-label={`Open ${detailsLabel}`}
             onClick={() => setIsDetailsOpen(true)}
-            className="inline-flex h-8 w-fit items-center gap-2 rounded-sm border border-rose-300/20 bg-rose-300/10 px-2.5 text-rose-100 text-xs transition hover:border-rose-200/40 focus:outline-none focus:ring-2 focus:ring-rose-200/20"
-          >
+            className="inline-flex h-8 w-fit items-center gap-2 rounded-sm border border-rose-300/20 bg-rose-300/10 px-2.5 text-rose-100 text-xs transition hover:border-rose-200/40 focus:outline-none focus:ring-2 focus:ring-rose-200/20">
             <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Details
           </button>
@@ -800,8 +684,7 @@ function CreativeFailureArea({
         <TextRevealModal
           label={detailsLabel}
           title={detailsLabel}
-          onClose={() => setIsDetailsOpen(false)}
-        >
+          onClose={() => setIsDetailsOpen(false)}>
           <FailureDetails failure={failure} />
         </TextRevealModal>
       ) : null}
@@ -823,20 +706,18 @@ function ImageGenerationArea({
   const failedImageSets = run.failedImageSets ?? [];
   const imageGenerationStatus = run.imageGenerationState?.status;
   const canSelectSourceImages =
-    images.length > 0 &&
-    (!imageGenerationStatus || imageGenerationStatus === 'not-started');
+    images.length > 0 && (!imageGenerationStatus || imageGenerationStatus === "not-started");
   const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
-  const [userImagePrompt, setUserImagePrompt] = useState('');
+  const [userImagePrompt, setUserImagePrompt] = useState("");
   const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
   const trimmedUserImagePrompt = userImagePrompt.trim();
-  const canStartImageGeneration =
-    selectedImageIds.length > 0 && trimmedUserImagePrompt.length > 0;
+  const canStartImageGeneration = selectedImageIds.length > 0 && trimmedUserImagePrompt.length > 0;
 
   useEffect(() => {
     const availableImageIds = new Set(images.map((image) => image.id));
 
     setSelectedImageIds((currentImageIds) =>
-      currentImageIds.filter((imageId) => availableImageIds.has(imageId))
+      currentImageIds.filter((imageId) => availableImageIds.has(imageId)),
     );
   }, [images]);
 
@@ -844,13 +725,11 @@ function ImageGenerationArea({
     setSelectedImageIds((currentImageIds) => {
       if (currentImageIds.includes(imageId)) {
         setSelectionMessage(null);
-        return currentImageIds.filter(
-          (currentImageId) => currentImageId !== imageId
-        );
+        return currentImageIds.filter((currentImageId) => currentImageId !== imageId);
       }
 
       if (currentImageIds.length >= 2) {
-        setSelectionMessage('Choose up to two images.');
+        setSelectionMessage("Choose up to two images.");
         return currentImageIds;
       }
 
@@ -871,32 +750,22 @@ function ImageGenerationArea({
         parentRunId,
         selectedImageIds,
         userImagePrompt: trimmedUserImagePrompt,
-      })
+      }),
     );
   }
 
   return (
     <>
-      <h1 className="font-medium text-slate-100 text-lg md:text-2xl">
-        Image generation
-      </h1>
-      <aside
-        aria-label="Image generation area"
-        className="grid gap-3 bg-slate-950/35 p-3"
-      >
+      <h1 className="font-medium text-slate-100 text-lg md:text-2xl">Image generation</h1>
+      <aside aria-label="Image generation area" className="grid gap-3 bg-slate-950/35 p-3">
         <div className="flex items-center justify-between gap-3">
           <p className="min-w-0 truncate text-slate-500 text-xs">
-            {run.imageModelProvenance
-              ? formatImageModelProvenance(run.imageModelProvenance)
-              : null}
+            {run.imageModelProvenance ? formatImageModelProvenance(run.imageModelProvenance) : null}
           </p>
           <ImageGenerationAreaStatus run={run} />
         </div>
         {imageSets.length > 0 || failedImageSets.length > 0 ? (
-          <ImageResultsArea
-            failedImageSets={failedImageSets}
-            imageSets={imageSets}
-          />
+          <ImageResultsArea failedImageSets={failedImageSets} imageSets={imageSets} />
         ) : null}
         {canSelectSourceImages ? (
           <>
@@ -905,32 +774,23 @@ function ImageGenerationArea({
                 {images.map((image, index) => (
                   <li
                     className="w-[min(70vw,18rem)] shrink-0 lg:w-[min(18vw,300px)]"
-                    key={image.id}
-                  >
+                    key={image.id}>
                     <button
                       type="button"
-                      aria-label={`Select ${getImageTitle(
-                        image,
-                        index
-                      )} for image generation`}
+                      aria-label={`Select ${getImageTitle(image, index)} for image generation`}
                       aria-pressed={selectedImageIds.includes(image.id)}
                       onClick={() => toggleImageSelection(image.id)}
                       className={`group grid w-full gap-1.5 rounded-sm text-left transition focus:outline-none focus:ring-2 focus:ring-sky-300/25 ${
                         selectedImageIds.includes(image.id)
-                          ? 'bg-sky-300/10 ring-1 ring-sky-300/60'
-                          : 'bg-slate-950/40'
-                      }`}
-                    >
+                          ? "bg-sky-300/10 ring-1 ring-sky-300/60"
+                          : "bg-slate-950/40"
+                      }`}>
                       <span className="relative aspect-[4/3] overflow-hidden rounded-sm bg-slate-900">
                         <Image
-                          alt={
-                            image.altText ??
-                            image.title ??
-                            `News-linked image ${index + 1}`
-                          }
+                          alt={image.altText ?? image.title ?? `News-linked image ${index + 1}`}
                           className="h-full w-full object-cover transition group-hover:scale-[1.02]"
                           height={240}
-                          loading={index === 0 ? 'eager' : 'lazy'}
+                          loading={index === 0 ? "eager" : "lazy"}
                           src={getDisplayImageUrl(image, index)}
                           unoptimized
                           width={320}
@@ -952,8 +812,7 @@ function ImageGenerationArea({
             <form className="grid gap-2" onSubmit={submitImageGeneration}>
               <label
                 className="font-medium text-slate-300 text-xs"
-                htmlFor={`${parentRunId}-user-image-prompt`}
-              >
+                htmlFor={`${parentRunId}-user-image-prompt`}>
                 User Image Prompt
               </label>
               <textarea
@@ -967,8 +826,7 @@ function ImageGenerationArea({
               <button
                 type="submit"
                 disabled={!canStartImageGeneration}
-                className="justify-self-start rounded-sm border border-slate-700 bg-slate-100 px-3 py-2 font-medium text-slate-950 text-sm transition hover:bg-white disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-500"
-              >
+                className="justify-self-start rounded-sm border border-slate-700 bg-slate-100 px-3 py-2 font-medium text-slate-950 text-sm transition hover:bg-white disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-500">
                 Image Generation
               </button>
             </form>
@@ -996,14 +854,10 @@ function ImageResultsArea({
     : null;
   const activeOptionIndex =
     activeImageSet && activeModal
-      ? activeImageSet.options.findIndex(
-          (option) => option.id === activeModal.optionId
-        )
+      ? activeImageSet.options.findIndex((option) => option.id === activeModal.optionId)
       : -1;
   const activeFailedImageSet = activeFailureId
-    ? failedImageSets.find(
-        (failedImageSet) => failedImageSet.id === activeFailureId
-      )
+    ? failedImageSets.find((failedImageSet) => failedImageSet.id === activeFailureId)
     : null;
 
   return (
@@ -1013,43 +867,33 @@ function ImageResultsArea({
           <article
             aria-label={`Image set ${imageSetIndex + 1}`}
             className="grid min-w-0 gap-2 rounded-sm bg-slate-950/45 p-2"
-            key={imageSet.id}
-          >
+            key={imageSet.id}>
             <p className="font-medium text-slate-200 text-xs">
-              {imageSet.selectedImageOriginal.title ??
-                `Image set ${imageSetIndex + 1}`}
+              {imageSet.selectedImageOriginal.title ?? `Image set ${imageSetIndex + 1}`}
             </p>
             <div className="overflow-x-auto pb-2">
               <ul className="flex w-max gap-2 pr-2">
                 {imageSet.options.map((option, optionIndex) => (
                   <li
                     className="w-[min(70vw,18rem)] shrink-0 lg:w-[min(18vw,300px)]"
-                    key={option.id}
-                  >
+                    key={option.id}>
                     <div className="group grid w-full gap-1.5 rounded-sm bg-slate-950/40 text-left transition">
                       <div className="relative aspect-[4/3] overflow-hidden rounded-sm bg-slate-900">
                         <button
                           type="button"
-                          aria-label={`Open ${option.label} from image set ${
-                            imageSetIndex + 1
-                          }`}
+                          aria-label={`Open ${option.label} from image set ${imageSetIndex + 1}`}
                           onClick={() =>
                             setActiveModal({
                               imageSetId: imageSet.id,
                               optionId: option.id,
                             })
                           }
-                          className="block h-full w-full focus:outline-none focus:ring-2 focus:ring-sky-300/25"
-                        >
+                          className="block h-full w-full focus:outline-none focus:ring-2 focus:ring-sky-300/25">
                           <Image
                             alt={option.altText ?? option.label}
                             className="h-full w-full object-cover transition group-hover:scale-[1.02]"
                             height={240}
-                            loading={
-                              imageSetIndex === 0 && optionIndex === 0
-                                ? 'eager'
-                                : 'lazy'
-                            }
+                            loading={imageSetIndex === 0 && optionIndex === 0 ? "eager" : "lazy"}
                             src={option.url}
                             unoptimized
                             width={320}
@@ -1067,8 +911,7 @@ function ImageResultsArea({
                                 optionId: option.id,
                               })
                             }
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-slate-950/80 text-slate-100 transition hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-300/25"
-                          >
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-slate-950/80 text-slate-100 transition hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-300/25">
                             <Expand aria-hidden className="h-3.5 w-3.5" />
                           </button>
                           <a
@@ -1077,15 +920,12 @@ function ImageResultsArea({
                             } from image set ${imageSetIndex + 1}`}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-slate-950/80 text-slate-100 transition hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-300/25"
                             download={buildImageDownloadName(imageSet, option)}
-                            href={option.url}
-                          >
+                            href={option.url}>
                             <Download aria-hidden className="h-3.5 w-3.5" />
                           </a>
                         </div>
                       </div>
-                      <span className="px-0.5 text-slate-400 text-xs">
-                        {option.label}
-                      </span>
+                      <span className="px-0.5 text-slate-400 text-xs">{option.label}</span>
                     </div>
                   </li>
                 ))}
@@ -1097,22 +937,16 @@ function ImageResultsArea({
           <article
             aria-label={`Failed image set ${failedIndex + 1}`}
             className="grid gap-1 rounded-sm border border-rose-400/20 bg-rose-950/10 p-3"
-            key={failedImageSet.id}
-          >
-            <p className="font-medium text-rose-100 text-sm">
-              Image set failed
-            </p>
+            key={failedImageSet.id}>
+            <p className="font-medium text-rose-100 text-sm">Image set failed</p>
             <p className="text-rose-200/80 text-xs leading-5">
               This image set could not be generated.
             </p>
             <button
               type="button"
-              aria-label={`Open Quiet Failure Details for failed image set ${
-                failedIndex + 1
-              }`}
+              aria-label={`Open Quiet Failure Details for failed image set ${failedIndex + 1}`}
               onClick={() => setActiveFailureId(failedImageSet.id)}
-              className="inline-flex h-8 w-fit items-center gap-2 rounded-sm border border-rose-300/20 bg-rose-300/10 px-2.5 text-rose-100 text-xs transition hover:border-rose-200/40 focus:outline-none focus:ring-2 focus:ring-rose-200/20"
-            >
+              className="inline-flex h-8 w-fit items-center gap-2 rounded-sm border border-rose-300/20 bg-rose-300/10 px-2.5 text-rose-100 text-xs transition hover:border-rose-200/40 focus:outline-none focus:ring-2 focus:ring-rose-200/20">
               <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Details
             </button>
@@ -1123,8 +957,7 @@ function ImageResultsArea({
         <TextRevealModal
           label="Quiet Failure Details"
           title="Quiet Failure Details"
-          onClose={() => setActiveFailureId(null)}
-        >
+          onClose={() => setActiveFailureId(null)}>
           <FailureDetails
             failure={{
               message: activeFailedImageSet.message,
@@ -1141,7 +974,7 @@ function ImageResultsArea({
           onOptionIndexChange={(optionIndex) =>
             setActiveModal({
               imageSetId: activeImageSet.id,
-              optionId: activeImageSet.options[optionIndex]?.id ?? '',
+              optionId: activeImageSet.options[optionIndex]?.id ?? "",
             })
           }
         />
@@ -1167,14 +1000,14 @@ function ImageOptionModal({
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         onClose();
       }
     }
 
-    document.addEventListener('keydown', closeOnEscape);
+    document.addEventListener("keydown", closeOnEscape);
 
-    return () => document.removeEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
 
   return (
@@ -1182,8 +1015,7 @@ function ImageOptionModal({
       aria-label={`${option.label} image option`}
       aria-modal="true"
       className="fixed inset-0 z-50 grid grid-rows-[auto_1fr_auto] bg-slate-950/96 p-3 text-slate-100 backdrop-blur-sm sm:p-5"
-      role="dialog"
-    >
+      role="dialog">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="font-medium text-sm">{option.label}</p>
@@ -1196,16 +1028,14 @@ function ImageOptionModal({
             aria-label="Download current image option"
             className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-slate-100 text-slate-950 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-sky-300/20"
             download={buildImageDownloadName(imageSet, option)}
-            href={option.url}
-          >
+            href={option.url}>
             <Download aria-hidden className="h-4 w-4" />
           </a>
           <button
             type="button"
             aria-label="Close image option"
             onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-          >
+            className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
             <X aria-hidden className="h-4 w-4" />
           </button>
         </div>
@@ -1226,8 +1056,7 @@ function ImageOptionModal({
           aria-label="Previous image option"
           disabled={!canGoPrevious}
           onClick={() => onOptionIndexChange(optionIndex - 1)}
-          className="inline-flex h-10 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-        >
+          className="inline-flex h-10 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
           <ChevronLeft aria-hidden className="h-4 w-4" />
         </button>
         <button
@@ -1235,8 +1064,7 @@ function ImageOptionModal({
           aria-label="Next image option"
           disabled={!canGoNext}
           onClick={() => onOptionIndexChange(optionIndex + 1)}
-          className="inline-flex h-10 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300/20"
-        >
+          className="inline-flex h-10 items-center justify-center rounded-sm bg-slate-900/80 text-slate-300 transition hover:bg-slate-800 hover:text-slate-100 disabled:cursor-not-allowed disabled:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
           <ChevronRight aria-hidden className="h-4 w-4" />
         </button>
       </div>
@@ -1261,25 +1089,25 @@ function FailureDetails({ failure }: { failure: StageFailure }) {
 
   return (
     <pre className="whitespace-pre-wrap break-words rounded-sm border border-white/8 bg-slate-950/60 p-3 text-slate-200 text-sm leading-6">
-      {lines.join('\n')}
+      {lines.join("\n")}
     </pre>
   );
 }
 
 function getStageFailure(
   stage:
-    | GenerationResultStates['contextGathering']
-    | GenerationResultStates['newsLinkedImageDiscovery']
-    | GenerationResultStates['textGeneration']
-    | GenerationResultStates['visualJokeGeneration']
-    | undefined
+    | GenerationResultStates["contextGathering"]
+    | GenerationResultStates["newsLinkedImageDiscovery"]
+    | GenerationResultStates["textGeneration"]
+    | GenerationResultStates["visualJokeGeneration"]
+    | undefined,
 ): StageFailure | undefined {
-  if (stage?.status !== 'failed') {
+  if (stage?.status !== "failed") {
     return undefined;
   }
 
   return {
-    debugLog: 'debugLog' in stage ? stage.debugLog : undefined,
+    debugLog: "debugLog" in stage ? stage.debugLog : undefined,
     failedAt: stage.failedAt,
     message: stage.message,
     startedAt: stage.startedAt,
@@ -1293,7 +1121,7 @@ function getJokeContextSnapshot(run: GenerationRun) {
 
   const contextGathering = run.generationResultStates?.contextGathering;
 
-  if (contextGathering?.status === 'completed') {
+  if (contextGathering?.status === "completed") {
     return contextGathering.jokeContextSnapshot;
   }
 
@@ -1308,17 +1136,14 @@ function formatImageModelProvenance(provenance: ImageModelProvenance) {
   return provenance.model;
 }
 
-function buildImageDownloadName(
-  imageSet: ImageSet,
-  option: ImageSet['options'][number]
-) {
-  return `${imageSet.id}-${option.label.toLowerCase().replaceAll(' ', '-')}`;
+function buildImageDownloadName(imageSet: ImageSet, option: ImageSet["options"][number]) {
+  return `${imageSet.id}-${option.label.toLowerCase().replaceAll(" ", "-")}`;
 }
 
 function getDisplayImageUrl(image: NewsLinkedImage, index: number) {
-  if (image.url.startsWith('https://example.com/')) {
+  if (image.url.startsWith("https://example.com/")) {
     return `https://picsum.photos/seed/${encodeURIComponent(
-      image.id || `image-${index + 1}`
+      image.id || `image-${index + 1}`,
     )}/320/240`;
   }
 
@@ -1335,27 +1160,23 @@ async function copyVisualJokeText(text: string) {
 
 function GenerationFailureState({ run }: { run: GenerationRun }) {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const contextFailure = getStageFailure(
-    run.generationResultStates?.contextGathering
-  );
+  const contextFailure = getStageFailure(run.generationResultStates?.contextGathering);
 
   return (
     <section
       aria-label="Generation failure state"
       aria-live="polite"
-      className="grid min-h-[20rem] place-items-center sm:min-h-[24rem]"
-    >
+      className="grid min-h-[20rem] place-items-center sm:min-h-[24rem]">
       <div className="grid justify-items-center gap-3">
         <p className="max-w-sm text-center text-rose-200 text-sm leading-6">
-          {run.failureMessage ?? 'Source tweet could not be retrieved.'}
+          {run.failureMessage ?? "Source tweet could not be retrieved."}
         </p>
         {contextFailure?.debugLog?.length ? (
           <button
             type="button"
             aria-label="Open Joke Context Debug Log"
             onClick={() => setIsDetailsOpen(true)}
-            className="inline-flex h-8 items-center gap-2 rounded-sm border border-rose-300/20 bg-rose-300/10 px-2.5 text-rose-100 text-xs transition hover:border-rose-200/40 focus:outline-none focus:ring-2 focus:ring-rose-200/20"
-          >
+            className="inline-flex h-8 items-center gap-2 rounded-sm border border-rose-300/20 bg-rose-300/10 px-2.5 text-rose-100 text-xs transition hover:border-rose-200/40 focus:outline-none focus:ring-2 focus:ring-rose-200/20">
             <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Details
           </button>
@@ -1364,8 +1185,7 @@ function GenerationFailureState({ run }: { run: GenerationRun }) {
           <TextRevealModal
             label="Joke Context Debug Log"
             title="Joke Context Debug Log"
-            onClose={() => setIsDetailsOpen(false)}
-          >
+            onClose={() => setIsDetailsOpen(false)}>
             <FailureDetails failure={contextFailure} />
           </TextRevealModal>
         ) : null}

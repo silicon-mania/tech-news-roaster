@@ -2,5 +2,6 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["src/**/*.test.tsx"],
   "project": ["src/**/*.{ts,tsx}", "*.{ts,mts,mjs}"],
-  "ignoreDependencies": ["tailwindcss"]
+  "ignore": ["src/components/ui/**"],
+  "ignoreDependencies": ["tailwindcss", "class-variance-authority", "shadcn", "tw-animate-css"]
 }
