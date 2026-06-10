@@ -42,10 +42,7 @@ export function CreativeFailureArea({
         </article>
       </section>
       {isDetailsOpen ? (
-        <TextRevealModal
-          label={detailsLabel}
-          title={detailsLabel}
-          onClose={() => setIsDetailsOpen(false)}>
+        <TextRevealModal title={detailsLabel} onClose={() => setIsDetailsOpen(false)}>
           <FailureDetails failure={failure} />
         </TextRevealModal>
       ) : null}

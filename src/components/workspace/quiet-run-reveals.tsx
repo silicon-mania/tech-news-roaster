@@ -27,10 +27,7 @@ export function QuietRunReveals({ run }: { run: GenerationRun }) {
         </button>
       ) : null}
       {isContextOpen && jokeContextSnapshot ? (
-        <TextRevealModal
-          label="Joke Context Snapshot"
-          title="Joke Context Snapshot"
-          onClose={() => setIsContextOpen(false)}>
+        <TextRevealModal title="Joke Context Snapshot" onClose={() => setIsContextOpen(false)}>
           <JokeContextSnapshotDetails snapshot={jokeContextSnapshot} />
         </TextRevealModal>
       ) : null}

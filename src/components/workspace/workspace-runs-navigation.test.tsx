@@ -13,15 +13,18 @@ describe("Workspace runs navigation", () => {
     renderWorkspace();
 
     await user.click(screen.getByRole("button", { name: /open runs drawer, 0 runs/i }));
-    expect(screen.getByRole("complementary", { name: /runs drawer/i })).toHaveClass("left-0");
+    expect(screen.getByRole("dialog", { name: /runs drawer/i })).toHaveAttribute(
+      "data-side",
+      "left",
+    );
 
     await user.click(screen.getByRole("button", { name: /close runs drawer/i }));
     await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
     expect(
-      screen.getByRole("complementary", {
+      screen.getByRole("dialog", {
         name: /user's direction panel/i,
       }),
-    ).toHaveClass("right-0");
+    ).toHaveAttribute("data-side", "right");
 
     await user.type(
       screen.getByRole("textbox", { name: /^user's direction$/i }),
@@ -36,7 +39,7 @@ describe("Workspace runs navigation", () => {
 
     vi.stubGlobal("innerWidth", 390);
     await user.click(screen.getByRole("button", { name: /open runs drawer, 0 runs/i }));
-    expect(screen.getByRole("complementary", { name: /runs drawer/i })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /runs drawer/i })).toBeInTheDocument();
   });
 
   test("keeps the running run inspectable and prevents another in-flight run", async () => {
@@ -109,6 +112,6 @@ describe("Workspace runs navigation", () => {
     expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
       "1/3",
     );
-    expect(screen.queryByRole("complementary", { name: /runs drawer/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /runs drawer/i })).not.toBeInTheDocument();
   });
 });

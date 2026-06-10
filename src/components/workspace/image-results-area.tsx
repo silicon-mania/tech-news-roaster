@@ -126,10 +126,7 @@ export function ImageResultsArea({
         ))}
       </div>
       {activeFailedImageSet ? (
-        <TextRevealModal
-          label="Quiet Failure Details"
-          title="Quiet Failure Details"
-          onClose={() => setActiveFailureId(null)}>
+        <TextRevealModal title="Quiet Failure Details" onClose={() => setActiveFailureId(null)}>
           <FailureDetails
             failure={{
               message: activeFailedImageSet.message,

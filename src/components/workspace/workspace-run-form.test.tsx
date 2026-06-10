@@ -11,7 +11,7 @@ describe("Workspace run form", () => {
     expect(screen.getByRole("heading", { name: "TECH NEWS ROASTER" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /primary source tweet bar/i })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /empty draft canvas/i })).toBeInTheDocument();
-    expect(screen.queryByRole("complementary", { name: /runs drawer/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /runs drawer/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /^user's direction$/i })).not.toBeInTheDocument();
   });
 

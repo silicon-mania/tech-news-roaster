@@ -97,10 +97,7 @@ export function VisualJokeArea({
         </ul>
       </section>
       {isDirectionOpen && run.visualJokeDirection ? (
-        <TextRevealModal
-          label="Visual Joke Direction"
-          title="Visual Joke Direction"
-          onClose={() => setIsDirectionOpen(false)}>
+        <TextRevealModal title="Visual Joke Direction" onClose={() => setIsDirectionOpen(false)}>
           <pre className="whitespace-pre-wrap break-words rounded-sm border border-white/8 bg-slate-950/60 p-3 text-slate-200 text-sm leading-6">
             {run.visualJokeDirection}
           </pre>

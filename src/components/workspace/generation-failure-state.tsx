@@ -30,10 +30,7 @@ export function GenerationFailureState({ run }: { run: GenerationRun }) {
           </button>
         ) : null}
         {isDetailsOpen && contextFailure ? (
-          <TextRevealModal
-            label="Joke Context Debug Log"
-            title="Joke Context Debug Log"
-            onClose={() => setIsDetailsOpen(false)}>
+          <TextRevealModal title="Joke Context Debug Log" onClose={() => setIsDetailsOpen(false)}>
             <FailureDetails failure={contextFailure} />
           </TextRevealModal>
         ) : null}
