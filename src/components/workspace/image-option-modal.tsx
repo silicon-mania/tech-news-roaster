@@ -2,9 +2,9 @@
 
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import Image from "next/image";
-import { useEffect } from "react";
 import type { ImageSet } from "@/services/generation";
 import { buildImageDownloadName } from "./image-helpers";
+import { useCloseOnEscape } from "./use-close-on-escape";
 
 export function ImageOptionModal({
   imageSet,
@@ -21,17 +21,7 @@ export function ImageOptionModal({
   const canGoPrevious = optionIndex > 0;
   const canGoNext = optionIndex < imageSet.options.length - 1;
 
-  useEffect(() => {
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    document.addEventListener("keydown", closeOnEscape);
-
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  useCloseOnEscape(onClose);
 
   return (
     <div

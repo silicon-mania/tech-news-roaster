@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useCloseOnEscape } from "./use-close-on-escape";
 
 export function TextRevealModal({
   children,
@@ -15,17 +15,7 @@ export function TextRevealModal({
   onClose: () => void;
   title: string;
 }) {
-  useEffect(() => {
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    document.addEventListener("keydown", closeOnEscape);
-
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  useCloseOnEscape(onClose);
 
   return (
     <div

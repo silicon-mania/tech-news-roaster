@@ -38,6 +38,35 @@ function countSuccessfulCreativeResultAreas(states: GenerationResultStates) {
   return successCount;
 }
 
+function addSelectedVisualJokeIssues(
+  run: {
+    selectedVisualJoke?: z.infer<typeof selectedVisualJokeSchema> | null;
+    visualJokeSet?: z.infer<typeof visualJokeSetSchema>;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (!run.selectedVisualJoke) {
+    return;
+  }
+
+  if (!run.visualJokeSet) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Selected Visual Joke requires a Visual Joke Set.",
+      path: ["selectedVisualJoke"],
+    });
+    return;
+  }
+
+  if (!run.visualJokeSet.jokes.some((joke) => joke.id === run.selectedVisualJoke?.visualJokeId)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Selected Visual Joke must belong to the run's Visual Joke Set.",
+      path: ["selectedVisualJoke", "visualJokeId"],
+    });
+  }
+}
+
 function addCompletedRunOutputIssues({
   draftsLength,
   generationResultStates,
@@ -123,26 +152,7 @@ export const completedGenerationRunPayloadSchema = z
       generationResultStates: run.generationResultStates,
     });
 
-    if (!run.selectedVisualJoke) {
-      return;
-    }
-
-    if (!run.visualJokeSet) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Selected Visual Joke requires a Visual Joke Set.",
-        path: ["selectedVisualJoke"],
-      });
-      return;
-    }
-
-    if (!run.visualJokeSet.jokes.some((joke) => joke.id === run.selectedVisualJoke?.visualJokeId)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Selected Visual Joke must belong to the run's Visual Joke Set.",
-        path: ["selectedVisualJoke", "visualJokeId"],
-      });
-    }
+    addSelectedVisualJokeIssues(run, ctx);
   });
 
 const savedGenerationRunSchema = z
@@ -190,26 +200,7 @@ const savedGenerationRunSchema = z
       });
     }
 
-    if (!run.selectedVisualJoke) {
-      return;
-    }
-
-    if (!run.visualJokeSet) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Selected Visual Joke requires a Visual Joke Set.",
-        path: ["selectedVisualJoke"],
-      });
-      return;
-    }
-
-    if (!run.visualJokeSet.jokes.some((joke) => joke.id === run.selectedVisualJoke?.visualJokeId)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Selected Visual Joke must belong to the run's Visual Joke Set.",
-        path: ["selectedVisualJoke", "visualJokeId"],
-      });
-    }
+    addSelectedVisualJokeIssues(run, ctx);
   });
 
 export type CompletedGenerationRunPayload = z.infer<typeof completedGenerationRunPayloadSchema>;
