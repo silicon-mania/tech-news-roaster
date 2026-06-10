@@ -9,9 +9,9 @@ import {
   parseImageGenerationStreamEvent,
 } from "@/services/generation";
 import type { RuntimeStatus } from "@/services/runtime-status";
+import { indexedDbSavedRunStore } from "@/services/saved-runs";
 import { ActiveRunPanel, IntakeForm, RunsList, WorkspaceHeader } from "./components";
 import { isRunInFlight } from "./run-phase";
-import { indexedDbSavedRunStore } from "./saved-runs-store";
 import { parseSourceTweetUrl } from "./source-tweet-url";
 import type {
   GenerationEventSource,

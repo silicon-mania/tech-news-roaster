@@ -1,11 +1,9 @@
-import type { SavedGenerationRun } from "@/services/generation";
+export type { GenerationRun, SavedRunStore } from "@/services/saved-runs";
 
 export type GenerationIntake = {
   sourceTweetUrl: string;
   usersDirection: string;
 };
-
-export type GenerationRun = SavedGenerationRun;
 
 type GenerationEventListener = (message: MessageEvent<string>) => void;
 
@@ -24,9 +22,3 @@ export type SubmissionState =
   | { kind: "invalid"; message: string }
   | { kind: "accepted" }
   | { kind: "blocked"; message: string };
-
-export type SavedRunStore = {
-  list(): Promise<GenerationRun[]>;
-  save(run: GenerationRun): Promise<void>;
-  delete(runId: string): Promise<void>;
-};
