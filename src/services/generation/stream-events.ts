@@ -58,7 +58,7 @@ const generationFailedEventSchema = z
   })
   .strict();
 
-export const generationStreamEventSchema = z.discriminatedUnion("type", [
+const generationStreamEventSchema = z.discriminatedUnion("type", [
   enrichmentCompletedEventSchema,
   generationRunStateEventSchema,
   generationProgressEventSchema,

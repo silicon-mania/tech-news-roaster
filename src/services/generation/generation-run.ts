@@ -145,7 +145,7 @@ export const completedGenerationRunPayloadSchema = z
     }
   });
 
-export const savedGenerationRunSchema = z
+const savedGenerationRunSchema = z
   .object({
     id: runLocalIdSchema,
     jokeContextSnapshot: jokeContextSnapshotSchema.optional(),
