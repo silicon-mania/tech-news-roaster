@@ -3,7 +3,7 @@
 import { Copy, Lightbulb } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import type { QuoteTweetDraft } from "@/features/generation/generation-events";
+import type { QuoteTweetDraft } from "@/services/generation/generation-events";
 
 type DraftComparisonProps = {
   drafts: QuoteTweetDraft[];

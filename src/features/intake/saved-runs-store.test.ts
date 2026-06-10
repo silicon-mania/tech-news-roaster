@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { GenerationProviderId } from "@/features/generation/generation-events";
+import type { GenerationProviderId } from "@/services/generation/generation-events";
 import { planSavedRunRetention } from "./saved-runs-store";
 import type { GenerationRun } from "./types";
 

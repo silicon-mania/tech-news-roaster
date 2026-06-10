@@ -4,11 +4,11 @@ import {
   readConfiguredAiGatewayModels,
   readConfiguredAiGatewayVisualJokeModel,
   readEnvValue,
-} from "@/features/generation/ai-gateway-models";
+} from "@/services/generation/ai-gateway-models";
 import {
   type GenerationProviderId,
   generationProviderIds,
-} from "@/features/generation/generation-events";
+} from "@/services/generation/generation-events";
 
 type RuntimeStatusEnvironment = Readonly<Record<string, string | undefined>>;
 

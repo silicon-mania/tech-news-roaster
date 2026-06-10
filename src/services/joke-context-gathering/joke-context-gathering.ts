@@ -5,7 +5,7 @@ import {
   parseStructuredJokeContext,
   type SourceTweetMediaExtraction,
   type StructuredJokeContext,
-} from "@/features/generation/generation-events";
+} from "@/services/generation/generation-events";
 import {
   type SourceTweetMediaUnderstanding,
   understandSourceTweetMedia,

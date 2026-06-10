@@ -7,7 +7,7 @@ import {
   parseGenerationStreamEvent,
   parseImageGenerationParentRun,
   parseImageGenerationStreamEvent,
-} from "@/features/generation/generation-events";
+} from "@/services/generation/generation-events";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { ActiveRunPanel, IntakeForm, RunsList, WorkspaceHeader } from "./components";
 import { isRunInFlight } from "./run-phase";

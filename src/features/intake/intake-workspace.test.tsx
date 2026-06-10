@@ -20,7 +20,7 @@ import {
   parseVisualJokeSet,
   type QuoteTweetDraft,
   type VisualJokeSet,
-} from "@/features/generation/generation-events";
+} from "@/services/generation/generation-events";
 import { buildReplySignals } from "@/services/outside-x-enrichment";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";

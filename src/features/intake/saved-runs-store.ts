@@ -1,4 +1,4 @@
-import { parseSavedGenerationRun } from "@/features/generation/generation-events";
+import { parseSavedGenerationRun } from "@/services/generation/generation-events";
 import type { GenerationRun, SavedRunStore } from "./types";
 
 const databaseName = "tech-news-roaster";

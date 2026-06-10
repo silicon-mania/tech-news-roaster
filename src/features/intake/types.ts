@@ -1,4 +1,4 @@
-import type { SavedGenerationRun } from "@/features/generation/generation-events";
+import type { SavedGenerationRun } from "@/services/generation/generation-events";
 
 export type GenerationIntake = {
   sourceTweetUrl: string;

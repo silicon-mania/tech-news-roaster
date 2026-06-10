@@ -10,11 +10,11 @@ import {
   type NewsLinkedImage,
   parseCompletedGenerationRunPayload,
   parseGenerationStreamEvent,
-} from "@/features/generation/generation-events";
+} from "@/services/generation/generation-events";
 import {
   type GenerationOrchestrator,
   orchestrateThreeProviderGeneration,
-} from "@/features/generation/generation-orchestrator";
+} from "@/services/generation/generation-orchestrator";
 import {
   gatherJokeContext,
   JokeContextGatheringError,

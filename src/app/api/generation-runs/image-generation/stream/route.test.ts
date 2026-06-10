@@ -4,11 +4,11 @@ import {
   type ImageGenerationParentRun,
   type NewsLinkedImage,
   parseImageGenerationStreamEvent,
-} from "@/features/generation/generation-events";
+} from "@/services/generation/generation-events";
 import type {
   ImageVariationProvider,
   PreparedSelectedImageOriginal,
-} from "@/features/generation/image-generation-service";
+} from "@/services/generation/image-generation-service";
 import { streamImageGenerationRun } from "./route";
 
 describe("image generation stream route", () => {
