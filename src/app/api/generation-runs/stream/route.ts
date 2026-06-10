@@ -1,4 +1,3 @@
-import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import {
   buildCompletedGenerationRunEvents,
   buildEnrichmentCompletedEvent,
@@ -26,6 +25,7 @@ import {
   type NewsLinkedImageDiscoveryService,
   NewsLinkedImageDiscoveryUnavailableError,
 } from "@/services/news-linked-image-discovery";
+import { buildReplySignals } from "@/services/outside-x-enrichment";
 import {
   retrieveTweetContext,
   TweetRetrievalError,

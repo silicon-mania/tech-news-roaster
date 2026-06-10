@@ -1,9 +1,9 @@
+import type { NewsLinkedImage } from "@/features/generation/generation-events";
 import {
   type OutsideXEnrichmentInput,
   OutsideXEnrichmentUnavailableError,
   retrieveOutsideXEnrichment,
-} from "@/features/enrichment/outside-x-enrichment";
-import type { NewsLinkedImage } from "@/features/generation/generation-events";
+} from "@/services/outside-x-enrichment";
 
 export type NewsLinkedImageDiscoveryInput = Pick<
   OutsideXEnrichmentInput,

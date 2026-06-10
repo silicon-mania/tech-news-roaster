@@ -2,7 +2,6 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
-import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import {
   buildCompletedGenerationRunEvents,
   buildEnrichmentCompletedEvent,
@@ -22,6 +21,7 @@ import {
   type QuoteTweetDraft,
   type VisualJokeSet,
 } from "@/features/generation/generation-events";
+import { buildReplySignals } from "@/services/outside-x-enrichment";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import { type GenerationIntake, type GenerationRun, IntakeWorkspace } from "./intake-workspace";
