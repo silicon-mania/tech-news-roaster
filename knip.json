@@ -3,5 +3,5 @@
   "entry": ["src/**/*.test.tsx"],
   "project": ["src/**/*.{ts,tsx}", "*.{ts,mts,mjs}"],
   "ignore": ["src/components/ui/**"],
-  "ignoreDependencies": ["tailwindcss", "class-variance-authority", "shadcn", "tw-animate-css"]
+  "ignoreDependencies": ["tailwindcss", "shadcn", "tw-animate-css"]
 }
