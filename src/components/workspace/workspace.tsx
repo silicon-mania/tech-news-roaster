@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { draftTarget, type ImageGenerationInput } from "@/services/generation";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { indexedDbSavedRunStore } from "@/services/saved-runs";
@@ -126,7 +127,7 @@ export function Workspace({
     setUsersDirection(activeRunUsersDirection ?? "");
   }, [activeRunSourceTweetUrl, activeRunUsersDirection]);
 
-  function submitIntake(event: FormEvent<HTMLFormElement>) {
+  function submitSourceTweet(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (hasInFlightRun) {
@@ -353,11 +354,14 @@ export function Workspace({
       return nextRuns;
     });
 
-    void savedRunStore.delete(runId).catch(() => undefined);
+    void savedRunStore
+      .delete(runId)
+      .then(() => toast.success("Saved run deleted"))
+      .catch(() => toast.error("Couldn't delete saved run"));
   }
 
   return (
-    <main className="min-h-screen overflow-hidden px-3 py-4 text-slate-100 sm:px-8 sm:py-6 lg:px-10">
+    <main className="min-h-screen overflow-hidden px-3 py-4 text-foreground sm:px-8 sm:py-6 lg:px-10">
       <div
         className={`mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] transition-[gap] duration-300 sm:min-h-[calc(100vh-3rem)] ${
           hasRuns ? "gap-4 sm:gap-6" : "gap-7 sm:gap-10"
@@ -375,7 +379,7 @@ export function Workspace({
           onOpenDirectionPanel={() => setIsDirectionPanelOpen(true)}
           onOpenRunsDrawer={() => setIsRunsDrawerOpen(true)}
           onSourceTweetUrlChange={updateSourceTweetUrl}
-          onSubmit={submitIntake}
+          onSubmit={submitSourceTweet}
         />
 
         <ActiveRunPanel

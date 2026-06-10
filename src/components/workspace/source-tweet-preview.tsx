@@ -4,9 +4,9 @@ export function SourceTweetPreview({ text }: { text: string }) {
   return (
     <aside
       aria-label="Source Tweet Preview"
-      className="top-2 z-10 px-3.5 mb-6 shadow-lg shadow-black/30 backdrop-blur-sm max-w-3xl mx-auto">
+      className="top-2 z-10 mx-auto mb-6 max-w-3xl px-3.5 shadow-black/30 shadow-lg backdrop-blur-sm">
       <div className="flex items-start gap-3">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-white/10 bg-slate-950/90 p-1.5">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-card p-1.5">
           <Image
             alt=""
             aria-hidden
@@ -17,8 +17,10 @@ export function SourceTweetPreview({ text }: { text: string }) {
           />
         </span>
         <div className="grid min-w-0 gap-1">
-          <p className="text-xs text-slate-500">Source post</p>
-          <p className="line-clamp-2 wrap-break-word text-slate-200 text-sm leading-6">{text}</p>
+          <p className="text-muted-foreground text-xs">Source post</p>
+          <p className="line-clamp-2 wrap-break-word text-foreground/90 text-sm leading-6">
+            {text}
+          </p>
         </div>
       </div>
     </aside>

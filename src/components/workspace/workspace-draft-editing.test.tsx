@@ -216,6 +216,7 @@ describe("Workspace draft editing", () => {
     );
 
     expect(writeText).toHaveBeenCalledWith("Edited first line.\nEdited second line.");
+    expect(await screen.findByText("Draft copied")).toBeInTheDocument();
   });
 
   test("reopens the latest edited Saved Run content without regenerating", async () => {

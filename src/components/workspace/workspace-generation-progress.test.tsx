@@ -94,6 +94,7 @@ describe("Workspace generation progress", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByTitle("Completed")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /close runs drawer/i }));
     expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
     expect(screen.getAllByText(/local draft model/i)).toHaveLength(3);

@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
+import { Toaster } from "@/components/ui/sonner";
 import {
   buildStubbedGenerationEvents,
   type GenerationProviderId,
@@ -71,7 +72,7 @@ export function renderWorkspace({
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
   initialRuntimeStatus?: RuntimeStatus;
-  onStartGenerationRun?: (intake: GenerationRunInput) => void;
+  onStartGenerationRun?: (input: GenerationRunInput) => void;
   onStartImageGeneration?: (input: ImageGenerationInput) => void;
   runtimeEnvironment?: "development" | "production";
   savedRunStore?: SavedRunStore;
@@ -81,24 +82,27 @@ export function renderWorkspace({
   stubDesktopMediaQuery(isDesktop);
 
   render(
-    <Workspace
-      generationEventSourceFactory={(url) => {
-        generationStreamUrls.push(url);
-        const eventSource = new FakeGenerationEventSource();
+    <>
+      <Workspace
+        generationEventSourceFactory={(url) => {
+          generationStreamUrls.push(url);
+          const eventSource = new FakeGenerationEventSource();
 
-        generationEventSources.push(eventSource);
+          generationEventSources.push(eventSource);
 
-        return eventSource;
-      }}
-      imageGenerationStreamFetcher={imageGenerationStreamFetcher}
-      initialActiveRunId={initialActiveRunId}
-      initialRuns={initialRuns}
-      initialRuntimeStatus={initialRuntimeStatus}
-      onStartGenerationRun={onStartGenerationRun}
-      onStartImageGeneration={onStartImageGeneration}
-      runtimeEnvironment={runtimeEnvironment}
-      savedRunStore={savedRunStore}
-    />,
+          return eventSource;
+        }}
+        imageGenerationStreamFetcher={imageGenerationStreamFetcher}
+        initialActiveRunId={initialActiveRunId}
+        initialRuns={initialRuns}
+        initialRuntimeStatus={initialRuntimeStatus}
+        onStartGenerationRun={onStartGenerationRun}
+        onStartImageGeneration={onStartImageGeneration}
+        runtimeEnvironment={runtimeEnvironment}
+        savedRunStore={savedRunStore}
+      />
+      <Toaster />
+    </>,
   );
 
   return {

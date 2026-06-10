@@ -40,6 +40,10 @@ _Avoid_: Tweet, tweet URL, original post
 The visible representation of the source tweet shown alongside the drafts so the user can judge the quote-tweet candidates against the original post.
 _Avoid_: Embed, metadata block, raw URL
 
+**Source Tweet Bar**:
+The workspace bar where the user submits a source tweet URL to start a generation run, shown in a primary presentation before any runs exist and a compressed presentation once runs are visible. Starting a run is confirmed as "Run started."
+_Avoid_: Intake bar, search bar, URL field
+
 **Source Tweet Media Reference**:
 A neutral pointer to media attached to the Source Tweet, with only retrieval-oriented metadata such as kind, URL, preview URL, alt text, dimensions, or duration. It is not media bytes and does not interpret what the media shows.
 _Avoid_: Media read, media extraction, image analysis

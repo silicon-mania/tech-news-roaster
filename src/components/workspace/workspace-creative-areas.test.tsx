@@ -43,7 +43,7 @@ describe("Workspace creative result areas", () => {
       name: /image generation area/i,
     });
     const imageGenerationButton = within(imageGenerationArea).getByRole("button", {
-      name: /^image generation$/i,
+      name: /^start image generation$/i,
     });
 
     expect(
@@ -175,6 +175,7 @@ describe("Workspace creative result areas", () => {
     expect(writeText).toHaveBeenCalledWith(
       "A workflow map where every exit arrow points back to the login screen.",
     );
+    expect(await screen.findByText("Visual joke copied")).toBeInTheDocument();
 
     await user.click(
       within(visualJokeArea).getByRole("button", {
@@ -228,7 +229,7 @@ describe("Workspace creative result areas", () => {
     );
     await user.click(
       within(imageGenerationArea).getByRole("button", {
-        name: /^image generation$/i,
+        name: /^start image generation$/i,
       }),
     );
 
@@ -264,8 +265,7 @@ describe("Workspace creative result areas", () => {
     });
 
     expect(screen.queryByText(/^Direction$/)).not.toBeInTheDocument();
-    expect(directionButton).toHaveClass("rounded");
-    expect(directionButton).toHaveClass("hover:bg-slate-800/45");
+    expect(directionButton).toHaveTextContent("");
     expect(
       draftStack.compareDocumentPosition(directionButton) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();

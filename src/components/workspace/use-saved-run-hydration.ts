@@ -2,6 +2,7 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect } from "react";
+import { toast } from "sonner";
 import type { GenerationRun, SavedRunStore } from "@/services/workspace";
 import { mergeRuns } from "@/services/workspace";
 
@@ -33,7 +34,11 @@ export function useSavedRunHydration({
           return savedRuns.at(0)?.id ?? null;
         });
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (isMounted) {
+          toast.error("Couldn't load saved runs");
+        }
+      });
 
     return () => {
       isMounted = false;
