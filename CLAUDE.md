@@ -74,12 +74,13 @@ read [CONTEXT.md](CONTEXT.md) and the ADRs under [docs/adr/](docs/adr/).
   - `src/utils/` — shared utilities
   - `src/lib/` — third-party glue (e.g. shadcn's `cn`)
 - Files are **kebab-case**. Co-locate tests next to their subject as
-  `*.test.ts(x)`. Use an `index.ts` barrel per component folder for clean imports.
-- **Migration is pending.** The existing `src/features/*` tree does **not** yet
-  follow this layout. A dedicated refactor will move everything into the
-  structure above — do not start it ad hoc. Until it lands, write *new* code in
-  the target structure and leave existing modules where they are unless told
-  otherwise.
+  `*.test.ts(x)`. Use an `index.ts` barrel per component and service folder —
+  the barrel is the feature's public contract; do not deep-import past it.
+  Exception: server-only modules (e.g. `generation-orchestrator`) are imported
+  directly by routes and stay out of the `services/generation` barrel so client
+  bundles never pull in server code.
+- The migration out of `src/features/*` is **complete** — the tree above is the
+  live layout. Put new code in the matching folder.
 
 ## Workflow
 
