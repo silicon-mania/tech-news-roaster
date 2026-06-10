@@ -1,4 +1,4 @@
-import { readRuntimeStatus } from "@/features/runtime-status/runtime-status";
+import { readRuntimeStatus } from "@/services/runtime-status";
 
 export const dynamic = "force-dynamic";
 

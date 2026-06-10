@@ -22,7 +22,7 @@ import {
   type QuoteTweetDraft,
   type VisualJokeSet,
 } from "@/features/generation/generation-events";
-import type { RuntimeStatus } from "@/features/runtime-status/runtime-status";
+import type { RuntimeStatus } from "@/services/runtime-status";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import { type GenerationIntake, type GenerationRun, IntakeWorkspace } from "./intake-workspace";
 import type { SavedRunStore } from "./types";
