@@ -71,7 +71,7 @@ export function renderWorkspace({
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
   initialRuntimeStatus?: RuntimeStatus;
-  onStartGenerationRun?: (intake: GenerationRunInput) => void;
+  onStartGenerationRun?: (input: GenerationRunInput) => void;
   onStartImageGeneration?: (input: ImageGenerationInput) => void;
   runtimeEnvironment?: "development" | "production";
   savedRunStore?: SavedRunStore;

@@ -96,7 +96,9 @@ describe("Workspace runs navigation", () => {
       initialRuns: seededRuns,
     });
 
-    expect(screen.getByRole("region", { name: /compressed intake bar/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /compressed source tweet bar/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
       "0/3",
     );

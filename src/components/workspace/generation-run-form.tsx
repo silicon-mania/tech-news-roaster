@@ -50,7 +50,7 @@ export function GenerationRunForm({
 
   return (
     <section
-      aria-label={hasRuns ? "Compressed intake bar" : "Primary intake bar"}
+      aria-label={hasRuns ? "Compressed source tweet bar" : "Primary source tweet bar"}
       className={`mx-auto grid w-full max-w-3xl gap-3 transition-[max-width] duration-300 ${
         hasRuns ? "sm:max-w-2xl" : ""
       }`}>
@@ -121,7 +121,7 @@ export function GenerationRunForm({
             role="status"
             aria-live="polite"
             className="text-center text-emerald-300 text-sm leading-5">
-            Intake accepted.
+            Run started.
           </p>
         ) : null}
         {submissionState.kind === "blocked" ? (

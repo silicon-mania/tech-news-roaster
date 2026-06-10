@@ -9,7 +9,7 @@ describe("Workspace run form", () => {
     renderWorkspace();
 
     expect(screen.getByRole("heading", { name: "TECH NEWS ROASTER" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /primary intake bar/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /primary source tweet bar/i })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /empty draft canvas/i })).toBeInTheDocument();
     expect(screen.queryByRole("complementary", { name: /runs drawer/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /^user's direction$/i })).not.toBeInTheDocument();
@@ -39,8 +39,10 @@ describe("Workspace run form", () => {
       sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
       usersDirection: "Make it sharper about platform risk.",
     });
-    expect(screen.getByRole("status")).toHaveTextContent("Intake accepted.");
-    expect(screen.getByRole("region", { name: /compressed intake bar/i })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Run started.");
+    expect(
+      screen.getByRole("region", { name: /compressed source tweet bar/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
       "0/3",
     );
@@ -66,10 +68,10 @@ describe("Workspace run form", () => {
     await user.click(generateButton);
 
     expect(startGenerationRun).not.toHaveBeenCalled();
-    const intakeBar = screen.getByRole("region", {
-      name: /primary intake bar/i,
+    const sourceTweetBar = screen.getByRole("region", {
+      name: /primary source tweet bar/i,
     });
-    expect(within(intakeBar).getByRole("alert")).toHaveTextContent(
+    expect(within(sourceTweetBar).getByRole("alert")).toHaveTextContent(
       "Use a direct x.com or twitter.com status URL.",
     );
     expect(sourceTweetUrlInput).toHaveAttribute("aria-invalid", "true");
@@ -215,7 +217,7 @@ describe("Workspace run form", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   });
 
-  test("opens the generation stream with the accepted intake", async () => {
+  test("opens the generation stream with the accepted source tweet", async () => {
     const user = userEvent.setup();
     const { sourceTweetUrlInput, generateButton, generationStreamUrls } = renderWorkspace();
 

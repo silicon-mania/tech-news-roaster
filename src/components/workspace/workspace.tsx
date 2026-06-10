@@ -126,7 +126,7 @@ export function Workspace({
     setUsersDirection(activeRunUsersDirection ?? "");
   }, [activeRunSourceTweetUrl, activeRunUsersDirection]);
 
-  function submitIntake(event: FormEvent<HTMLFormElement>) {
+  function submitSourceTweet(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (hasInFlightRun) {
@@ -375,7 +375,7 @@ export function Workspace({
           onOpenDirectionPanel={() => setIsDirectionPanelOpen(true)}
           onOpenRunsDrawer={() => setIsRunsDrawerOpen(true)}
           onSourceTweetUrlChange={updateSourceTweetUrl}
-          onSubmit={submitIntake}
+          onSubmit={submitSourceTweet}
         />
 
         <ActiveRunPanel
