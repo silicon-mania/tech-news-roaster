@@ -9,7 +9,7 @@ import {
 import {
   type SourceTweetMediaUnderstanding,
   understandSourceTweetMedia,
-} from "@/features/media-understanding/media-understanding";
+} from "@/services/media-understanding";
 import type { RetrievedSourceTweet, RetrievedTweetContext } from "@/services/tweet-retrieval";
 
 const noMediaPlaceholderKind = "unknown";
