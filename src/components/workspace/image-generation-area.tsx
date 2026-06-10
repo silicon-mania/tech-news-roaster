@@ -85,7 +85,10 @@ export function ImageGenerationArea({
   const images = run.newsLinkedImages ?? [];
   const imageSets = run.imageSets ?? [];
   const failedImageSets = run.failedImageSets ?? [];
-  const imageGenerationStatus = run.imageGenerationState?.status;
+  const imageGenerationState = run.imageGenerationState;
+  const imageGenerationStatus = imageGenerationState?.status;
+  const expectedImageSetCount =
+    imageGenerationState?.status === "running" ? imageGenerationState.selectedImageIds.length : 0;
   const canSelectSourceImages =
     images.length > 0 && (!imageGenerationStatus || imageGenerationStatus === "not-started");
   const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
@@ -145,8 +148,12 @@ export function ImageGenerationArea({
           </p>
           <ImageGenerationAreaStatus run={run} />
         </div>
-        {imageSets.length > 0 || failedImageSets.length > 0 ? (
-          <ImageResultsArea failedImageSets={failedImageSets} imageSets={imageSets} />
+        {imageSets.length > 0 || failedImageSets.length > 0 || expectedImageSetCount > 0 ? (
+          <ImageResultsArea
+            expectedImageSetCount={expectedImageSetCount}
+            failedImageSets={failedImageSets}
+            imageSets={imageSets}
+          />
         ) : null}
         {canSelectSourceImages ? (
           <>

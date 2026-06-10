@@ -357,4 +357,32 @@ describe("Workspace image generation", () => {
       streamController?.close();
     });
   });
+
+  test("reserves the image results footprint with skeleton sets while generation runs", () => {
+    const newsLinkedImages = buildNewsLinkedImages();
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          imageGenerationState: {
+            selectedImageIds: [newsLinkedImages[0].id, newsLinkedImages[1].id],
+            startedAt: "2026-06-05T10:20:00.000Z",
+            status: "running",
+            userImagePrompt: "Keep the image polished.",
+          },
+          newsLinkedImages: newsLinkedImages.slice(0, 2),
+          phase: "image-generation-running",
+        }),
+      ],
+    });
+
+    const imageGenerationArea = screen.getByRole("complementary", {
+      name: /image generation area/i,
+    });
+
+    expect(within(imageGenerationArea).getByLabelText(/pending image set 1/i)).toBeInTheDocument();
+    expect(within(imageGenerationArea).getByLabelText(/pending image set 2/i)).toBeInTheDocument();
+    expect(within(imageGenerationArea).queryByLabelText(/^image set 1$/i)).not.toBeInTheDocument();
+  });
 });
