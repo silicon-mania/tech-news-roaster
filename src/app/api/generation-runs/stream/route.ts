@@ -1,4 +1,3 @@
-import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
 import {
   buildCompletedGenerationRunEvents,
   buildEnrichmentCompletedEvent,
@@ -11,26 +10,27 @@ import {
   type NewsLinkedImage,
   parseCompletedGenerationRunPayload,
   parseGenerationStreamEvent,
-} from "@/features/generation/generation-events";
+} from "@/services/generation";
 import {
   type GenerationOrchestrator,
   orchestrateThreeProviderGeneration,
-} from "@/features/generation/generation-orchestrator";
+} from "@/services/generation/generation-orchestrator";
 import {
   gatherJokeContext,
   JokeContextGatheringError,
   type JokeContextGatheringInput,
-} from "@/features/joke-context-gathering/joke-context-gathering";
+} from "@/services/joke-context-gathering";
 import {
   discoverNewsLinkedImages,
   type NewsLinkedImageDiscoveryService,
   NewsLinkedImageDiscoveryUnavailableError,
-} from "@/features/news-linked-image-discovery/news-linked-image-discovery";
+} from "@/services/news-linked-image-discovery";
+import { buildReplySignals } from "@/services/outside-x-enrichment";
 import {
   retrieveTweetContext,
   TweetRetrievalError,
   type TweetRetrievalService,
-} from "@/features/tweet-retrieval/tweet-retrieval";
+} from "@/services/tweet-retrieval";
 
 export const dynamic = "force-dynamic";
 

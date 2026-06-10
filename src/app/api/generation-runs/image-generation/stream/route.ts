@@ -8,12 +8,12 @@ import {
   parseImageGenerationInput,
   parseImageGenerationParentRun,
   parseImageGenerationStreamEvent,
-} from "@/features/generation/generation-events";
+} from "@/services/generation";
 import {
   type ImageVariationProvider,
   type SelectedImageOriginalPreparer,
   streamImageSetsForRun as streamImageSetsForRunService,
-} from "@/features/generation/image-generation-service";
+} from "@/services/generation/image-generation-service";
 
 export const dynamic = "force-dynamic";
 

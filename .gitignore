@@ -2,6 +2,8 @@
 .vscode/settings.json
 .vscode
 
+.claude/
+
 node_modules/
 .next/
 out/

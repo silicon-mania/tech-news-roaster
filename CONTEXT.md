@@ -57,8 +57,8 @@ The server-side boundary that calls the connected AI providers, tracks provider 
 _Avoid_: Client coordinator, frontend workflow, provider client
 
 **Single-Page Workspace**:
-The product's one responsive page that contains generation, source tweet reference, draft editing, and saved run access without navigating to separate pages.
-_Avoid_: Multi-page flow, wizard, separate editor
+The product's one responsive page that contains generation, source tweet reference, draft editing, and saved run access without navigating to separate pages. "Workspace" is the canonical feature name for this surface in code.
+_Avoid_: Multi-page flow, wizard, separate editor, intake
 
 **Generation Progress**:
 The compact status surface that shows where context gathering, text generation, news-linked image discovery, visual joke generation, and image generation are in the run without becoming a research panel.

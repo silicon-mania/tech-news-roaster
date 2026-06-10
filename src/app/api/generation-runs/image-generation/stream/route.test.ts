@@ -4,11 +4,11 @@ import {
   type ImageGenerationParentRun,
   type NewsLinkedImage,
   parseImageGenerationStreamEvent,
-} from "@/features/generation/generation-events";
+} from "@/services/generation";
 import type {
   ImageVariationProvider,
   PreparedSelectedImageOriginal,
-} from "@/features/generation/image-generation-service";
+} from "@/services/generation/image-generation-service";
 import { streamImageGenerationRun } from "./route";
 
 describe("image generation stream route", () => {
@@ -193,7 +193,7 @@ describe("image generation stream route", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      message: expect.stringContaining("Unrecognized keys"),
+      message: expect.stringContaining("Unrecognized key"),
     });
   });
 

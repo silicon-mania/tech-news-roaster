@@ -1,0 +1,88 @@
+# CLAUDE.md
+
+Guidance for AI agents working on **Tech News Roaster**. This file covers UI, UX,
+and code-organization conventions. For domain language and architecture decisions,
+read [CONTEXT.md](CONTEXT.md) and the ADRs under [docs/adr/](docs/adr/).
+
+## Stack
+
+- **Next.js 16** (App Router) + **React 19**, TypeScript.
+- **Tailwind CSS v4** with CSS custom properties (see `src/app/globals.css`).
+- **Biome** for lint/format (`npm run lint`). There is no Prettier — do not add it.
+- **Vitest** + Testing Library, tests co-located as `*.test.ts(x)`.
+
+## UI components
+
+- **Build every component from [shadcn/ui](https://ui.shadcn.com) primitives.**
+  Reach for a shadcn primitive before hand-rolling markup. Compose primitives
+  into feature components rather than duplicating their internals.
+- shadcn is **installed** (components land in `src/components/ui/`). Add new
+  primitives as needed: `npx shadcn@latest add <name>`. `button`, `skeleton`,
+  `sonner`, and `tooltip` are already in.
+- **One palette, no second color system.** The brand theme in
+  `src/app/globals.css` is the source of truth (`--background`, `--foreground`,
+  `--muted`, `--panel`, `--panel-strong`, `--line`, `--accent`, `--accent-strong`,
+  `--success`, `--danger`; dark-only). shadcn's semantic tokens are wired onto it
+  in the `@theme inline` block — note that `--muted` and `--accent` mean
+  text/link colors here, so shadcn's surface variants are mapped to `--panel*`
+  instead. When a new primitive needs a token, map it there; do **not** add a
+  competing set of color variables.
+- The app is **dark-only**: `<html>` carries the `dark` class so shadcn's
+  `dark:` variants apply, and there is no theme toggle or `next-themes`.
+
+## Visual style
+
+- **Minimalist and thin.** Favor whitespace and type hierarchy over chrome.
+- **Avoid borders.** Separate regions with spacing, subtle background shifts
+  (`--panel` / `--panel-strong`), or weight — not lines. Reach for `--line`
+  only when a divider is genuinely necessary.
+- Keep the dark, editorial feel already established in `globals.css`.
+
+## Actions & buttons
+
+- **Prefer an icon-only action over a labeled button.** An action should be a
+  single [lucide-react](https://lucide.dev) icon with **ghost** styling
+  (`variant="ghost"`), not a button with text or text + icon.
+- Always give icon-only actions an accessible label (`aria-label`) and, where
+  helpful, a tooltip — the icon must be understandable without visible text.
+- Use a labeled button only for primary, ambiguous, or destructive actions
+  where an icon alone would be unclear.
+
+## Loading & feedback
+
+- **Skeletons, not spinners, for loading data.** Use shadcn's `Skeleton` to
+  reserve layout while data loads. The skeleton must match the final content's
+  footprint so there is **no layout shift** when data arrives.
+- **Quiet feedback via [sonner](https://sonner.emilkowal.ski/) toasts.** Use
+  toasts for low-friction confirmations and non-blocking errors — "Text copied",
+  "An error occurred, check your screen", etc. Don't block the UI with modals
+  or alerts for routine feedback. Mount `<Toaster />` once at the app root.
+
+## File & folder organization
+
+- **Keep files small and single-responsibility.** No hard line limit, but a file
+  that's doing several jobs (or scrolling forever) should be split. Many small,
+  well-named files beat a few large ones. Long files are a DX failure, not a
+  neutral choice — the current `src/features/*` modules grew to ~1000-line files
+  and are painful to work in; that is exactly what to avoid.
+- **Organize by type, namespaced by feature.** The target layout is:
+  - `src/app/` — Next.js routes, layouts, API handlers
+  - `src/components/<feature>/` — feature UI components (`src/components/ui/` is
+    reserved for shadcn primitives)
+  - `src/services/<feature>/` — feature logic / data services
+  - `src/types/` — shared types & interfaces
+  - `src/utils/` — shared utilities
+  - `src/lib/` — third-party glue (e.g. shadcn's `cn`)
+- Files are **kebab-case**. Co-locate tests next to their subject as
+  `*.test.ts(x)`. Use an `index.ts` barrel per component and service folder —
+  the barrel is the feature's public contract; do not deep-import past it.
+  Exception: server-only modules (e.g. `generation-orchestrator`) are imported
+  directly by routes and stay out of the `services/generation` barrel so client
+  bundles never pull in server code.
+- The migration out of `src/features/*` is **complete** — the tree above is the
+  live layout. Put new code in the matching folder.
+
+## Workflow
+
+- Run `npm run lint` (Biome, auto-fixes) and `npm run typecheck` before finishing.
+- Run `npm test` for affected areas; add/adjust co-located tests with changes.

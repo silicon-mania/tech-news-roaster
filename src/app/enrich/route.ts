@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { retrievedSourceTweetSchema } from "@/features/tweet-retrieval/tweet-retrieval";
+import { retrievedSourceTweetSchema } from "@/services/tweet-retrieval";
 
 export const dynamic = "force-dynamic";
 

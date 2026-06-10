@@ -1,7 +1,18 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Single dark theme. Brand tokens are the source of truth; shadcn's semantic
+ * color tokens are mapped onto them in `@theme inline` below so there is one
+ * palette, not two. See CLAUDE.md → "UI components".
+ */
 :root {
   color-scheme: dark;
+
+  /* Brand palette (source of truth) */
   --background: #08090c;
   --foreground: #f3f6f8;
   --muted: #8b98a8;
@@ -13,6 +24,21 @@
   --success: #34d399;
   --danger: #fb7185;
   --font-editorial-serif: Georgia, "Times New Roman", serif;
+
+  /* shadcn semantic tokens, wired onto the brand palette */
+  --radius: 0.625rem;
+  --card: var(--panel);
+  --card-foreground: var(--foreground);
+  --popover: var(--panel-strong);
+  --popover-foreground: var(--foreground);
+  --primary: var(--accent);
+  --primary-foreground: var(--background);
+  --secondary: var(--panel-strong);
+  --secondary-foreground: var(--foreground);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--accent);
 }
 
 * {
@@ -65,4 +91,51 @@ textarea {
 
 ::selection {
   background: rgba(103, 200, 255, 0.35);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-heading: var(--font-geist-sans);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /*
+   * `muted` and `accent` collide with brand tokens that mean text/link colors,
+   * so shadcn's surface variants are mapped onto panels here instead of the
+   * brand `--muted` / `--accent` values.
+   */
+  --color-muted: var(--panel-strong);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--panel-strong);
+  --color-accent-foreground: var(--foreground);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }
