@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
-import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
+import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import type { JokeContextSnapshot, VisualJokeSet } from "./generation-events";
 import {
   buildEnrichmentCompletedEvent,

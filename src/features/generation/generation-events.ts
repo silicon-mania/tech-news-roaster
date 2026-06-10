@@ -1,8 +1,5 @@
 import { z } from "zod";
-import {
-  retrievedSourceTweetSchema,
-  sourceTweetMediaKindSchema,
-} from "@/features/tweet-retrieval/tweet-retrieval";
+import { retrievedSourceTweetSchema, sourceTweetMediaKindSchema } from "@/services/tweet-retrieval";
 
 export const draftTarget = 3;
 

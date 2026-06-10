@@ -4,10 +4,7 @@ import {
   parseJokeContextSnapshot,
 } from "@/features/generation/generation-events";
 import { JokeContextGatheringError } from "@/features/joke-context-gathering/joke-context-gathering";
-import {
-  buildFixtureTweetContext,
-  type RetrievedTweetContext,
-} from "@/features/tweet-retrieval/tweet-retrieval";
+import { buildFixtureTweetContext, type RetrievedTweetContext } from "@/services/tweet-retrieval";
 import { GET, streamGenerationRun } from "./route";
 
 describe("generation stream route", () => {

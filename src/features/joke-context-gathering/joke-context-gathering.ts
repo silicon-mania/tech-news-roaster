@@ -10,10 +10,7 @@ import {
   type SourceTweetMediaUnderstanding,
   understandSourceTweetMedia,
 } from "@/features/media-understanding/media-understanding";
-import type {
-  RetrievedSourceTweet,
-  RetrievedTweetContext,
-} from "@/features/tweet-retrieval/tweet-retrieval";
+import type { RetrievedSourceTweet, RetrievedTweetContext } from "@/services/tweet-retrieval";
 
 const noMediaPlaceholderKind = "unknown";
 const jokeContextFailureMessage = "Joke context gathering could not form usable context.";

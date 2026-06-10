@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { RetrievedSourceTweet } from "@/features/tweet-retrieval/tweet-retrieval";
+import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
 import {
   type CompletedGenerationRunPayload,

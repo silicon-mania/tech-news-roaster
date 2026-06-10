@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { buildReplySignals } from "@/features/enrichment/outside-x-enrichment";
-import { buildFixtureTweetContext } from "@/features/tweet-retrieval/tweet-retrieval";
+import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import {
   discoverNewsLinkedImages,
   NewsLinkedImageDiscoveryUnavailableError,

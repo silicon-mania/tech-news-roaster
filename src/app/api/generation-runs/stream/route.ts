@@ -30,7 +30,7 @@ import {
   retrieveTweetContext,
   TweetRetrievalError,
   type TweetRetrievalService,
-} from "@/features/tweet-retrieval/tweet-retrieval";
+} from "@/services/tweet-retrieval";
 
 export const dynamic = "force-dynamic";
 

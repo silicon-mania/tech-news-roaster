@@ -1,8 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import {
-  buildFixtureTweetContext,
-  type RetrievedTweetContext,
-} from "@/features/tweet-retrieval/tweet-retrieval";
+import { buildFixtureTweetContext, type RetrievedTweetContext } from "@/services/tweet-retrieval";
 import { gatherJokeContext, type JokeContextGatheringError } from "./joke-context-gathering";
 
 describe("joke context gathering", () => {

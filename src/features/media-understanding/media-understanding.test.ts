@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import type { RetrievedSourceTweet } from "@/features/tweet-retrieval/tweet-retrieval";
+import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import { understandSourceTweetMedia } from "./media-understanding";
 
 describe("media understanding", () => {
