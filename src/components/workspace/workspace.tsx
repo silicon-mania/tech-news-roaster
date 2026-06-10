@@ -34,6 +34,7 @@ import { ActiveRunPanel } from "./active-run-panel";
 import { GenerationRunForm } from "./generation-run-form";
 import { PanelOverlay } from "./panel-overlay";
 import { RunsList } from "./runs-list";
+import { useRunAutosave } from "./use-run-autosave";
 import { UsersDirectionPanel } from "./users-direction-panel";
 import { WorkspaceHeader } from "./workspace-header";
 
@@ -105,7 +106,7 @@ export function Workspace({
       Pick<GenerationRun, "generationResultStates" | "imageGenerationState" | "newsLinkedImages">
     >
   >(new Map());
-  const autosaveTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const { scheduleRunAutosave } = useRunAutosave(savedRunStore);
 
   useEffect(() => {
     return () => {
@@ -115,12 +116,6 @@ export function Workspace({
 
       generationEventSources.current.clear();
       enrichedRunState.current.clear();
-
-      for (const timeout of autosaveTimeouts.current.values()) {
-        clearTimeout(timeout);
-      }
-
-      autosaveTimeouts.current.clear();
     };
   }, []);
 
@@ -803,21 +798,6 @@ export function Workspace({
         return updatedRun;
       }),
     );
-  }
-
-  function scheduleRunAutosave(run: GenerationRun) {
-    const currentTimeout = autosaveTimeouts.current.get(run.id);
-
-    if (currentTimeout) {
-      clearTimeout(currentTimeout);
-    }
-
-    const timeout = setTimeout(() => {
-      autosaveTimeouts.current.delete(run.id);
-      void savedRunStore.save(run).catch(() => undefined);
-    }, 350);
-
-    autosaveTimeouts.current.set(run.id, timeout);
   }
 
   function reopenRun(runId: string) {
