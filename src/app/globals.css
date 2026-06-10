@@ -22,6 +22,7 @@
   --accent: #67c8ff;
   --accent-strong: #9bdcff;
   --success: #34d399;
+  --warning: #fde68a;
   --danger: #fb7185;
   --font-editorial-serif: Georgia, "Times New Roman", serif;
 
@@ -121,6 +122,10 @@ textarea {
   --color-muted-foreground: var(--muted);
   --color-accent: var(--panel-strong);
   --color-accent-foreground: var(--foreground);
+
+  /* Brand status tokens with no shadcn equivalent (destructive covers danger). */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);

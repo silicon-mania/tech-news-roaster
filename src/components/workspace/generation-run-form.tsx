@@ -1,9 +1,9 @@
 import { AlignLeft, ArrowRight, Menu } from "lucide-react";
 import { type FormEvent, useId } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SubmissionState } from "@/services/workspace";
-
-const iconButtonClassName =
-  "inline-flex items-center justify-center rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20";
 
 type GenerationRunFormProps = {
   hasRuns: boolean;
@@ -57,20 +57,29 @@ export function GenerationRunForm({
       <form
         noValidate
         onSubmit={onSubmit}
-        className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2 rounded-sm border border-slate-800/90 bg-slate-950/84 p-2 shadow-2xl shadow-black/25 backdrop-blur sm:grid-cols-[3rem_minmax(0,1fr)_auto_3rem]">
-        <button
-          type="button"
-          aria-label={`Open runs drawer, ${runsCount} runs`}
-          onClick={onOpenRunsDrawer}
-          className={iconButtonClassName}>
-          <Menu aria-hidden className="size-3.5" strokeWidth={1.75} />
-        </button>
+        className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2 rounded-md bg-card/85 p-2 shadow-2xl shadow-black/25 backdrop-blur sm:grid-cols-[3rem_minmax(0,1fr)_auto_3rem]">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label={`Open runs drawer, ${runsCount} runs`}
+                className="justify-self-center text-muted-foreground"
+                onClick={onOpenRunsDrawer}
+                size="icon"
+                type="button"
+                variant="ghost"
+              />
+            }>
+            <Menu aria-hidden className="size-3.5" strokeWidth={1.75} />
+          </TooltipTrigger>
+          <TooltipContent>Runs</TooltipContent>
+        </Tooltip>
 
         <div className="min-w-0">
           <label htmlFor={sourceTweetUrlId} className="sr-only">
             Source Tweet URL
           </label>
-          <input
+          <Input
             id={sourceTweetUrlId}
             name="sourceTweetUrl"
             value={sourceTweetUrl}
@@ -78,32 +87,41 @@ export function GenerationRunForm({
             aria-describedby={sourceTweetUrlDescription || undefined}
             aria-invalid={submissionState.kind === "invalid"}
             placeholder="https://x.com/handle/status/1234567890"
-            className="h-11 w-full min-w-0 rounded-sm border border-transparent bg-slate-900/70 px-3 text-base text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-sky-300/70 focus:ring-2 focus:ring-sky-300/20 aria-invalid:border-rose-400 aria-invalid:focus:border-rose-400 aria-invalid:focus:ring-rose-400/25 sm:px-4"
+            className="h-11 rounded-md border-transparent bg-secondary/60 px-3 placeholder:text-muted-foreground/60 sm:px-4 md:text-base dark:bg-secondary/60"
           />
         </div>
 
-        <button
+        <Button
           type="submit"
           aria-describedby={visibleRuntimeNotice ? runtimeNoticeId : undefined}
           disabled={isRunDisabled}
-          className="col-span-3 row-start-2 inline-flex h-11 items-center justify-center gap-2 rounded-sm bg-sky-300 px-3 font-semibold text-slate-950 text-sm transition hover:bg-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500 sm:col-auto sm:row-auto sm:px-4">
+          className="col-span-3 row-start-2 h-11 gap-2 px-3 font-semibold sm:col-auto sm:row-auto sm:px-4">
           <ArrowRight aria-hidden className="size-4" strokeWidth={1.75} />
           <span>Run</span>
-        </button>
+        </Button>
 
-        <button
-          type="button"
-          aria-label="Open user's direction panel"
-          onClick={onOpenDirectionPanel}
-          className={`relative col-start-3 row-start-1 sm:col-auto sm:row-auto ${iconButtonClassName}`}>
-          <AlignLeft aria-hidden className="size-3.5" strokeWidth={1.75} />
-          {hasUsersDirection ? (
-            <span
-              title="User's Direction has content"
-              className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-sky-300"
-            />
-          ) : null}
-        </button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label="Open user's direction panel"
+                className="relative col-start-3 row-start-1 justify-self-center text-muted-foreground sm:col-auto sm:row-auto"
+                onClick={onOpenDirectionPanel}
+                size="icon"
+                type="button"
+                variant="ghost"
+              />
+            }>
+            <AlignLeft aria-hidden className="size-3.5" strokeWidth={1.75} />
+            {hasUsersDirection ? (
+              <span
+                title="User's Direction has content"
+                className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary"
+              />
+            ) : null}
+          </TooltipTrigger>
+          <TooltipContent>User's direction</TooltipContent>
+        </Tooltip>
       </form>
 
       <div className="min-h-5 px-2">
@@ -111,7 +129,7 @@ export function GenerationRunForm({
           <p
             id={sourceTweetUrlErrorId}
             role="alert"
-            className="text-center text-rose-300 text-sm leading-5">
+            className="text-center text-destructive text-sm leading-5">
             {submissionState.message}
           </p>
         ) : null}
@@ -120,12 +138,15 @@ export function GenerationRunForm({
             id={statusId}
             role="status"
             aria-live="polite"
-            className="text-center text-emerald-300 text-sm leading-5">
+            className="text-center text-sm text-success leading-5">
             Run started.
           </p>
         ) : null}
         {submissionState.kind === "blocked" ? (
-          <p id={statusId} role="status" className="text-center text-slate-400 text-sm leading-5">
+          <p
+            id={statusId}
+            role="status"
+            className="text-center text-muted-foreground text-sm leading-5">
             {submissionState.message}
           </p>
         ) : null}
@@ -134,7 +155,7 @@ export function GenerationRunForm({
             id={runtimeNoticeId}
             role={visibleRuntimeNotice.kind === "blocked" ? "status" : undefined}
             className={`text-center text-sm leading-5 ${
-              visibleRuntimeNotice.kind === "warning" ? "text-amber-200" : "text-slate-400"
+              visibleRuntimeNotice.kind === "warning" ? "text-warning" : "text-muted-foreground"
             }`}>
             {visibleRuntimeNotice.message}
           </p>
