@@ -1,11 +1,10 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
   draftTarget,
   type ImageGenerationInput,
   parseGenerationStreamEvent,
-  parseImageGenerationParentRun,
   parseImageGenerationStreamEvent,
 } from "@/services/generation";
 import type { RuntimeStatus } from "@/services/runtime-status";
@@ -18,10 +17,24 @@ import type {
   SavedRunStore,
   SubmissionState,
 } from "@/services/workspace";
-import { isRunInFlight, parseSourceTweetUrl } from "@/services/workspace";
+import {
+  buildGenerationStreamUrl,
+  buildImageGenerationParentRun,
+  collectSelectedImageOriginals,
+  createRunId,
+  deriveRunPhaseFromGenerationResultStates,
+  extractNewsLinkedImagesFromGenerationResultStates,
+  getImageGenerationStartedAt,
+  isRunInFlight,
+  mergeRuns,
+  parseSourceTweetUrl,
+} from "@/services/workspace";
+import { upsertById } from "@/utils/upsert-by-id";
 import { ActiveRunPanel } from "./active-run-panel";
 import { GenerationRunForm } from "./generation-run-form";
+import { PanelOverlay } from "./panel-overlay";
 import { RunsList } from "./runs-list";
+import { UsersDirectionPanel } from "./users-direction-panel";
 import { WorkspaceHeader } from "./workspace-header";
 
 export type { GenerationRun, GenerationRunInput } from "@/services/workspace";
@@ -895,108 +908,6 @@ export function Workspace({
   );
 }
 
-function mergeRuns(currentRuns: GenerationRun[], savedRuns: GenerationRun[]) {
-  const currentRunIds = new Set(currentRuns.map((run) => run.id));
-  const unseenSavedRuns = savedRuns.filter((run) => !currentRunIds.has(run.id));
-
-  return [...currentRuns, ...unseenSavedRuns];
-}
-
-function extractNewsLinkedImagesFromGenerationResultStates(
-  generationResultStates: GenerationRun["generationResultStates"],
-) {
-  if (generationResultStates?.newsLinkedImageDiscovery.status !== "completed") {
-    return undefined;
-  }
-
-  return generationResultStates.newsLinkedImageDiscovery.newsLinkedImages;
-}
-
-function deriveRunPhaseFromGenerationResultStates(
-  generationResultStates: GenerationRun["generationResultStates"],
-) {
-  if (!generationResultStates) {
-    return undefined;
-  }
-
-  if (generationResultStates.imageGeneration.status === "running") {
-    return "image-generation-running";
-  }
-
-  if (generationResultStates.contextGathering.status === "running") {
-    return "enrichment-running";
-  }
-
-  if (
-    generationResultStates.textGeneration.status === "running" ||
-    generationResultStates.newsLinkedImageDiscovery.status === "running" ||
-    generationResultStates.visualJokeGeneration.status === "running"
-  ) {
-    return "text-generation-running";
-  }
-
-  return undefined;
-}
-
-function upsertById<TItem extends { id: string }>(items: TItem[], nextItem: TItem) {
-  const existingIndex = items.findIndex((item) => item.id === nextItem.id);
-
-  if (existingIndex === -1) {
-    return [...items, nextItem];
-  }
-
-  return items.map((item, index) => (index === existingIndex ? nextItem : item));
-}
-
-function getImageGenerationStartedAt(run: GenerationRun) {
-  const state = run.imageGenerationState;
-
-  if (!state || state.status === "not-started") {
-    return undefined;
-  }
-
-  return state.startedAt;
-}
-
-function collectSelectedImageOriginals({
-  currentSelectedImageOriginals,
-  failedImageSets,
-  imageSets,
-}: {
-  currentSelectedImageOriginals: NonNullable<GenerationRun["selectedImageOriginals"]>;
-  failedImageSets: NonNullable<GenerationRun["failedImageSets"]>;
-  imageSets: NonNullable<GenerationRun["imageSets"]>;
-}) {
-  let selectedImageOriginals = currentSelectedImageOriginals;
-
-  for (const imageSet of imageSets) {
-    selectedImageOriginals = upsertById(selectedImageOriginals, imageSet.selectedImageOriginal);
-  }
-
-  for (const failedImageSet of failedImageSets) {
-    if (failedImageSet.selectedImageOriginal) {
-      selectedImageOriginals = upsertById(
-        selectedImageOriginals,
-        failedImageSet.selectedImageOriginal,
-      );
-    }
-  }
-
-  return selectedImageOriginals;
-}
-
-function buildImageGenerationParentRun(run: GenerationRun) {
-  return parseImageGenerationParentRun({
-    failedImageSets: run.failedImageSets,
-    id: run.id,
-    imageGenerationState: run.imageGenerationState,
-    imageSets: run.imageSets,
-    newsLinkedImages: run.newsLinkedImages,
-    phase: run.phase,
-    selectedImageOriginals: run.selectedImageOriginals,
-  });
-}
-
 async function readImageGenerationErrorMessage(response: Response) {
   try {
     const body = (await response.json()) as { message?: unknown };
@@ -1009,112 +920,4 @@ async function readImageGenerationErrorMessage(response: Response) {
   }
 
   return "Image generation failed.";
-}
-
-type PanelOverlayProps = {
-  children: ReactNode;
-  label: string;
-  side: "left" | "right";
-  onClose: () => void;
-};
-
-function PanelOverlay({ children, label, onClose, side }: PanelOverlayProps) {
-  const sideClass = side === "left" ? "left-0" : "right-0";
-
-  return (
-    <div className="fixed inset-0 z-40">
-      <button
-        type="button"
-        aria-hidden="true"
-        tabIndex={-1}
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-slate-950/70 backdrop-blur-[2px]"
-      />
-      <aside
-        aria-label={label}
-        className={`absolute ${sideClass} top-0 grid h-full w-[min(26rem,100vw)] content-start overflow-y-auto border-slate-800/80 bg-[#08090c]/96 p-4 shadow-2xl shadow-black/45 sm:w-[min(26rem,calc(100vw-2rem))] sm:p-6 ${
-          side === "left" ? "border-r" : "border-l"
-        }`}>
-        <button
-          type="button"
-          aria-label={`Close ${label.toLowerCase()}`}
-          onClick={onClose}
-          className="mb-5 ml-auto inline-flex h-9 w-9 items-center justify-center rounded-sm border border-slate-800 text-slate-500 transition hover:border-slate-600 hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
-          <CloseIcon />
-        </button>
-        {children}
-      </aside>
-    </div>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.3">
-      <path d="M6 6l12 12" />
-      <path d="M18 6 6 18" />
-    </svg>
-  );
-}
-
-type UsersDirectionPanelProps = {
-  usersDirection: string;
-  onUsersDirectionChange: (usersDirection: string) => void;
-};
-
-function UsersDirectionPanel({ usersDirection, onUsersDirectionChange }: UsersDirectionPanelProps) {
-  return (
-    <div className="grid gap-4">
-      <div>
-        <p className="editorial-serif text-slate-100 text-xl">User&apos;s Direction</p>
-        <p className="mt-1 text-slate-500 text-xs uppercase tracking-[0.16em]">Optional</p>
-      </div>
-      <textarea
-        aria-label="User's Direction"
-        name="usersDirection"
-        value={usersDirection}
-        onChange={(event) => onUsersDirectionChange(event.target.value)}
-        placeholder="Add context to respect, a constraint, or a line you want challenged."
-        className="min-h-52 w-full resize-y rounded-sm border border-slate-800/90 bg-slate-950/70 px-4 py-3 text-base text-slate-100 leading-7 outline-none transition focus:border-sky-300/70 focus:ring-2 focus:ring-sky-300/20"
-      />
-    </div>
-  );
-}
-
-function buildGenerationStreamUrl(runInput: GenerationRunInput) {
-  const searchParams = new URLSearchParams({
-    sourceTweetUrl: runInput.sourceTweetUrl,
-  });
-
-  if (runInput.usersDirection) {
-    searchParams.set("usersDirection", runInput.usersDirection);
-  }
-
-  return `/api/generation-runs/stream?${searchParams.toString()}`;
-}
-
-function createRunId(existingRuns: GenerationRun[]) {
-  const existingRunIds = new Set(existingRuns.map((run) => run.id));
-
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const uniquePart =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const runId = `run-${uniquePart}`;
-
-    if (!existingRunIds.has(runId)) {
-      return runId;
-    }
-  }
-
-  return `run-${Date.now()}-${existingRunIds.size}`;
 }
