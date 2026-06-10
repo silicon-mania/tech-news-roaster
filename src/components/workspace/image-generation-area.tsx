@@ -1,9 +1,11 @@
 "use client";
 
-import { Check, Loader2, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import Image from "next/image";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import type { ImageGenerationInput } from "@/services/generation";
 import { parseImageGenerationInput } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
@@ -59,14 +61,13 @@ function ImageGenerationAreaStatus({ run }: { run: GenerationRun }) {
   const { kind, label } = getImageGenerationAreaStatus(run);
 
   return (
-    <p className="inline-flex items-center gap-1.5 text-slate-500 text-xs" role="status">
-      {kind === "loading" ? (
-        <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-300" />
-      ) : null}
+    <p className="inline-flex items-center gap-1.5 text-muted-foreground text-xs" role="status">
       {kind === "success" ? (
-        <Check aria-hidden className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+        <Check aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />
       ) : null}
-      {kind === "failed" ? <X aria-hidden className="h-3.5 w-3.5 shrink-0 text-rose-400" /> : null}
+      {kind === "failed" ? (
+        <X aria-hidden className="h-3.5 w-3.5 shrink-0 text-destructive" />
+      ) : null}
       <span>{label}</span>
     </p>
   );
@@ -136,10 +137,10 @@ export function ImageGenerationArea({
 
   return (
     <>
-      <h1 className="font-medium text-slate-100 text-lg md:text-2xl">Image generation</h1>
-      <aside aria-label="Image generation area" className="grid gap-3 bg-slate-950/35 p-3">
+      <h1 className="font-medium text-foreground text-lg md:text-2xl">Image generation</h1>
+      <aside aria-label="Image generation area" className="grid gap-3 bg-card/40 p-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="min-w-0 truncate text-slate-500 text-xs">
+          <p className="min-w-0 truncate text-muted-foreground text-xs">
             {run.imageModelProvenance ? formatImageModelProvenance(run.imageModelProvenance) : null}
           </p>
           <ImageGenerationAreaStatus run={run} />
@@ -160,12 +161,12 @@ export function ImageGenerationArea({
                       aria-label={`Select ${getImageTitle(image, index)} for image generation`}
                       aria-pressed={selectedImageIds.includes(image.id)}
                       onClick={() => toggleImageSelection(image.id)}
-                      className={`group grid w-full gap-1.5 rounded-sm text-left transition focus:outline-none focus:ring-2 focus:ring-sky-300/25 ${
+                      className={`group grid w-full gap-1.5 rounded-md text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
                         selectedImageIds.includes(image.id)
-                          ? "bg-sky-300/10 ring-1 ring-sky-300/60"
-                          : "bg-slate-950/40"
+                          ? "bg-primary/10 ring-1 ring-primary/60"
+                          : "bg-card/50"
                       }`}>
-                      <span className="relative aspect-[4/3] overflow-hidden rounded-sm bg-slate-900">
+                      <span className="relative aspect-[4/3] overflow-hidden rounded-md bg-secondary">
                         <Image
                           alt={image.altText ?? image.title ?? `News-linked image ${index + 1}`}
                           className="h-full w-full object-cover transition group-hover:scale-[1.02]"
@@ -176,7 +177,7 @@ export function ImageGenerationArea({
                           width={320}
                         />
                       </span>
-                      <span className="px-0.5 text-slate-400 text-xs">
+                      <span className="px-0.5 text-muted-foreground text-xs">
                         {getImageTitle(image, index)}
                       </span>
                     </button>
@@ -185,30 +186,30 @@ export function ImageGenerationArea({
               </ul>
             </div>
             {selectionMessage ? (
-              <p className="text-slate-400 text-xs" role="status">
+              <p className="text-muted-foreground text-xs" role="status">
                 {selectionMessage}
               </p>
             ) : null}
             <form className="grid gap-2" onSubmit={submitImageGeneration}>
               <label
-                className="font-medium text-slate-300 text-xs"
+                className="font-medium text-foreground/80 text-xs"
                 htmlFor={`${parentRunId}-user-image-prompt`}>
                 User Image Prompt
               </label>
-              <textarea
+              <Textarea
                 id={`${parentRunId}-user-image-prompt`}
                 aria-label="User Image Prompt"
                 value={userImagePrompt}
                 onChange={(event) => setUserImagePrompt(event.target.value)}
-                className="min-h-20 resize-y rounded-sm border border-slate-800 bg-slate-950/60 px-3 py-2 text-slate-100 text-sm leading-6 outline-none transition placeholder:text-slate-600 focus:border-sky-300/50 focus:ring-2 focus:ring-sky-300/20"
+                className="min-h-20 resize-y rounded-md border-transparent bg-card/80 px-3 py-2 text-sm leading-6 placeholder:text-muted-foreground/60 dark:bg-card/80"
                 placeholder="Describe the visual variation to generate."
               />
-              <button
-                type="submit"
+              <Button
+                className="justify-self-start"
                 disabled={!canStartImageGeneration}
-                className="justify-self-start rounded-sm border border-slate-700 bg-slate-100 px-3 py-2 font-medium text-slate-950 text-sm transition hover:bg-white disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-500">
-                Image Generation
-              </button>
+                type="submit">
+                Start image generation
+              </Button>
             </form>
           </>
         ) : null}

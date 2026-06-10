@@ -209,7 +209,7 @@ describe("Workspace image generation", () => {
     );
     await user.click(
       within(imageGenerationArea).getByRole("button", {
-        name: /^image generation$/i,
+        name: /^start image generation$/i,
       }),
     );
 
@@ -325,7 +325,7 @@ describe("Workspace image generation", () => {
     );
     await user.click(
       within(imageGenerationArea).getByRole("button", {
-        name: /^image generation$/i,
+        name: /^start image generation$/i,
       }),
     );
 

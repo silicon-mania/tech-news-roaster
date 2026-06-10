@@ -43,7 +43,7 @@ describe("Workspace creative result areas", () => {
       name: /image generation area/i,
     });
     const imageGenerationButton = within(imageGenerationArea).getByRole("button", {
-      name: /^image generation$/i,
+      name: /^start image generation$/i,
     });
 
     expect(
@@ -229,7 +229,7 @@ describe("Workspace creative result areas", () => {
     );
     await user.click(
       within(imageGenerationArea).getByRole("button", {
-        name: /^image generation$/i,
+        name: /^start image generation$/i,
       }),
     );
 

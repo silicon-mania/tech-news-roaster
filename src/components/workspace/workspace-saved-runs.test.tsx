@@ -287,7 +287,7 @@ describe("Workspace saved runs", () => {
     );
     await user.click(
       within(imageGenerationArea).getByRole("button", {
-        name: /^image generation$/i,
+        name: /^start image generation$/i,
       }),
     );
 
