@@ -26,7 +26,6 @@ import {
   extractNewsLinkedImagesFromGenerationResultStates,
   getImageGenerationStartedAt,
   isRunInFlight,
-  mergeRuns,
   parseSourceTweetUrl,
 } from "@/services/workspace";
 import { upsertById } from "@/utils/upsert-by-id";
@@ -35,6 +34,8 @@ import { GenerationRunForm } from "./generation-run-form";
 import { PanelOverlay } from "./panel-overlay";
 import { RunsList } from "./runs-list";
 import { useRunAutosave } from "./use-run-autosave";
+import { useRuntimeStatus } from "./use-runtime-status";
+import { useSavedRunHydration } from "./use-saved-run-hydration";
 import { UsersDirectionPanel } from "./users-direction-panel";
 import { WorkspaceHeader } from "./workspace-header";
 
@@ -63,16 +64,6 @@ function createGenerationEventSource(url: string) {
   return new EventSource(url);
 }
 
-async function fetchRuntimeStatus() {
-  const response = await fetch("/api/runtime-status");
-
-  if (!response.ok) {
-    throw new Error("Runtime status could not be read.");
-  }
-
-  return (await response.json()) as RuntimeStatus;
-}
-
 export function Workspace({
   generationEventSourceFactory = createGenerationEventSource,
   imageGenerationStreamFetcher = fetch,
@@ -82,7 +73,7 @@ export function Workspace({
   onStartGenerationRun,
   onStartImageGeneration,
   runtimeEnvironment = process.env.NODE_ENV === "production" ? "production" : "development",
-  runtimeStatusFetcher = fetchRuntimeStatus,
+  runtimeStatusFetcher,
   savedRunStore = indexedDbSavedRunStore,
 }: WorkspaceProps) {
   const initialActiveRun =
@@ -96,9 +87,7 @@ export function Workspace({
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
     kind: "idle",
   });
-  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(
-    initialRuntimeStatus ?? null,
-  );
+  const runtimeStatus = useRuntimeStatus({ initialRuntimeStatus, runtimeStatusFetcher });
   const generationEventSources = useRef<Map<string, GenerationEventSource>>(new Map());
   const enrichedRunState = useRef<
     Map<
@@ -119,55 +108,7 @@ export function Workspace({
     };
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    if (initialRuntimeStatus) {
-      return () => {
-        isMounted = false;
-      };
-    }
-
-    void runtimeStatusFetcher()
-      .then((status) => {
-        if (!isMounted) {
-          return;
-        }
-
-        setRuntimeStatus(status);
-      })
-      .catch(() => undefined);
-
-    return () => {
-      isMounted = false;
-    };
-  }, [initialRuntimeStatus, runtimeStatusFetcher]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    void savedRunStore
-      .list()
-      .then((savedRuns) => {
-        if (!isMounted || savedRuns.length === 0) {
-          return;
-        }
-
-        setRuns((currentRuns) => mergeRuns(currentRuns, savedRuns));
-        setActiveRunId((currentActiveRunId) => {
-          if (currentActiveRunId) {
-            return currentActiveRunId;
-          }
-
-          return savedRuns.at(0)?.id ?? null;
-        });
-      })
-      .catch(() => undefined);
-
-    return () => {
-      isMounted = false;
-    };
-  }, [savedRunStore]);
+  useSavedRunHydration({ savedRunStore, setActiveRunId, setRuns });
 
   const activeRun = runs.find((run) => run.id === activeRunId) ?? null;
   const activeRunSourceTweetUrl = activeRun?.sourceTweetUrl;
