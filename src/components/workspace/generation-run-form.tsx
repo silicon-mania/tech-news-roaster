@@ -5,7 +5,7 @@ import type { SubmissionState } from "@/services/workspace";
 const iconButtonClassName =
   "inline-flex items-center justify-center rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20";
 
-type IntakeFormProps = {
+type GenerationRunFormProps = {
   hasRuns: boolean;
   hasUsersDirection: boolean;
   isRunDisabled: boolean;
@@ -22,7 +22,7 @@ type IntakeFormProps = {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
-export function IntakeForm({
+export function GenerationRunForm({
   hasRuns,
   hasUsersDirection,
   isRunDisabled,
@@ -34,7 +34,7 @@ export function IntakeForm({
   onOpenRunsDrawer,
   onSourceTweetUrlChange,
   onSubmit,
-}: IntakeFormProps) {
+}: GenerationRunFormProps) {
   const sourceTweetUrlId = useId();
   const sourceTweetUrlErrorId = `${sourceTweetUrlId}-error`;
   const statusId = `${sourceTweetUrlId}-status`;

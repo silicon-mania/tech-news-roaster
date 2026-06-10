@@ -1,5 +1,5 @@
-import { IntakeWorkspace } from "@/features/intake/intake-workspace";
+import { Workspace } from "@/components/workspace";
 
 export default function Home() {
-  return <IntakeWorkspace />;
+  return <Workspace />;
 }

@@ -13,23 +13,26 @@ import { indexedDbSavedRunStore } from "@/services/saved-runs";
 import type {
   GenerationEventSource,
   GenerationEventSourceFactory,
-  GenerationIntake,
   GenerationRun,
+  GenerationRunInput,
   SavedRunStore,
   SubmissionState,
 } from "@/services/workspace";
 import { isRunInFlight, parseSourceTweetUrl } from "@/services/workspace";
-import { ActiveRunPanel, IntakeForm, RunsList, WorkspaceHeader } from "./components";
+import { ActiveRunPanel } from "./active-run-panel";
+import { GenerationRunForm } from "./generation-run-form";
+import { RunsList } from "./runs-list";
+import { WorkspaceHeader } from "./workspace-header";
 
-export type { GenerationIntake, GenerationRun } from "@/services/workspace";
+export type { GenerationRun, GenerationRunInput } from "@/services/workspace";
 
-type IntakeWorkspaceProps = {
+type WorkspaceProps = {
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
   generationEventSourceFactory?: GenerationEventSourceFactory;
   imageGenerationStreamFetcher?: typeof fetch;
   initialRuntimeStatus?: RuntimeStatus;
-  onStartGenerationRun?: (intake: GenerationIntake) => void | Promise<void>;
+  onStartGenerationRun?: (runInput: GenerationRunInput) => void | Promise<void>;
   onStartImageGeneration?: (input: ImageGenerationInput) => void | Promise<void>;
   runtimeEnvironment?: "development" | "production";
   runtimeStatusFetcher?: () => Promise<RuntimeStatus>;
@@ -56,7 +59,7 @@ async function fetchRuntimeStatus() {
   return (await response.json()) as RuntimeStatus;
 }
 
-export function IntakeWorkspace({
+export function Workspace({
   generationEventSourceFactory = createGenerationEventSource,
   imageGenerationStreamFetcher = fetch,
   initialActiveRunId,
@@ -67,7 +70,7 @@ export function IntakeWorkspace({
   runtimeEnvironment = process.env.NODE_ENV === "production" ? "production" : "development",
   runtimeStatusFetcher = fetchRuntimeStatus,
   savedRunStore = indexedDbSavedRunStore,
-}: IntakeWorkspaceProps) {
+}: WorkspaceProps) {
   const initialActiveRun =
     initialRuns.find((run) => run.id === initialActiveRunId) ?? initialRuns.at(0) ?? null;
   const [sourceTweetUrl, setSourceTweetUrl] = useState(initialActiveRun?.sourceTweetUrl ?? "");
@@ -226,7 +229,7 @@ export function IntakeWorkspace({
       return;
     }
 
-    const intake = {
+    const runInput = {
       sourceTweetUrl: parsedSourceTweetUrl.url,
       usersDirection: usersDirection.trim(),
     };
@@ -268,12 +271,12 @@ export function IntakeWorkspace({
     setActiveRunId(runId);
     setSubmissionState({ kind: "accepted" });
 
-    void onStartGenerationRun?.(intake);
-    subscribeToGenerationRun(runId, intake);
+    void onStartGenerationRun?.(runInput);
+    subscribeToGenerationRun(runId, runInput);
   }
 
-  function subscribeToGenerationRun(runId: string, intake: GenerationIntake) {
-    const eventSource = generationEventSourceFactory(buildGenerationStreamUrl(intake));
+  function subscribeToGenerationRun(runId: string, runInput: GenerationRunInput) {
+    const eventSource = generationEventSourceFactory(buildGenerationStreamUrl(runInput));
 
     generationEventSources.current.set(runId, eventSource);
 
@@ -396,8 +399,8 @@ export function IntakeWorkspace({
       const completedRun: GenerationRun = {
         id: runId,
         label: event.run.label,
-        sourceTweetUrl: intake.sourceTweetUrl,
-        usersDirection: intake.usersDirection,
+        sourceTweetUrl: runInput.sourceTweetUrl,
+        usersDirection: runInput.usersDirection,
         status: "completed",
         draftCount: event.run.drafts.length,
         draftTarget,
@@ -844,7 +847,7 @@ export function IntakeWorkspace({
         }`}>
         <WorkspaceHeader />
 
-        <IntakeForm
+        <GenerationRunForm
           hasRuns={hasRuns}
           hasUsersDirection={hasUsersDirection}
           isRunDisabled={hasInFlightRun || productionRunDisabled}
@@ -1086,13 +1089,13 @@ function UsersDirectionPanel({ usersDirection, onUsersDirectionChange }: UsersDi
   );
 }
 
-function buildGenerationStreamUrl(intake: GenerationIntake) {
+function buildGenerationStreamUrl(runInput: GenerationRunInput) {
   const searchParams = new URLSearchParams({
-    sourceTweetUrl: intake.sourceTweetUrl,
+    sourceTweetUrl: runInput.sourceTweetUrl,
   });
 
-  if (intake.usersDirection) {
-    searchParams.set("usersDirection", intake.usersDirection);
+  if (runInput.usersDirection) {
+    searchParams.set("usersDirection", runInput.usersDirection);
   }
 
   return `/api/generation-runs/stream?${searchParams.toString()}`;

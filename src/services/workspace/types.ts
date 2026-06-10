@@ -1,6 +1,6 @@
 export type { GenerationRun, SavedRunStore } from "@/services/saved-runs";
 
-export type GenerationIntake = {
+export type GenerationRunInput = {
   sourceTweetUrl: string;
   usersDirection: string;
 };

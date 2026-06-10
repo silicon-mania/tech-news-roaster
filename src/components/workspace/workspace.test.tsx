@@ -25,7 +25,7 @@ import { buildReplySignals } from "@/services/outside-x-enrichment";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import type { SavedRunStore } from "@/services/workspace";
-import { type GenerationIntake, type GenerationRun, IntakeWorkspace } from "./intake-workspace";
+import { type GenerationRun, type GenerationRunInput, Workspace } from "./workspace";
 
 class FakeGenerationEventSource {
   readonly listeners = new Map<
@@ -76,7 +76,7 @@ function renderWorkspace({
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
   initialRuntimeStatus?: RuntimeStatus;
-  onStartGenerationRun?: (intake: GenerationIntake) => void;
+  onStartGenerationRun?: (intake: GenerationRunInput) => void;
   onStartImageGeneration?: (input: ImageGenerationInput) => void;
   runtimeEnvironment?: "development" | "production";
   savedRunStore?: SavedRunStore;
@@ -86,7 +86,7 @@ function renderWorkspace({
   stubDesktopMediaQuery(isDesktop);
 
   render(
-    <IntakeWorkspace
+    <Workspace
       generationEventSourceFactory={(url) => {
         generationStreamUrls.push(url);
         const eventSource = new FakeGenerationEventSource();
@@ -546,7 +546,7 @@ function buildImageGenerationStreamResponse(events: ImageGenerationStreamEvent[]
   );
 }
 
-describe("IntakeWorkspace", () => {
+describe("Workspace", () => {
   test("renders an almost empty draft-first shell before any run exists", () => {
     renderWorkspace();
 
