@@ -4,6 +4,7 @@ import { Copy, Eye } from "lucide-react";
 import { useState } from "react";
 import type { VisualJokeSet } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
+import { copyTextToClipboard } from "@/utils/copy-text-to-clipboard";
 import { TextRevealModal } from "./text-reveal-modal";
 
 export function VisualJokeArea({
@@ -62,7 +63,7 @@ export function VisualJokeArea({
                       <button
                         type="button"
                         aria-label={`Copy visual joke ${index + 1}`}
-                        onClick={() => void copyVisualJokeText(joke.text)}
+                        onClick={() => void copyTextToClipboard(joke.text)}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
                         <Copy aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                       </button>
@@ -107,12 +108,4 @@ export function VisualJokeArea({
       ) : null}
     </>
   );
-}
-
-async function copyVisualJokeText(text: string) {
-  try {
-    await navigator.clipboard?.writeText(text);
-  } catch {
-    // Clipboard permissions can be denied in automated or locked-down browsers.
-  }
 }

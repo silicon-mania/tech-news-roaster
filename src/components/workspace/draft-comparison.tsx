@@ -4,6 +4,7 @@ import { Copy, Lightbulb } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import type { QuoteTweetDraft } from "@/services/generation";
+import { copyTextToClipboard } from "@/utils/copy-text-to-clipboard";
 
 type DraftComparisonProps = {
   drafts: QuoteTweetDraft[];
@@ -76,7 +77,7 @@ export function DraftComparison({
                     aria-label={`Copy draft ${index + 1}`}
                     onClick={(event) => {
                       event.stopPropagation();
-                      void copyDraftText(draft.text);
+                      void copyTextToClipboard(draft.text);
                     }}
                     className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20">
                     <Copy aria-hidden className="size-3.5" strokeWidth={1.75} />
@@ -217,12 +218,4 @@ function getDraftProvider(
     iconSrc: "/assets/chatgpt.png",
     name: "ChatGPT",
   };
-}
-
-async function copyDraftText(text: string) {
-  try {
-    await navigator.clipboard?.writeText(text);
-  } catch {
-    // Clipboard permissions can be denied in automated or locked-down browsers.
-  }
 }
