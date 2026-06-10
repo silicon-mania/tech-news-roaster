@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getRunPhaseLabel } from "../run-phase";
-import type { GenerationRun } from "../types";
+import type { GenerationRun } from "@/services/workspace";
+import { getRunPhaseLabel } from "@/services/workspace";
 
 type RunsListProps = {
   activeRunId: string | null;

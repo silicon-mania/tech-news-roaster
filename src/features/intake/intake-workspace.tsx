@@ -10,9 +10,6 @@ import {
 } from "@/services/generation";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { indexedDbSavedRunStore } from "@/services/saved-runs";
-import { ActiveRunPanel, IntakeForm, RunsList, WorkspaceHeader } from "./components";
-import { isRunInFlight } from "./run-phase";
-import { parseSourceTweetUrl } from "./source-tweet-url";
 import type {
   GenerationEventSource,
   GenerationEventSourceFactory,
@@ -20,9 +17,11 @@ import type {
   GenerationRun,
   SavedRunStore,
   SubmissionState,
-} from "./types";
+} from "@/services/workspace";
+import { isRunInFlight, parseSourceTweetUrl } from "@/services/workspace";
+import { ActiveRunPanel, IntakeForm, RunsList, WorkspaceHeader } from "./components";
 
-export type { GenerationIntake, GenerationRun } from "./types";
+export type { GenerationIntake, GenerationRun } from "@/services/workspace";
 
 type IntakeWorkspaceProps = {
   initialActiveRunId?: string;

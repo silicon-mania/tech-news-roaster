@@ -25,8 +25,8 @@ import type {
   VisualJokeSet,
 } from "@/services/generation";
 import { draftTarget, parseImageGenerationInput } from "@/services/generation";
-import { getRunPhaseLabel } from "../run-phase";
-import type { GenerationRun } from "../types";
+import type { GenerationRun } from "@/services/workspace";
+import { getRunPhaseLabel } from "@/services/workspace";
 import { DraftComparison } from "./draft-comparison";
 
 type ActiveRunPanelProps = {

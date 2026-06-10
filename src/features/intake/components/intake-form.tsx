@@ -1,6 +1,6 @@
 import { AlignLeft, ArrowRight, Menu } from "lucide-react";
 import { type FormEvent, useId } from "react";
-import type { SubmissionState } from "../types";
+import type { SubmissionState } from "@/services/workspace";
 
 const iconButtonClassName =
   "inline-flex items-center justify-center rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-300/20";
