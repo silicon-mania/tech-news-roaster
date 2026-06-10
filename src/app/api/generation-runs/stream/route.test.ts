@@ -3,7 +3,7 @@ import {
   parseGenerationStreamEvent,
   parseJokeContextSnapshot,
 } from "@/features/generation/generation-events";
-import { JokeContextGatheringError } from "@/features/joke-context-gathering/joke-context-gathering";
+import { JokeContextGatheringError } from "@/services/joke-context-gathering";
 import { buildFixtureTweetContext, type RetrievedTweetContext } from "@/services/tweet-retrieval";
 import { GET, streamGenerationRun } from "./route";
 
