@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { draftTarget, type ImageGenerationInput } from "@/services/generation";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { indexedDbSavedRunStore } from "@/services/saved-runs";
@@ -353,7 +354,10 @@ export function Workspace({
       return nextRuns;
     });
 
-    void savedRunStore.delete(runId).catch(() => undefined);
+    void savedRunStore
+      .delete(runId)
+      .then(() => toast.success("Saved run deleted"))
+      .catch(() => toast.error("Couldn't delete saved run"));
   }
 
   return (

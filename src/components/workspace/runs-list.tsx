@@ -1,4 +1,7 @@
+import { Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { GenerationRun } from "@/services/workspace";
 import { getRunPhaseLabel } from "@/services/workspace";
 
@@ -15,12 +18,12 @@ export function RunsList({ activeRunId, runs, onDeleteRun, onSelectRun }: RunsLi
   return (
     <section aria-label="Unified runs list" className="grid gap-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="editorial-serif text-slate-100 text-xl">Runs</h2>
-        <span className="text-slate-500 text-xs">{runs.length}</span>
+        <h2 className="editorial-serif text-foreground text-xl">Runs</h2>
+        <span className="text-muted-foreground text-xs">{runs.length}</span>
       </div>
 
       {runs.length === 0 ? (
-        <p className="text-slate-500 text-sm leading-6">No runs yet.</p>
+        <p className="text-muted-foreground text-sm leading-6">No runs yet.</p>
       ) : (
         <ul className="grid gap-1.5">
           {runs.map((run) => {
@@ -32,15 +35,15 @@ export function RunsList({ activeRunId, runs, onDeleteRun, onSelectRun }: RunsLi
                   type="button"
                   onClick={() => onSelectRun(run.id)}
                   aria-current={run.id === activeRunId ? "true" : undefined}
-                  className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-sm border border-transparent bg-transparent p-3 text-left transition hover:border-slate-800 hover:bg-slate-900/55 focus:outline-none focus:ring-2 focus:ring-sky-300/20 aria-current:border-sky-300/40 aria-current:bg-sky-300/8 sm:pr-10">
+                  className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md bg-transparent p-3 text-left transition hover:bg-secondary/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 aria-current:bg-primary/10 aria-current:ring-1 aria-current:ring-primary/35 sm:pr-10">
                   <span className="grid min-w-0 gap-1">
-                    <span className="truncate font-medium text-slate-100 text-sm leading-5">
+                    <span className="truncate font-medium text-foreground text-sm leading-5">
                       {run.label}
                     </span>
-                    <span className="truncate text-slate-500 text-xs">
+                    <span className="truncate text-muted-foreground text-xs">
                       {formatRelativeDate(run.savedAt)}
                     </span>
-                    <span className="truncate text-slate-400 text-xs">{phaseLabel}</span>
+                    <span className="truncate text-muted-foreground/90 text-xs">{phaseLabel}</span>
                   </span>
                   <span
                     aria-hidden="true"
@@ -49,13 +52,22 @@ export function RunsList({ activeRunId, runs, onDeleteRun, onSelectRun }: RunsLi
                   />
                 </button>
                 {isDesktop && run.status === "completed" ? (
-                  <button
-                    type="button"
-                    aria-label={`Delete saved run: ${run.label}`}
-                    onClick={() => onDeleteRun(run.id)}
-                    className="-translate-y-1/2 absolute top-1/2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-sm border border-transparent text-slate-500 opacity-0 transition hover:border-rose-400/30 hover:bg-rose-400/10 hover:text-rose-200 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-rose-300/25 group-hover:opacity-100">
-                    <TrashIcon />
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          aria-label={`Delete saved run: ${run.label}`}
+                          className="-translate-y-1/2 absolute top-1/2 right-2 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                          onClick={() => onDeleteRun(run.id)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        />
+                      }>
+                      <Trash2 aria-hidden className="size-4" strokeWidth={1.3} />
+                    </TooltipTrigger>
+                    <TooltipContent>Delete run</TooltipContent>
+                  </Tooltip>
                 ) : null}
               </li>
             );
@@ -95,22 +107,22 @@ function getStatusDotClass(run: GenerationRun) {
     run.phase === "image-generation-running" ||
     (!run.phase && run.status === "running")
   ) {
-    return "bg-sky-300";
+    return "bg-primary";
   }
 
   if (run.phase === "failed" || run.status === "failed") {
-    return "bg-rose-400/70";
+    return "bg-destructive/70";
   }
 
   if (run.phase === "image-generation-partially-failed") {
-    return "bg-amber-300/80";
+    return "bg-warning/80";
   }
 
   if (run.phase === "waiting-for-image-selection") {
-    return "bg-violet-300/80";
+    return "bg-accent-strong/80";
   }
 
-  return "bg-slate-700";
+  return "bg-muted-foreground/40";
 }
 
 function formatRelativeDate(savedAt: string | undefined) {
@@ -145,24 +157,4 @@ function formatRelativeDate(savedAt: string | undefined) {
 
 function pluralize(unit: string, count: number) {
   return count === 1 ? unit : `${unit}s`;
-}
-
-function TrashIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.3">
-      <path d="M4 7h16" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-      <path d="M6 7l1 14h10l1-14" />
-      <path d="M9 7V4h6v3" />
-    </svg>
-  );
 }

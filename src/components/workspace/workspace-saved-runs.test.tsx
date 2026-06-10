@@ -437,6 +437,7 @@ describe("Workspace saved runs", () => {
         name: /disposable run/i,
       }),
     ).not.toBeInTheDocument();
+    expect(await screen.findByText("Saved run deleted")).toBeInTheDocument();
   });
 
   test("omits the delete affordance on mobile", async () => {

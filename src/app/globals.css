@@ -126,6 +126,7 @@ textarea {
   /* Brand status tokens with no shadcn equivalent (destructive covers danger). */
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-accent-strong: var(--accent-strong);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
