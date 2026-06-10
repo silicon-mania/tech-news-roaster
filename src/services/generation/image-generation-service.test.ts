@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import type { NewsLinkedImage } from "./generation-events";
+import type { NewsLinkedImage } from "@/services/generation";
 import {
   generateImageSetsForRun,
   type PreparedSelectedImageOriginal,

@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
+import { parseJokeContextSnapshot } from "@/services/generation";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
-import { parseJokeContextSnapshot } from "./generation-events";
 import {
   createLocalGenerationProviders,
   type GenerationProvider,

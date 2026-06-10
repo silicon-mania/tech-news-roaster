@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { readConfiguredAiGatewayVisualJokeModel, readEnvValue } from "./ai-gateway-models";
 import {
   type JokeContextSnapshot,
   parseVisualJokeDirectionText,
@@ -7,7 +6,8 @@ import {
   type VisualJoke,
   type VisualJokeMetadata,
   type VisualJokeSet,
-} from "./generation-events";
+} from "@/services/generation";
+import { readConfiguredAiGatewayVisualJokeModel, readEnvValue } from "./ai-gateway-models";
 
 const minimumReturnedJokeCount = 5;
 const targetReturnedJokeCount = 8;

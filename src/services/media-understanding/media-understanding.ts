@@ -3,7 +3,7 @@ import {
   parseSourceTweetMediaExtraction,
   type SourceTweetMediaExtraction,
   sourceTweetMediaExtractionSchema,
-} from "@/services/generation/generation-events";
+} from "@/services/generation";
 import { type RetrievedSourceTweet, sourceTweetMediaKindSchema } from "@/services/tweet-retrieval";
 
 const nonEmptyTrimmedStringSchema = z.string().trim().min(1);

@@ -1,6 +1,4 @@
 import { z } from "zod";
-import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
-import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
 import {
   type CompletedGenerationRunPayload,
   draftTarget,
@@ -10,7 +8,9 @@ import {
   type JokeContextSnapshot,
   parseCompletedGenerationRunPayload,
   type QuoteTweetDraft,
-} from "./generation-events";
+} from "@/services/generation";
+import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
+import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
 import {
   defaultVisualJokeDirection,
   generateVisualJokeSet,

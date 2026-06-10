@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { parseJokeContextSnapshot } from "./generation-events";
+import { parseJokeContextSnapshot } from "@/services/generation";
 import { defaultVisualJokeDirection, generateVisualJokeSet } from "./visual-joke-service";
 
 describe("visual joke service", () => {

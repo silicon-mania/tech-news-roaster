@@ -23,8 +23,8 @@ import type {
   JokeContextSnapshot,
   NewsLinkedImage,
   VisualJokeSet,
-} from "@/services/generation/generation-events";
-import { draftTarget, parseImageGenerationInput } from "@/services/generation/generation-events";
+} from "@/services/generation";
+import { draftTarget, parseImageGenerationInput } from "@/services/generation";
 import { getRunPhaseLabel } from "../run-phase";
 import type { GenerationRun } from "../types";
 import { DraftComparison } from "./draft-comparison";

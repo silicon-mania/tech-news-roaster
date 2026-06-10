@@ -1,14 +1,11 @@
 import { z } from "zod";
+import { type GenerationProviderId, generationProviderIds } from "@/services/generation";
 import {
   readConfiguredAiGatewayImageModel,
   readConfiguredAiGatewayModels,
   readConfiguredAiGatewayVisualJokeModel,
   readEnvValue,
 } from "@/services/generation/ai-gateway-models";
-import {
-  type GenerationProviderId,
-  generationProviderIds,
-} from "@/services/generation/generation-events";
 
 type RuntimeStatusEnvironment = Readonly<Record<string, string | undefined>>;
 

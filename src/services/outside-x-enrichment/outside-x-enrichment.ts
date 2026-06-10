@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { newsLinkedImageSchema } from "@/services/generation/generation-events";
+import { newsLinkedImageSchema } from "@/services/generation";
 import type { RetrievedSourceTweet, RetrievedTweetContext } from "@/services/tweet-retrieval";
 
 const maxReplySignals = 6;

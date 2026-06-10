@@ -1,5 +1,4 @@
 import { Buffer } from "node:buffer";
-import { readConfiguredAiGatewayImageModel, readEnvValue } from "./ai-gateway-models";
 import {
   type FailedImageSet,
   type ImageGenerationInput,
@@ -12,7 +11,8 @@ import {
   parseSelectedImageOriginal,
   type SavedGenerationRun,
   type SelectedImageOriginal,
-} from "./generation-events";
+} from "@/services/generation";
+import { readConfiguredAiGatewayImageModel, readEnvValue } from "./ai-gateway-models";
 
 const generatedVariationTarget = 2;
 

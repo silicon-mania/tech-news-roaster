@@ -1,4 +1,4 @@
-import type { NewsLinkedImage } from "@/services/generation/generation-events";
+import type { NewsLinkedImage } from "@/services/generation";
 import {
   type OutsideXEnrichmentInput,
   OutsideXEnrichmentUnavailableError,

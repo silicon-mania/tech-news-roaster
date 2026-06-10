@@ -4,7 +4,7 @@ import {
   type ImageGenerationParentRun,
   type NewsLinkedImage,
   parseImageGenerationStreamEvent,
-} from "@/services/generation/generation-events";
+} from "@/services/generation";
 import type {
   ImageVariationProvider,
   PreparedSelectedImageOriginal,

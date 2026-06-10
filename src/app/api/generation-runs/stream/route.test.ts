@@ -1,8 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import {
-  parseGenerationStreamEvent,
-  parseJokeContextSnapshot,
-} from "@/services/generation/generation-events";
+import { parseGenerationStreamEvent, parseJokeContextSnapshot } from "@/services/generation";
 import { JokeContextGatheringError } from "@/services/joke-context-gathering";
 import { buildFixtureTweetContext, type RetrievedTweetContext } from "@/services/tweet-retrieval";
 import { GET, streamGenerationRun } from "./route";

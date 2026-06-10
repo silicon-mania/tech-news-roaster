@@ -8,7 +8,7 @@ import {
   parseImageGenerationInput,
   parseImageGenerationParentRun,
   parseImageGenerationStreamEvent,
-} from "@/services/generation/generation-events";
+} from "@/services/generation";
 import {
   type ImageVariationProvider,
   type SelectedImageOriginalPreparer,

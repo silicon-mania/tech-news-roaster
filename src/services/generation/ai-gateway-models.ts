@@ -1,4 +1,4 @@
-import type { GenerationProviderId } from "./generation-events";
+import type { GenerationProviderId } from "@/services/generation";
 
 type AiGatewayModelEnvironment = Readonly<Record<string, string | undefined>>;
 

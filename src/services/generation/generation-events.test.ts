@@ -1,7 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildReplySignals } from "@/services/outside-x-enrichment";
-import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
-import type { JokeContextSnapshot, VisualJokeSet } from "./generation-events";
+import type { JokeContextSnapshot, VisualJokeSet } from "@/services/generation";
 import {
   buildEnrichmentCompletedEvent,
   buildGenerationFailureEvent,
@@ -20,7 +18,9 @@ import {
   parseVisualJokeDirectionText,
   parseVisualJokeMetadata,
   parseVisualJokeSet,
-} from "./generation-events";
+} from "@/services/generation";
+import { buildReplySignals } from "@/services/outside-x-enrichment";
+import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 
 describe("generation event contracts", () => {
   test("builds deterministic progress events followed by a completed run", () => {

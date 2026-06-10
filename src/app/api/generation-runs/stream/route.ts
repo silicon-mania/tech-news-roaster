@@ -10,7 +10,7 @@ import {
   type NewsLinkedImage,
   parseCompletedGenerationRunPayload,
   parseGenerationStreamEvent,
-} from "@/services/generation/generation-events";
+} from "@/services/generation";
 import {
   type GenerationOrchestrator,
   orchestrateThreeProviderGeneration,
