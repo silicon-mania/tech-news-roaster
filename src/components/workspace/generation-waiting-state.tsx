@@ -11,20 +11,20 @@ export function GenerationWaitingState({ run }: { run: GenerationRun }) {
       aria-live="polite"
       className="grid min-h-80 place-items-center sm:min-h-96">
       <div className="grid w-full max-w-3xl justify-items-center gap-5 text-center">
-        <p className="editorial-serif text-6xl text-slate-100 tracking-normal sm:text-7xl">
+        <p className="editorial-serif text-6xl text-foreground tracking-normal sm:text-7xl">
           {run.draftCount}/{run.draftTarget}
         </p>
-        <p className="text-slate-500 text-xs uppercase tracking-[0.18em]">drafts</p>
-        <p className="text-slate-400 text-sm">{getRunPhaseLabel(run)}</p>
+        <p className="text-muted-foreground text-xs uppercase tracking-[0.18em]">drafts</p>
+        <p className="text-muted-foreground text-sm">{getRunPhaseLabel(run)}</p>
         {progressStages.length > 0 ? (
           <ul
             aria-label="Generation progress"
-            className="grid w-full gap-1.5 rounded-sm border border-white/10 bg-white/5 p-2 text-left sm:grid-cols-2 lg:grid-cols-5">
+            className="grid w-full gap-1.5 rounded-md bg-secondary/40 p-2 text-left sm:grid-cols-2 lg:grid-cols-5">
             {progressStages.map((stage) => (
               <li
                 key={stage.label}
-                className="grid min-w-0 gap-1 rounded-sm border border-white/8 bg-slate-950/50 px-2.5 py-2">
-                <span className="truncate text-slate-200 text-xs">{stage.label}</span>
+                className="grid min-w-0 gap-1 rounded-md bg-card/70 px-2.5 py-2">
+                <span className="truncate text-foreground/90 text-xs">{stage.label}</span>
                 <span className={stage.className}>{stage.statusLabel}</span>
               </li>
             ))}
@@ -85,7 +85,7 @@ function describeStageStatus(
   if (status === "running") {
     return {
       className:
-        "inline-flex items-center rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-1 text-sky-200 text-xs",
+        "inline-flex items-center rounded-full bg-primary/10 px-2 py-1 text-primary text-xs",
       statusLabel: "Running",
     };
   }
@@ -93,7 +93,7 @@ function describeStageStatus(
   if (status === "completed") {
     return {
       className:
-        "inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-emerald-200 text-xs",
+        "inline-flex items-center rounded-full bg-success/10 px-2 py-1 text-success text-xs",
       statusLabel: "Complete",
     };
   }
@@ -101,7 +101,7 @@ function describeStageStatus(
   if (status === "failed" || status === "partially-failed") {
     return {
       className:
-        "inline-flex items-center rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-1 text-rose-200 text-xs",
+        "inline-flex items-center rounded-full bg-destructive/10 px-2 py-1 text-destructive text-xs",
       statusLabel: status === "failed" ? "Failed" : "Partial",
     };
   }
@@ -109,7 +109,7 @@ function describeStageStatus(
   if (status === "not-started" && options.blocked) {
     return {
       className:
-        "inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-500 text-[0.68rem]",
+        "inline-flex w-fit items-center rounded-md bg-secondary/60 px-1.5 py-0.5 text-[0.68rem] text-muted-foreground/70",
       statusLabel: "Unavailable",
     };
   }
@@ -117,14 +117,14 @@ function describeStageStatus(
   if (status === "not-started" && options.queued) {
     return {
       className:
-        "inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-400 text-[0.68rem]",
+        "inline-flex w-fit items-center rounded-md bg-secondary/60 px-1.5 py-0.5 text-[0.68rem] text-muted-foreground",
       statusLabel: "Queued",
     };
   }
 
   return {
     className:
-      "inline-flex w-fit items-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 text-slate-400 text-[0.68rem]",
+      "inline-flex w-fit items-center rounded-md bg-secondary/60 px-1.5 py-0.5 text-[0.68rem] text-muted-foreground",
     statusLabel: "Not started",
   };
 }

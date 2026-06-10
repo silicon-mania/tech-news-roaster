@@ -16,7 +16,7 @@ export function FailureDetails({ failure }: { failure: StageFailure }) {
   ].filter((line): line is string => Boolean(line));
 
   return (
-    <pre className="whitespace-pre-wrap break-words rounded-sm border border-white/8 bg-slate-950/60 p-3 text-slate-200 text-sm leading-6">
+    <pre className="whitespace-pre-wrap break-words rounded-md bg-card p-3 text-foreground/90 text-sm leading-6">
       {lines.join("\n")}
     </pre>
   );
