@@ -304,6 +304,14 @@ _Avoid_: Variation spread, paraphrase diversity, random variety
 The internal structure attached to a visual joke, such as its joke pattern, joke target, referenced fact, and short rationale, while the user-facing surface shows only the joke title without any visible rationale.
 _Avoid_: Visible explanation, joke card details, debug notes
 
+**Selected Generated Image**:
+The one generated Image Option — always a variation, never the original — that the user chooses as the picture placed inside the Final Quote Tweet Image. It is distinct from the Selected Image Original, which is the news-linked input to image generation.
+_Avoid_: Selected Image Original, selected variation, composite image, chosen image
+
+**Final Quote Tweet Image**:
+The shareable image a generation run produces by placing one Selected Visual Joke's Joke Title over the Selected Generated Image, using the fixed Silicon Mania layout while leaving every other visual element of that layout unchanged.
+_Avoid_: Quote Tweet image, final card, composite, meme
+
 ## Editing
 
 **Plain-Text Editing**:
