@@ -5,6 +5,21 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
+ * Bundled Silicon Mania title serif, baked from Figma node 4016-97 and
+ * committed under public/fonts (intentionally NOT next/font). Registered once
+ * here so both the Final Quote Tweet Image preview and its html-to-image
+ * rasterization resolve the exact face. See
+ * src/services/final-quote-tweet-image/template.ts.
+ */
+@font-face {
+  font-family: "VC Henrietta Condensed";
+  src: url("/fonts/vc-henrietta-condensed.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
  * Single dark theme. Brand tokens are the source of truth; shadcn's semantic
  * color tokens are mapped onto them in `@theme inline` below so there is one
  * palette, not two. See CLAUDE.md → "UI components".
