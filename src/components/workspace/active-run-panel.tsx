@@ -1,12 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
+import type { CompositeRasterizer } from "@/services/final-quote-tweet-image";
 import type { ImageGenerationInput } from "@/services/generation";
 import { draftTarget } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { CreativeFailureArea } from "./creative-failure-area";
 import { DraftComparison } from "./draft-comparison";
 import { getStageFailure } from "./failure-details";
+import { FinalQuoteTweetImageArea } from "./final-quote-tweet-image-area";
 import { GenerationFailureState } from "./generation-failure-state";
 import { GenerationWaitingState } from "./generation-waiting-state";
 import { ImageGenerationArea } from "./image-generation-area";
@@ -20,6 +22,7 @@ type ActiveRunPanelProps = {
   onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onSelectedVisualJokeChange: (runId: string, visualJokeId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
+  rasterizeComposite?: CompositeRasterizer;
 };
 
 export function ActiveRunPanel({
@@ -28,6 +31,7 @@ export function ActiveRunPanel({
   onSelectedGeneratedImageChange,
   onSelectedVisualJokeChange,
   onStartImageGeneration,
+  rasterizeComposite,
 }: ActiveRunPanelProps) {
   if (!activeRun) {
     return <section aria-label="Empty draft canvas" className="min-h-72 sm:min-h-88" />;
@@ -73,12 +77,21 @@ export function ActiveRunPanel({
       failure={getStageFailure(activeRun.generationResultStates?.visualJokeGeneration)}
     />
   ) : null;
+  // Derived-on-demand consumer (ADR 0018): it reads the run's two picks and
+  // re-renders the composite from them plus the baked template. Gated on the
+  // same image-generation content as the image work area, so it appears only
+  // once variations exist (or follows the failure pattern when generation
+  // failed entirely) and self-hides into a quiet empty state otherwise.
+  const finalQuoteTweetImageArea = hasImageGenerationContent ? (
+    <FinalQuoteTweetImageArea rasterizeComposite={rasterizeComposite} run={activeRun} />
+  ) : null;
 
   if (activeRun.status === "running") {
     return (
       <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
         {sourceTweetPreview}
         <RunWorkspaceLayout
+          finalQuoteTweetImageArea={finalQuoteTweetImageArea}
           imageGenerationArea={imageGenerationArea}
           visualJokeArea={visualJokeArea}>
           <QuietRunReveals run={activeRun} />
@@ -93,6 +106,7 @@ export function ActiveRunPanel({
       <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
         {sourceTweetPreview}
         <RunWorkspaceLayout
+          finalQuoteTweetImageArea={finalQuoteTweetImageArea}
           imageGenerationArea={imageGenerationArea}
           visualJokeArea={visualJokeArea}>
           <QuietRunReveals run={activeRun} />
@@ -109,7 +123,10 @@ export function ActiveRunPanel({
       aria-label="Completed draft canvas"
       className="mx-auto grid w-full max-w-5xl gap-3 self-start">
       {sourceTweetPreview}
-      <RunWorkspaceLayout imageGenerationArea={imageGenerationArea} visualJokeArea={visualJokeArea}>
+      <RunWorkspaceLayout
+        finalQuoteTweetImageArea={finalQuoteTweetImageArea}
+        imageGenerationArea={imageGenerationArea}
+        visualJokeArea={visualJokeArea}>
         <QuietRunReveals run={activeRun} />
         {hasCompleteDraftStack ? (
           <DraftComparison
@@ -134,14 +151,16 @@ export function ActiveRunPanel({
 
 function RunWorkspaceLayout({
   children,
+  finalQuoteTweetImageArea,
   imageGenerationArea,
   visualJokeArea,
 }: {
   children: ReactNode;
+  finalQuoteTweetImageArea: ReactNode;
   imageGenerationArea: ReactNode;
   visualJokeArea: ReactNode;
 }) {
-  if (!imageGenerationArea && !visualJokeArea) {
+  if (!imageGenerationArea && !visualJokeArea && !finalQuoteTweetImageArea) {
     return children;
   }
 
@@ -150,6 +169,7 @@ function RunWorkspaceLayout({
       <div className="min-w-0">{children}</div>
       {visualJokeArea}
       {imageGenerationArea}
+      {finalQuoteTweetImageArea}
     </section>
   );
 }

@@ -1,0 +1,155 @@
+import "@testing-library/jest-dom/vitest";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, test, vi } from "vitest";
+import {
+  buildCompletedRun,
+  buildCompletedV3Run,
+  buildVisualJokeSet,
+  createMemorySavedRunStore,
+  renderWorkspace,
+} from "./workspace-test-utils";
+
+const selectedGeneratedImageFixture = {
+  imageOptionId: "image-option-news-linked-image-1-variation-1",
+  selectedAt: "2026-06-06T10:17:00.000Z",
+};
+// buildCompletedV3Run selects jokes[1] of the fixture visual joke set by default,
+// and the fixture image above is its first variation.
+const selectedJokeTitle = "A workflow map where every exit arrow points back to the login screen.";
+const selectedVariationName = "Launch visual variation 1.";
+
+describe("Workspace final quote tweet image area", () => {
+  test("renders the composite alongside the other creative areas once both picks exist", () => {
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })],
+    });
+
+    const imageGenerationArea = screen.getByRole("complementary", {
+      name: /image generation area/i,
+    });
+    const finalArea = screen.getByRole("region", {
+      name: /final quote tweet image creative result area/i,
+    });
+
+    // The composition area sits after the image work area in the run workspace layout.
+    expect(
+      imageGenerationArea.compareDocumentPosition(finalArea) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    // Derived composite: the Selected Visual Joke's title over the Selected Generated Image.
+    expect(
+      within(finalArea).getByRole("figure", { name: "Final Quote Tweet Image preview" }),
+    ).toBeInTheDocument();
+    expect(within(finalArea).getByText(selectedJokeTitle)).toBeInTheDocument();
+    expect(within(finalArea).getByRole("img", { name: selectedVariationName })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /download final quote tweet image/i }),
+    ).toBeInTheDocument();
+  });
+
+  test("reopening a saved run with both selections renders the composite without re-running generation", async () => {
+    const onStartGenerationRun = vi.fn();
+    const onStartImageGeneration = vi.fn();
+    const imageGenerationStreamFetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(""),
+    );
+    const savedRunStore = createMemorySavedRunStore([
+      buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture }),
+    ]);
+
+    const { generationStreamUrls } = renderWorkspace({
+      imageGenerationStreamFetcher,
+      onStartGenerationRun,
+      onStartImageGeneration,
+      savedRunStore,
+    });
+
+    // The run is restored from storage (no initialRuns), and the composite is
+    // derived immediately from the two persisted selection ids plus the baked
+    // template — never from stored picture bytes.
+    const finalArea = await screen.findByRole("region", {
+      name: /final quote tweet image creative result area/i,
+    });
+
+    expect(within(finalArea).getByText(selectedJokeTitle)).toBeInTheDocument();
+    expect(within(finalArea).getByRole("img", { name: selectedVariationName })).toBeInTheDocument();
+
+    // Reopening is pure rendering: nothing is regenerated.
+    expect(onStartGenerationRun).not.toHaveBeenCalled();
+    expect(onStartImageGeneration).not.toHaveBeenCalled();
+    expect(imageGenerationStreamFetcher).not.toHaveBeenCalled();
+    expect(generationStreamUrls).toHaveLength(0);
+  });
+
+  test("reopening a saved run missing a pick shows the quiet empty state naming the missing pick", async () => {
+    const savedRunStore = createMemorySavedRunStore([
+      buildCompletedV3Run({ selectedGeneratedImage: null }),
+    ]);
+
+    renderWorkspace({ savedRunStore });
+
+    const finalArea = await screen.findByRole("region", {
+      name: /final quote tweet image creative result area/i,
+    });
+
+    expect(
+      within(finalArea).getByText(
+        "Select a generated image to assemble the final quote tweet image.",
+      ),
+    ).toHaveRole("status");
+    expect(
+      screen.queryByRole("button", { name: /download final quote tweet image/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("hides the final quote tweet image area when no image set with variations exists", () => {
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [buildCompletedRun({ visualJokeSet: buildVisualJokeSet() })],
+    });
+
+    // The visual joke area renders, so the run workspace grid is present...
+    expect(
+      screen.getByRole("region", { name: /visual joke creative result area/i }),
+    ).toBeInTheDocument();
+    // ...but with no Image Set there is nothing to assemble, so the area stays hidden.
+    expect(
+      screen.queryByRole("region", { name: /final quote tweet image creative result area/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("downloads the composite through the rasterizer injected into the workspace", async () => {
+    const user = userEvent.setup();
+    const rasterizeComposite = vi.fn(async (_node: HTMLElement) => "data:image/png;base64,final");
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedV3Run({
+          label: "Drafts: OpenAI's GPU/teardown",
+          selectedGeneratedImage: selectedGeneratedImageFixture,
+        }),
+      ],
+      rasterizeComposite,
+    });
+
+    await user.click(screen.getByRole("button", { name: /download final quote tweet image/i }));
+
+    await waitFor(() => expect(anchorClick).toHaveBeenCalledTimes(1));
+    expect(rasterizeComposite).toHaveBeenCalledWith(
+      screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
+    );
+
+    const offeredAnchor = anchorClick.mock.contexts[0] as HTMLAnchorElement;
+
+    expect(offeredAnchor.download).toBe("drafts-openai-s-gpu-teardown");
+    expect(offeredAnchor.href).toBe("data:image/png;base64,final");
+
+    anchorClick.mockRestore();
+  });
+});

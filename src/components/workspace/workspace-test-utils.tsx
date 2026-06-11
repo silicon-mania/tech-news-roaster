@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
+import type { CompositeRasterizer } from "@/services/final-quote-tweet-image";
 import {
   buildStubbedGenerationEvents,
   type GenerationProviderId,
@@ -63,6 +64,7 @@ export function renderWorkspace({
   initialRuntimeStatus,
   onStartGenerationRun = vi.fn(),
   onStartImageGeneration = vi.fn(),
+  rasterizeComposite,
   runtimeEnvironment,
   savedRunStore,
 }: {
@@ -74,6 +76,7 @@ export function renderWorkspace({
   initialRuntimeStatus?: RuntimeStatus;
   onStartGenerationRun?: (input: GenerationRunInput) => void;
   onStartImageGeneration?: (input: ImageGenerationInput) => void;
+  rasterizeComposite?: CompositeRasterizer;
   runtimeEnvironment?: "development" | "production";
   savedRunStore?: SavedRunStore;
 } = {}) {
@@ -101,6 +104,7 @@ export function renderWorkspace({
         initialRuntimeStatus={initialRuntimeStatus}
         onStartGenerationRun={onStartGenerationRun}
         onStartImageGeneration={onStartImageGeneration}
+        rasterizeComposite={rasterizeComposite}
         runtimeEnvironment={runtimeEnvironment}
         savedRunStore={savedRunStore}
       />

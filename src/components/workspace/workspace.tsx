@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
+import type { CompositeRasterizer } from "@/services/final-quote-tweet-image";
 import { draftTarget, type ImageGenerationInput } from "@/services/generation";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { indexedDbSavedRunStore } from "@/services/saved-runs";
@@ -34,6 +35,7 @@ type WorkspaceProps = {
   initialRuntimeStatus?: RuntimeStatus;
   onStartGenerationRun?: (runInput: GenerationRunInput) => void | Promise<void>;
   onStartImageGeneration?: (input: ImageGenerationInput) => void | Promise<void>;
+  rasterizeComposite?: CompositeRasterizer;
   runtimeEnvironment?: "development" | "production";
   runtimeStatusFetcher?: () => Promise<RuntimeStatus>;
   savedRunStore?: SavedRunStore;
@@ -56,6 +58,7 @@ export function Workspace({
   initialRuntimeStatus,
   onStartGenerationRun,
   onStartImageGeneration,
+  rasterizeComposite,
   runtimeEnvironment = process.env.NODE_ENV === "production" ? "production" : "development",
   runtimeStatusFetcher,
   savedRunStore = indexedDbSavedRunStore,
@@ -424,6 +427,7 @@ export function Workspace({
             onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
             onSelectedVisualJokeChange={updateSelectedVisualJoke}
             onStartImageGeneration={startImageGeneration}
+            rasterizeComposite={rasterizeComposite}
           />
         </div>
       ) : (
