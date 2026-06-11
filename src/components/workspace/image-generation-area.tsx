@@ -76,10 +76,12 @@ function ImageGenerationAreaStatus({ run }: { run: GenerationRun }) {
 export function ImageGenerationArea({
   parentRunId,
   run,
+  onSelectedGeneratedImageChange,
   onStartImageGeneration,
 }: {
   parentRunId: string;
   run: GenerationRun;
+  onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
 }) {
   const images = run.newsLinkedImages ?? [];
@@ -153,6 +155,10 @@ export function ImageGenerationArea({
             expectedImageSetCount={expectedImageSetCount}
             failedImageSets={failedImageSets}
             imageSets={imageSets}
+            selectedGeneratedImageOptionId={run.selectedGeneratedImage?.imageOptionId ?? null}
+            onSelectedGeneratedImageChange={(imageOptionId) =>
+              onSelectedGeneratedImageChange(parentRunId, imageOptionId)
+            }
           />
         ) : null}
         {canSelectSourceImages ? (

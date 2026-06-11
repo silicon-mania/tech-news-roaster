@@ -21,10 +21,14 @@ export function ImageResultsArea({
   expectedImageSetCount = 0,
   failedImageSets,
   imageSets,
+  selectedGeneratedImageOptionId,
+  onSelectedGeneratedImageChange,
 }: {
   expectedImageSetCount?: number;
   failedImageSets: FailedImageSet[];
   imageSets: ImageSet[];
+  selectedGeneratedImageOptionId: string | null;
+  onSelectedGeneratedImageChange: (imageOptionId: string | null) => void;
 }) {
   const [activeModal, setActiveModal] = useState<{
     imageSetId: string;
@@ -59,79 +63,108 @@ export function ImageResultsArea({
             </p>
             <div className="overflow-x-auto pb-2">
               <ul className="flex w-max gap-2 pr-2">
-                {imageSet.options.map((option, optionIndex) => (
-                  <li className={imageOptionCellClassName} key={option.id}>
-                    <div className="group grid w-full gap-1.5 rounded-md bg-card/50 text-left transition">
-                      <div className="relative aspect-[4/3] overflow-hidden rounded-md bg-secondary">
-                        <button
-                          type="button"
-                          aria-label={`Open ${option.label} from image set ${imageSetIndex + 1}`}
-                          onClick={() =>
-                            setActiveModal({
-                              imageSetId: imageSet.id,
-                              optionId: option.id,
-                            })
-                          }
-                          className="block h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
-                          <Image
-                            alt={option.altText ?? option.label}
-                            className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-                            height={240}
-                            loading={imageSetIndex === 0 && optionIndex === 0 ? "eager" : "lazy"}
-                            src={option.url}
-                            unoptimized
-                            width={320}
-                          />
-                        </button>
-                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 shadow-black/30 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100">
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <Button
-                                  aria-label={`Expand ${
-                                    option.label
-                                  } from image set ${imageSetIndex + 1}`}
-                                  className={overlayActionClassName}
-                                  onClick={() =>
-                                    setActiveModal({
-                                      imageSetId: imageSet.id,
-                                      optionId: option.id,
-                                    })
-                                  }
-                                  size="icon"
-                                  type="button"
-                                  variant="ghost"
-                                />
-                              }>
-                              <Expand aria-hidden className="size-3.5" />
-                            </TooltipTrigger>
-                            <TooltipContent>Expand</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <a
-                                  aria-label={`Download ${
-                                    option.label
-                                  } from image set ${imageSetIndex + 1}`}
-                                  className={cn(
-                                    buttonVariants({ size: "icon", variant: "ghost" }),
-                                    overlayActionClassName,
-                                  )}
-                                  download={buildImageDownloadName(imageSet, option)}
-                                  href={option.url}>
-                                  <Download aria-hidden className="size-3.5" />
-                                </a>
-                              }
+                {imageSet.options.map((option, optionIndex) => {
+                  const isSelected = selectedGeneratedImageOptionId === option.id;
+
+                  return (
+                    <li className={imageOptionCellClassName} key={option.id}>
+                      <div
+                        className={`group grid w-full gap-1.5 rounded-md text-left transition ${
+                          isSelected ? "bg-primary/10 ring-1 ring-primary/45" : "bg-card/50"
+                        }`}>
+                        <div className="relative aspect-[4/3] overflow-hidden rounded-md bg-secondary">
+                          <button
+                            type="button"
+                            aria-label={`Open ${option.label} from image set ${imageSetIndex + 1}`}
+                            onClick={() =>
+                              setActiveModal({
+                                imageSetId: imageSet.id,
+                                optionId: option.id,
+                              })
+                            }
+                            className="block h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                            <Image
+                              alt={option.altText ?? option.label}
+                              className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                              height={240}
+                              loading={imageSetIndex === 0 && optionIndex === 0 ? "eager" : "lazy"}
+                              src={option.url}
+                              unoptimized
+                              width={320}
                             />
-                            <TooltipContent>Download</TooltipContent>
-                          </Tooltip>
+                          </button>
+                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 shadow-black/30 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100">
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <Button
+                                    aria-label={`Expand ${
+                                      option.label
+                                    } from image set ${imageSetIndex + 1}`}
+                                    className={overlayActionClassName}
+                                    onClick={() =>
+                                      setActiveModal({
+                                        imageSetId: imageSet.id,
+                                        optionId: option.id,
+                                      })
+                                    }
+                                    size="icon"
+                                    type="button"
+                                    variant="ghost"
+                                  />
+                                }>
+                                <Expand aria-hidden className="size-3.5" />
+                              </TooltipTrigger>
+                              <TooltipContent>Expand</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <a
+                                    aria-label={`Download ${
+                                      option.label
+                                    } from image set ${imageSetIndex + 1}`}
+                                    className={cn(
+                                      buttonVariants({ size: "icon", variant: "ghost" }),
+                                      overlayActionClassName,
+                                    )}
+                                    download={buildImageDownloadName(imageSet, option)}
+                                    href={option.url}>
+                                    <Download aria-hidden className="size-3.5" />
+                                  </a>
+                                }
+                              />
+                              <TooltipContent>Download</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 px-0.5 pb-1">
+                          <span className="text-muted-foreground text-xs">{option.label}</span>
+                          {option.kind === "variation" ? (
+                            <Button
+                              aria-label={
+                                isSelected
+                                  ? `Clear ${option.label} from image set ${imageSetIndex + 1} selection`
+                                  : `Select ${option.label} from image set ${imageSetIndex + 1}`
+                              }
+                              aria-pressed={isSelected}
+                              className={`min-w-20 font-medium text-xs ${
+                                isSelected ? "bg-primary/15 text-primary hover:bg-primary/25" : ""
+                              }`}
+                              onClick={() =>
+                                onSelectedGeneratedImageChange(isSelected ? null : option.id)
+                              }
+                              size="sm"
+                              type="button"
+                              variant="secondary">
+                              {isSelected ? "Selected" : "Select"}
+                            </Button>
+                          ) : null}
                         </div>
                       </div>
-                      <span className="px-0.5 text-muted-foreground text-xs">{option.label}</span>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </article>

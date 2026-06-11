@@ -278,6 +278,46 @@ export function Workspace({
     scheduleRunAutosave(updatedRun);
   }
 
+  function updateSelectedGeneratedImage(runId: string, imageOptionId: string | null) {
+    const run = runs.find((candidateRun) => candidateRun.id === runId);
+
+    if (!run?.imageSets?.length) {
+      return;
+    }
+
+    if (
+      imageOptionId &&
+      !run.imageSets.some((imageSet) =>
+        imageSet.options.some(
+          (option) => option.id === imageOptionId && option.kind === "variation",
+        ),
+      )
+    ) {
+      return;
+    }
+
+    const updatedRun: GenerationRun = {
+      ...run,
+      selectedGeneratedImage: imageOptionId
+        ? {
+            imageOptionId,
+            selectedAt: new Date().toISOString(),
+          }
+        : null,
+    };
+
+    setRuns((currentRuns) =>
+      currentRuns.map((currentRun) => {
+        if (currentRun.id !== runId) {
+          return currentRun;
+        }
+
+        return updatedRun;
+      }),
+    );
+    scheduleRunAutosave(updatedRun);
+  }
+
   function startImageGeneration(input: ImageGenerationInput) {
     const run = runs.find((candidateRun) => candidateRun.id === input.parentRunId);
 
@@ -381,6 +421,7 @@ export function Workspace({
           <ActiveRunPanel
             activeRun={activeRun}
             onDraftTextChange={updateDraftText}
+            onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
             onSelectedVisualJokeChange={updateSelectedVisualJoke}
             onStartImageGeneration={startImageGeneration}
           />

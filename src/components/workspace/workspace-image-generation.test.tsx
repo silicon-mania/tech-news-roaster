@@ -358,6 +358,108 @@ describe("Workspace image generation", () => {
     });
   });
 
+  test("persists exactly one selected generated variation across image sets via autosave", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore();
+    const newsLinkedImages = buildNewsLinkedImages();
+    const imageSets = [buildImageSet(newsLinkedImages[0]), buildImageSet(newsLinkedImages[1])];
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          imageGenerationState: {
+            completedAt: "2026-06-05T10:23:00.000Z",
+            selectedImageIds: [newsLinkedImages[0].id, newsLinkedImages[1].id],
+            startedAt: "2026-06-05T10:20:00.000Z",
+            status: "completed",
+            userImagePrompt: "Make it feel like a serious product launch image.",
+          },
+          imageModelProvenance: imageSets[0].imageModelProvenance,
+          imageSets,
+          newsLinkedImages: newsLinkedImages.slice(0, 2),
+          phase: "image-generation-complete",
+          selectedImageOriginals: imageSets.map((imageSet) => imageSet.selectedImageOriginal),
+        }),
+      ],
+      savedRunStore,
+    });
+
+    const imageResultsArea = screen.getByRole("region", {
+      name: /image results area/i,
+    });
+
+    expect(
+      within(imageResultsArea).queryByRole("button", {
+        name: /select original/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(imageResultsArea).getByRole("button", {
+        name: /select variation 1 from image set 1/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(
+      within(imageResultsArea).getByRole("button", {
+        name: /select variation 1 from image set 1/i,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedGeneratedImage: expect.objectContaining({
+            imageOptionId: "image-option-news-linked-image-1-variation-1",
+          }),
+        }),
+      ),
+    );
+    expect(
+      within(imageResultsArea).getByRole("button", {
+        name: /clear variation 1 from image set 1 selection/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(
+      within(imageResultsArea).getByRole("button", {
+        name: /select variation 2 from image set 2/i,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedGeneratedImage: expect.objectContaining({
+            imageOptionId: "image-option-news-linked-image-2-variation-2",
+          }),
+        }),
+      ),
+    );
+    expect(
+      within(imageResultsArea).getByRole("button", {
+        name: /select variation 1 from image set 1/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(within(imageResultsArea).getAllByRole("button", { pressed: true })).toHaveLength(1);
+
+    await user.click(
+      within(imageResultsArea).getByRole("button", {
+        name: /clear variation 2 from image set 2 selection/i,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedGeneratedImage: null,
+        }),
+      ),
+    );
+    expect(savedRunStore.save.mock.calls.at(-1)?.[0].selectedGeneratedImage).toBeNull();
+    expect(within(imageResultsArea).queryAllByRole("button", { pressed: true })).toHaveLength(0);
+  });
+
   test("reserves the image results footprint with skeleton sets while generation runs", () => {
     const newsLinkedImages = buildNewsLinkedImages();
 

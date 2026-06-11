@@ -17,6 +17,7 @@ import { VisualJokeArea } from "./visual-joke-area";
 type ActiveRunPanelProps = {
   activeRun: GenerationRun | null;
   onDraftTextChange: (draftId: string, text: string) => void;
+  onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onSelectedVisualJokeChange: (runId: string, visualJokeId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
 };
@@ -24,6 +25,7 @@ type ActiveRunPanelProps = {
 export function ActiveRunPanel({
   activeRun,
   onDraftTextChange,
+  onSelectedGeneratedImageChange,
   onSelectedVisualJokeChange,
   onStartImageGeneration,
 }: ActiveRunPanelProps) {
@@ -46,6 +48,7 @@ export function ActiveRunPanel({
     <ImageGenerationArea
       parentRunId={activeRun.id}
       run={activeRun}
+      onSelectedGeneratedImageChange={onSelectedGeneratedImageChange}
       onStartImageGeneration={onStartImageGeneration}
     />
   ) : imageDiscoveryFailure ? (
