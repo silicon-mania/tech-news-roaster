@@ -50,14 +50,14 @@ describe("Workspace generation progress", () => {
       generationEventSources[0]?.emit(events[0]);
     });
 
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
+    await user.click(screen.getByRole("button", { name: /open runs, 1 saved/i }));
     expect(
       screen.getByRole("button", {
         name: /drafts for 1234567890.*just now/i,
       }),
     ).toBeInTheDocument();
     expect(screen.getByTitle("Text generation running")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /close runs drawer/i }));
+    await user.click(screen.getByRole("button", { name: /collapse runs/i }));
     const sourceTweetPreview = screen.getByRole("complementary", {
       name: /source tweet preview/i,
     });
@@ -87,14 +87,14 @@ describe("Workspace generation progress", () => {
     });
 
     expect(generationEventSources[0]?.closed).toBe(true);
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
+    await user.click(screen.getByRole("button", { name: /open runs, 1 saved/i }));
     expect(
       screen.getByRole("button", {
         name: /drafts for 1234567890.*just now/i,
       }),
     ).toBeInTheDocument();
     expect(screen.getByTitle("Completed")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /close runs drawer/i }));
+    await user.click(screen.getByRole("button", { name: /collapse runs/i }));
     expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
     expect(screen.getAllByText(/local draft model/i)).toHaveLength(3);
@@ -368,9 +368,9 @@ describe("Workspace generation progress", () => {
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
+    await user.click(screen.getByRole("button", { name: /open runs, 1 saved/i }));
     expect(screen.getByTitle("Text generation running")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /close runs drawer/i }));
+    await user.click(screen.getByRole("button", { name: /collapse runs/i }));
 
     const events = buildGenerationEvents({
       sourceTweetUrl,

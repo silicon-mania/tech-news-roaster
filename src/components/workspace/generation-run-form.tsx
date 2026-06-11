@@ -1,4 +1,4 @@
-import { AlignLeft, ArrowRight, Menu } from "lucide-react";
+import { AlignLeft, ArrowRight } from "lucide-react";
 import { type FormEvent, useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,11 +13,9 @@ type GenerationRunFormProps = {
     kind: "blocked" | "warning";
     message: string;
   };
-  runsCount: number;
   sourceTweetUrl: string;
   submissionState: SubmissionState;
   onOpenDirectionPanel: () => void;
-  onOpenRunsDrawer: () => void;
   onSourceTweetUrlChange: (sourceTweetUrl: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
@@ -27,11 +25,9 @@ export function GenerationRunForm({
   hasUsersDirection,
   isRunDisabled,
   runtimeNotice,
-  runsCount,
   sourceTweetUrl,
   submissionState,
   onOpenDirectionPanel,
-  onOpenRunsDrawer,
   onSourceTweetUrlChange,
   onSubmit,
 }: GenerationRunFormProps) {
@@ -57,24 +53,7 @@ export function GenerationRunForm({
       <form
         noValidate
         onSubmit={onSubmit}
-        className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2 rounded-md bg-card/85 p-2 shadow-2xl shadow-black/25 backdrop-blur sm:grid-cols-[3rem_minmax(0,1fr)_auto_3rem]">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                aria-label={`Open runs drawer, ${runsCount} runs`}
-                className="justify-self-center text-muted-foreground"
-                onClick={onOpenRunsDrawer}
-                size="icon"
-                type="button"
-                variant="ghost"
-              />
-            }>
-            <Menu aria-hidden className="size-3.5" strokeWidth={1.75} />
-          </TooltipTrigger>
-          <TooltipContent>Runs</TooltipContent>
-        </Tooltip>
-
+        className="grid grid-cols-[minmax(0,1fr)_2.75rem] items-center gap-2 rounded-md bg-card/85 p-2 shadow-2xl shadow-black/25 backdrop-blur sm:grid-cols-[minmax(0,1fr)_auto_3rem]">
         <div className="min-w-0">
           <label htmlFor={sourceTweetUrlId} className="sr-only">
             Source Tweet URL
@@ -95,7 +74,7 @@ export function GenerationRunForm({
           type="submit"
           aria-describedby={visibleRuntimeNotice ? runtimeNoticeId : undefined}
           disabled={isRunDisabled}
-          className="col-span-3 row-start-2 h-11 gap-2 px-3 font-semibold sm:col-auto sm:row-auto sm:px-4">
+          className="col-span-2 row-start-2 h-11 gap-2 px-3 font-semibold sm:col-auto sm:row-auto sm:px-4">
           <ArrowRight aria-hidden className="size-4" strokeWidth={1.75} />
           <span>Run</span>
         </Button>
@@ -105,7 +84,7 @@ export function GenerationRunForm({
             render={
               <Button
                 aria-label="Open user's direction panel"
-                className="relative col-start-3 row-start-1 justify-self-center text-muted-foreground sm:col-auto sm:row-auto"
+                className="relative col-start-2 row-start-1 justify-self-center text-muted-foreground sm:col-auto sm:row-auto"
                 onClick={onOpenDirectionPanel}
                 size="icon"
                 type="button"

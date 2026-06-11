@@ -16,10 +16,11 @@ import { createRunId, isRunInFlight, parseSourceTweetUrl } from "@/services/work
 import { ActiveRunPanel } from "./active-run-panel";
 import { GenerationRunForm } from "./generation-run-form";
 import { PanelOverlay } from "./panel-overlay";
-import { RunsList } from "./runs-list";
+import { RunsSidebar } from "./runs-sidebar";
 import { genericRunningRunLabel, useGenerationRunStream } from "./use-generation-stream";
 import { useImageGenerationStream } from "./use-image-generation-stream";
 import { useRunAutosave } from "./use-run-autosave";
+import { useRunsSidebarPin } from "./use-runs-sidebar-pin";
 import { useRuntimeStatus } from "./use-runtime-status";
 import { useSavedRunHydration } from "./use-saved-run-hydration";
 import { UsersDirectionPanel } from "./users-direction-panel";
@@ -67,7 +68,8 @@ export function Workspace({
   const [usersDirection, setUsersDirection] = useState(initialActiveRun?.usersDirection ?? "");
   const [runs, setRuns] = useState<GenerationRun[]>(initialRuns);
   const [activeRunId, setActiveRunId] = useState<string | null>(initialActiveRun?.id ?? null);
-  const [isRunsDrawerOpen, setIsRunsDrawerOpen] = useState(false);
+  const { isPinned: isRunsSidebarPinned, togglePinned: toggleRunsSidebarPinned } =
+    useRunsSidebarPin();
   const [isDirectionPanelOpen, setIsDirectionPanelOpen] = useState(false);
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
     kind: "idle",
@@ -336,7 +338,6 @@ export function Workspace({
     setSourceTweetUrl(run.sourceTweetUrl);
     setUsersDirection(run.usersDirection);
     setSubmissionState({ kind: "idle" });
-    setIsRunsDrawerOpen(false);
   }
 
   function deleteSavedRun(runId: string) {
@@ -361,7 +362,10 @@ export function Workspace({
   }
 
   return (
-    <main className="min-h-screen overflow-hidden px-3 py-4 text-foreground sm:px-8 sm:py-6 lg:px-10">
+    <main
+      className={`min-h-screen overflow-hidden py-4 pr-3 text-foreground transition-[padding] duration-300 ease-out sm:py-6 sm:pr-8 lg:pr-10 ${
+        isRunsSidebarPinned ? "pl-3 sm:pl-8 lg:pl-[20rem]" : "pl-3 sm:pl-8 lg:pl-10"
+      }`}>
       <div
         className={`mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] transition-[gap] duration-300 sm:min-h-[calc(100vh-3rem)] ${
           hasRuns ? "gap-4 sm:gap-6" : "gap-7 sm:gap-10"
@@ -373,11 +377,9 @@ export function Workspace({
           hasUsersDirection={hasUsersDirection}
           isRunDisabled={hasInFlightRun || productionRunDisabled}
           runtimeNotice={runtimeNotice}
-          runsCount={runs.length}
           sourceTweetUrl={sourceTweetUrl}
           submissionState={submissionState}
           onOpenDirectionPanel={() => setIsDirectionPanelOpen(true)}
-          onOpenRunsDrawer={() => setIsRunsDrawerOpen(true)}
           onSourceTweetUrlChange={updateSourceTweetUrl}
           onSubmit={submitSourceTweet}
         />
@@ -390,16 +392,14 @@ export function Workspace({
         />
       </div>
 
-      {isRunsDrawerOpen ? (
-        <PanelOverlay label="Runs drawer" side="left" onClose={() => setIsRunsDrawerOpen(false)}>
-          <RunsList
-            activeRunId={activeRunId}
-            runs={runs}
-            onDeleteRun={deleteSavedRun}
-            onSelectRun={reopenRun}
-          />
-        </PanelOverlay>
-      ) : null}
+      <RunsSidebar
+        activeRunId={activeRunId}
+        isPinned={isRunsSidebarPinned}
+        runs={runs}
+        onDeleteRun={deleteSavedRun}
+        onSelectRun={reopenRun}
+        onTogglePinned={toggleRunsSidebarPinned}
+      />
 
       {isDirectionPanelOpen ? (
         <PanelOverlay

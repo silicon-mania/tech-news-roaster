@@ -250,7 +250,7 @@ describe("Workspace draft editing", () => {
 
     await user.click(
       await screen.findByRole("button", {
-        name: /open runs drawer, 2 runs/i,
+        name: /open runs, 2 saved/i,
       }),
     );
     await user.click(
@@ -271,13 +271,13 @@ describe("Workspace draft editing", () => {
     await user.type(draftEditor, "Latest edit line one.{enter}Line two.");
     await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
 
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 2 runs/i }));
+    // The runs sidebar stays pinned open, so its run buttons remain reachable
+    // without re-opening it between selections.
     await user.click(
       screen.getByRole("button", {
         name: /other saved run/i,
       }),
     );
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 2 runs/i }));
     await user.click(
       screen.getByRole("button", {
         name: /editable saved run/i,

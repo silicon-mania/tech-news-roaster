@@ -6,19 +6,26 @@ import type { GenerationRun } from "./workspace";
 import { renderWorkspace } from "./workspace-test-utils";
 
 describe("Workspace runs navigation", () => {
-  test("opens the runs drawer and User's Direction panel from opposite sides on desktop and mobile-sized viewports", async () => {
+  test("pins the runs sidebar open and toggles it from the same icon, with the User's Direction panel on the opposite side", async () => {
     const user = userEvent.setup();
 
     vi.stubGlobal("innerWidth", 1280);
     renderWorkspace();
 
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 0 runs/i }));
-    expect(screen.getByRole("dialog", { name: /runs drawer/i })).toHaveAttribute(
-      "data-side",
-      "left",
-    );
+    const openRunsButton = screen.getByRole("button", { name: /open runs, 0 saved/i });
+    expect(openRunsButton).toHaveAttribute("aria-expanded", "false");
 
-    await user.click(screen.getByRole("button", { name: /close runs drawer/i }));
+    await user.click(openRunsButton);
+    const collapseRunsButton = screen.getByRole("button", { name: /collapse runs/i });
+    expect(collapseRunsButton).toHaveAttribute("aria-expanded", "true");
+    expect(collapseRunsButton).toHaveAttribute("aria-controls", "runs-sidebar-panel");
+
+    await user.click(collapseRunsButton);
+    // Un-pinning flips the trigger back to its "open" label (it still peeks while
+    // the pointer hovers, which userEvent keeps simulated after the click).
+    expect(screen.getByRole("button", { name: /open runs, 0 saved/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /collapse runs/i })).not.toBeInTheDocument();
+
     await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
     expect(
       screen.getByRole("dialog", {
@@ -36,10 +43,6 @@ describe("Workspace runs navigation", () => {
       }),
     );
     expect(screen.getByTitle("User's Direction has content")).toBeInTheDocument();
-
-    vi.stubGlobal("innerWidth", 390);
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 0 runs/i }));
-    expect(screen.getByRole("dialog", { name: /runs drawer/i })).toBeInTheDocument();
   });
 
   test("keeps the running run inspectable and prevents another in-flight run", async () => {
@@ -52,7 +55,7 @@ describe("Workspace runs navigation", () => {
     await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
     await user.click(generateButton);
 
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
+    await user.click(screen.getByRole("button", { name: /open runs, 1 saved/i }));
     expect(
       screen.getByRole("button", {
         name: /new generation run.*just now/i,
@@ -106,12 +109,15 @@ describe("Workspace runs navigation", () => {
       "0/3",
     );
 
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 2 runs/i }));
+    await user.click(screen.getByRole("button", { name: /open runs, 2 saved/i }));
     await user.click(screen.getByRole("button", { name: /second run/i }));
 
     expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
       "1/3",
     );
-    expect(screen.queryByRole("dialog", { name: /runs drawer/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /second run/i })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
   });
 });

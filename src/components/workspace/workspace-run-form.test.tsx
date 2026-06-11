@@ -47,7 +47,7 @@ describe("Workspace run form", () => {
       "0/3",
     );
 
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
+    await user.click(screen.getByRole("button", { name: /open runs, 1 saved/i }));
     expect(
       screen.getByRole("button", {
         name: /new generation run.*just now/i,

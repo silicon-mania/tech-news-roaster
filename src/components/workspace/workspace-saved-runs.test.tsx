@@ -56,7 +56,7 @@ describe("Workspace saved runs", () => {
     );
     expect(sourceTweetUrlInput).toHaveValue("https://x.com/siliconmania/status/1234567890");
 
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
+    await user.click(screen.getByRole("button", { name: /open runs, 1 saved/i }));
     expect(
       screen.getByRole("button", {
         name: /drafts for 1234567890.*just now/i,
@@ -137,7 +137,7 @@ describe("Workspace saved runs", () => {
 
     await user.click(
       await screen.findByRole("button", {
-        name: /open runs drawer, 1 runs/i,
+        name: /open runs, 1 saved/i,
       }),
     );
     await user.click(
@@ -178,7 +178,7 @@ describe("Workspace saved runs", () => {
 
     await user.click(
       await screen.findByRole("button", {
-        name: /open runs drawer, 1 runs/i,
+        name: /open runs, 1 saved/i,
       }),
     );
     await user.click(
@@ -257,7 +257,7 @@ describe("Workspace saved runs", () => {
 
     await user.click(
       await screen.findByRole("button", {
-        name: /open runs drawer, 1 runs/i,
+        name: /open runs, 1 saved/i,
       }),
     );
     await user.click(
@@ -326,7 +326,7 @@ describe("Workspace saved runs", () => {
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
+    await user.click(screen.getByRole("button", { name: /open runs, 1 saved/i }));
     expect(screen.getByTitle("Failed")).toBeInTheDocument();
   });
 
@@ -342,7 +342,7 @@ describe("Workspace saved runs", () => {
     });
 
     await screen.findByRole("button", {
-      name: /open runs drawer, 1 runs/i,
+      name: /open runs, 1 saved/i,
     });
     await waitFor(() =>
       expect(sourceTweetUrlInput).toHaveValue("https://x.com/siliconmania/status/1234567890"),
@@ -394,10 +394,10 @@ describe("Workspace saved runs", () => {
     const user = userEvent.setup();
     expect(
       await screen.findByRole("button", {
-        name: /open runs drawer, 1 runs/i,
+        name: /open runs, 1 saved/i,
       }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /open runs drawer, 1 runs/i }));
+    await user.click(screen.getByRole("button", { name: /open runs, 1 saved/i }));
     expect(
       screen.getByRole("button", {
         name: /three weeks old.*3 weeks ago/i,
@@ -417,7 +417,7 @@ describe("Workspace saved runs", () => {
 
     await user.click(
       await screen.findByRole("button", {
-        name: /open runs drawer, 1 runs/i,
+        name: /open runs, 1 saved/i,
       }),
     );
     await user.hover(
@@ -450,7 +450,7 @@ describe("Workspace saved runs", () => {
 
     await user.click(
       await screen.findByRole("button", {
-        name: /open runs drawer, 1 runs/i,
+        name: /open runs, 1 saved/i,
       }),
     );
 

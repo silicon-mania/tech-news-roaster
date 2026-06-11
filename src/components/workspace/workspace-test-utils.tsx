@@ -79,6 +79,9 @@ export function renderWorkspace({
 } = {}) {
   const generationStreamUrls: string[] = [];
 
+  // The runs sidebar persists its pinned state to localStorage; clear it so each
+  // test starts from the collapsed state regardless of what earlier tests pinned.
+  window.localStorage.clear();
   stubDesktopMediaQuery(isDesktop);
 
   render(
