@@ -1,5 +1,14 @@
 "use client";
 
+import { Download } from "lucide-react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  type CompositeRasterizer,
+  rasterizeCompositeToPng,
+} from "@/services/final-quote-tweet-image";
 import type {
   ImageSet,
   SelectedGeneratedImage,
@@ -10,14 +19,25 @@ import type {
 import type { GenerationRun } from "@/services/workspace";
 import { CreativeFailureArea } from "./creative-failure-area";
 import type { StageFailure } from "./failure-details";
+import { buildFinalQuoteTweetImageDownloadName } from "./image-helpers";
 import { QuoteTweetComposite } from "./quote-tweet-composite";
 
 /**
  * Pure consumer of the run's two picks: it renders the Final Quote Tweet Image
  * composite from the Selected Generated Image and the Selected Visual Joke,
- * and owns no selection state of its own.
+ * and owns no selection state of its own. Its one deliberate action is
+ * Download, which rasterizes the live preview node through the injected
+ * rasterizer so preview equals download.
  */
-export function FinalQuoteTweetImageArea({ run }: { run: GenerationRun }) {
+export function FinalQuoteTweetImageArea({
+  rasterizeComposite = rasterizeCompositeToPng,
+  run,
+}: {
+  rasterizeComposite?: CompositeRasterizer;
+  run: GenerationRun;
+}) {
+  const compositeRef = useRef<HTMLElement | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   const imageSets = run.imageSets ?? [];
 
   if (imageSets.length === 0) {
@@ -40,9 +60,54 @@ export function FinalQuoteTweetImageArea({ run }: { run: GenerationRun }) {
     run.selectedVisualJoke ?? null,
   );
 
+  async function downloadComposite() {
+    const compositeNode = compositeRef.current;
+
+    if (!compositeNode || isDownloading) {
+      return;
+    }
+
+    setIsDownloading(true);
+
+    try {
+      const pngDataUrl = await rasterizeComposite(compositeNode);
+      const anchor = document.createElement("a");
+
+      anchor.download = buildFinalQuoteTweetImageDownloadName(run.label);
+      anchor.href = pngDataUrl;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch {
+      toast.error("Couldn't download the final quote tweet image");
+    } finally {
+      setIsDownloading(false);
+    }
+  }
+
   return (
     <>
-      <h1 className="font-medium text-foreground text-lg md:text-2xl">Final quote tweet image</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="font-medium text-foreground text-lg md:text-2xl">Final quote tweet image</h1>
+        {selectedVariation && selectedVisualJoke ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label="Download final quote tweet image"
+                  disabled={isDownloading}
+                  onClick={() => void downloadComposite()}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                />
+              }>
+              <Download aria-hidden className="size-4" strokeWidth={1.75} />
+            </TooltipTrigger>
+            <TooltipContent>Download</TooltipContent>
+          </Tooltip>
+        ) : null}
+      </div>
       <section
         aria-label="Final Quote Tweet Image Creative Result Area"
         className="grid gap-3 bg-card/40 p-3">
@@ -52,6 +117,7 @@ export function FinalQuoteTweetImageArea({ run }: { run: GenerationRun }) {
               imageAlt={selectedVariation.altText ?? selectedVariation.label}
               imageUrl={selectedVariation.url}
               jokeTitle={selectedVisualJoke.text}
+              ref={compositeRef}
             />
           </div>
         ) : (

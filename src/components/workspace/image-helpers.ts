@@ -12,6 +12,16 @@ export function buildImageDownloadName(imageSet: ImageSet, option: ImageSet["opt
   return `${imageSet.id}-${option.label.toLowerCase().replaceAll(" ", "-")}`;
 }
 
+export function buildFinalQuoteTweetImageDownloadName(runLabel: string) {
+  // Run Labels are free text, so collapse anything filename-hostile too.
+  const slug = runLabel
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-+|-+$/g, "");
+
+  return slug || "final-quote-tweet-image";
+}
+
 export function getDisplayImageUrl(image: NewsLinkedImage, index: number) {
   if (image.url.startsWith("https://example.com/")) {
     return `https://picsum.photos/seed/${encodeURIComponent(

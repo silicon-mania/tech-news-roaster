@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import type { CSSProperties } from "react";
+import type { CSSProperties, Ref } from "react";
 import { useLayoutEffect, useRef } from "react";
 import {
   quoteTweetBandGradient,
@@ -55,10 +55,13 @@ export function QuoteTweetComposite({
   imageAlt,
   imageUrl,
   jokeTitle,
+  ref,
 }: {
   imageAlt: string;
   imageUrl: string;
   jokeTitle: string;
+  /** Exposes the composite root so Download can rasterize this exact node. */
+  ref?: Ref<HTMLElement>;
 }) {
   const titleBoxRef = useRef<HTMLElement | null>(null);
 
@@ -106,6 +109,7 @@ export function QuoteTweetComposite({
     <figure
       aria-label="Final Quote Tweet Image preview"
       className="relative w-full overflow-hidden"
+      ref={ref}
       style={{
         aspectRatio: `${quoteTweetFrame.width} / ${quoteTweetFrame.height}`,
         backgroundColor: quoteTweetColors.band,

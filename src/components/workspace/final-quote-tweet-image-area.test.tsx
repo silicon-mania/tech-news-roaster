@@ -1,6 +1,8 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, test, vi } from "vitest";
+import { Toaster } from "@/components/ui/sonner";
 import { FinalQuoteTweetImageArea } from "./final-quote-tweet-image-area";
 import {
   buildCompletedRun,
@@ -177,6 +179,78 @@ describe("FinalQuoteTweetImageArea", () => {
 
     expect(
       screen.getByText("A one-click launch button labeled 'Eventually, manual work.'"),
+    ).toBeInTheDocument();
+  });
+
+  test("offers no download action while a pick is missing", () => {
+    render(
+      <FinalQuoteTweetImageArea run={buildCompletedV3Run({ selectedGeneratedImage: null })} />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Download final quote tweet image" }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("download calls the injected rasterizer with the composite and offers a PNG named from the run label", async () => {
+    const user = userEvent.setup();
+    const rasterizeComposite = vi.fn(async (_node: HTMLElement) => "data:image/png;base64,final");
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+
+    render(
+      <FinalQuoteTweetImageArea
+        rasterizeComposite={rasterizeComposite}
+        run={buildCompletedV3Run({
+          label: "Drafts: OpenAI's GPU/teardown",
+          selectedGeneratedImage: selectedGeneratedImageFixture,
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Download final quote tweet image" }));
+
+    await waitFor(() => expect(anchorClick).toHaveBeenCalledTimes(1));
+    expect(rasterizeComposite).toHaveBeenCalledTimes(1);
+    expect(rasterizeComposite).toHaveBeenCalledWith(
+      screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
+    );
+
+    const offeredAnchor = anchorClick.mock.contexts[0] as HTMLAnchorElement;
+
+    expect(offeredAnchor.download).toBe("drafts-openai-s-gpu-teardown");
+    expect(offeredAnchor.href).toBe("data:image/png;base64,final");
+
+    anchorClick.mockRestore();
+  });
+
+  test("surfaces a quiet toast when rasterization fails", async () => {
+    vi.stubGlobal("matchMedia", () => ({
+      addEventListener: vi.fn(),
+      matches: false,
+      removeEventListener: vi.fn(),
+    }));
+
+    const user = userEvent.setup();
+    const rasterizeComposite = vi.fn(async () => {
+      throw new Error("capture failed");
+    });
+
+    render(
+      <>
+        <FinalQuoteTweetImageArea
+          rasterizeComposite={rasterizeComposite}
+          run={buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })}
+        />
+        <Toaster />
+      </>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Download final quote tweet image" }));
+
+    expect(
+      await screen.findByText("Couldn't download the final quote tweet image"),
     ).toBeInTheDocument();
   });
 });
