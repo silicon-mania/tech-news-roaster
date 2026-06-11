@@ -130,7 +130,7 @@ export function GenerationRunForm({
             name="usersDirection"
             value={usersDirection}
             onChange={(event) => onUsersDirectionChange(event.target.value)}
-            placeholder="Add context to respect, a constraint, or a line you want challenged (optional)."
+            placeholder="Add context: what to respect, avoid, tone, angle, or length. This only affects the 3 text drafts, not the joke or image (optional)"
             className="min-h-28 resize-y rounded-md border-transparent bg-card/80 px-4 py-3 leading-7 placeholder:text-muted-foreground/40 md:text-base dark:bg-card/80"
           />
         ) : null}
