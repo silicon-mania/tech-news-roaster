@@ -19,24 +19,27 @@ const selectedGeneratedImageFixture = {
 const selectedJokeTitle = "A workflow map where every exit arrow points back to the login screen.";
 const selectedVariationName = "Launch visual variation 1.";
 
-describe("Workspace final quote tweet image area", () => {
-  test("renders the composite alongside the other creative areas once both picks exist", () => {
+describe("Workspace final quote tweet image overlay", () => {
+  test("renders the composite in the sticky overlay, outside the creative workspace flow", () => {
     renderWorkspace({
       initialActiveRunId: "saved-run",
       initialRuns: [buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })],
     });
 
-    const imageGenerationArea = screen.getByRole("complementary", {
-      name: /image generation area/i,
-    });
     const finalArea = screen.getByRole("region", {
       name: /final quote tweet image creative result area/i,
     });
 
-    // The composition area sits after the image work area in the run workspace layout.
+    // The overlay is a viewport-anchored sibling, not part of the in-flow run layout.
+    const creativeWorkspace = screen.getByRole("region", {
+      name: /responsive creative workspace/i,
+    });
+
     expect(
-      imageGenerationArea.compareDocumentPosition(finalArea) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      within(creativeWorkspace).queryByRole("region", {
+        name: /final quote tweet image creative result area/i,
+      }),
+    ).not.toBeInTheDocument();
 
     // Derived composite: the Selected Visual Joke's title over the Selected Generated Image.
     expect(
@@ -104,7 +107,7 @@ describe("Workspace final quote tweet image area", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("hides the final quote tweet image area when no image set with variations exists", () => {
+  test("keeps the overlay hidden when no image set with variations exists", () => {
     renderWorkspace({
       initialActiveRunId: "saved-run",
       initialRuns: [buildCompletedRun({ visualJokeSet: buildVisualJokeSet() })],
@@ -114,10 +117,35 @@ describe("Workspace final quote tweet image area", () => {
     expect(
       screen.getByRole("region", { name: /visual joke creative result area/i }),
     ).toBeInTheDocument();
-    // ...but with no Image Set there is nothing to assemble, so the area stays hidden.
+    // ...but with no Image Set there is nothing to assemble, so the overlay stays hidden.
     expect(
       screen.queryByRole("region", { name: /final quote tweet image creative result area/i }),
     ).not.toBeInTheDocument();
+  });
+
+  test("collapses the overlay to its strip and reopens it from the workspace", async () => {
+    const user = userEvent.setup();
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })],
+    });
+
+    expect(
+      screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /collapse final quote tweet image/i }));
+
+    expect(
+      screen.queryByRole("figure", { name: "Final Quote Tweet Image preview" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /expand final quote tweet image/i }));
+
+    expect(
+      screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
+    ).toBeInTheDocument();
   });
 
   test("downloads the composite through the rasterizer injected into the workspace", async () => {

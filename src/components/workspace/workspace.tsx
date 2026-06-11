@@ -15,6 +15,7 @@ import type {
 } from "@/services/workspace";
 import { createRunId, isRunInFlight, parseSourceTweetUrl } from "@/services/workspace";
 import { ActiveRunPanel } from "./active-run-panel";
+import { FinalQuoteTweetImageOverlay } from "./final-quote-tweet-image-overlay";
 import { GenerationRunForm } from "./generation-run-form";
 import { RunsSidebar } from "./runs-sidebar";
 import { genericRunningRunLabel, useGenerationRunStream } from "./use-generation-stream";
@@ -427,7 +428,6 @@ export function Workspace({
             onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
             onSelectedVisualJokeChange={updateSelectedVisualJoke}
             onStartImageGeneration={startImageGeneration}
-            rasterizeComposite={rasterizeComposite}
           />
         </div>
       ) : (
@@ -456,6 +456,8 @@ export function Workspace({
         onSelectRun={reopenRun}
         onTogglePinned={toggleRunsSidebarPinned}
       />
+
+      <FinalQuoteTweetImageOverlay rasterizeComposite={rasterizeComposite} run={activeRun} />
     </main>
   );
 }

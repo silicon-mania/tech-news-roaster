@@ -29,6 +29,13 @@ read [CONTEXT.md](CONTEXT.md) and the ADRs under [docs/adr/](docs/adr/).
   competing set of color variables.
 - The app is **dark-only**: `<html>` carries the `dark` class so shadcn's
   `dark:` variants apply, and there is no theme toggle or `next-themes`.
+  - **One sanctioned exception:** the Final Quote Tweet Image overlay
+    (`src/components/workspace/final-quote-tweet-image-overlay.tsx`) uses a
+    light/white card surface — it mats the print-like composite. Keep it
+    self-contained with scoped `bg-white` / `text-zinc-*` utilities (and
+    `dark:hover:*` overrides so the dark-root ghost variants don't leak in);
+    it adds **no** light-theme tokens. Don't "fix" it back to dark tokens, and
+    don't treat it as license for a second theme anywhere else.
 
 ## Visual style
 
