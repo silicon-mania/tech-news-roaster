@@ -11,7 +11,7 @@ export function GenerationWaitingState({ run }: { run: GenerationRun }) {
       aria-live="polite"
       className="grid min-h-80 place-items-center sm:min-h-96">
       <div className="grid w-full max-w-3xl justify-items-center gap-5 text-center">
-        <p className="editorial-serif text-6xl text-foreground tracking-normal sm:text-7xl">
+        <p className="text-6xl text-foreground tracking-normal sm:text-7xl">
           {run.draftCount}/{run.draftTarget}
         </p>
         <p className="text-muted-foreground text-xs uppercase tracking-[0.18em]">drafts</p>

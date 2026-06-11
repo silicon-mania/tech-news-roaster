@@ -1,21 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const poppins = localFont({
+  src: "../../public/fonts/poppins-regular.ttf",
+  variable: "--font-poppins",
+  weight: "400",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Tech News Roaster",
+  title: "Auto-News",
   description: "Single-page workspace for source tweet draft generation.",
 };
 
@@ -25,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`dark ${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`dark ${poppins.variable}`}>
       <body>
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster />

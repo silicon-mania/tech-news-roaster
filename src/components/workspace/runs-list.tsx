@@ -18,7 +18,7 @@ export function RunsList({ activeRunId, runs, onDeleteRun, onSelectRun }: RunsLi
   return (
     <section aria-label="Unified runs list" className="grid gap-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="editorial-serif text-foreground text-xl">Runs</h2>
+        <h2 className="text-foreground text-xl">Runs</h2>
         <span className="text-muted-foreground text-xs">{runs.length}</span>
       </div>
 

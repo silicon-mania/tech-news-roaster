@@ -8,7 +8,7 @@ describe("Workspace run form", () => {
   test("renders an almost empty draft-first shell before any run exists", () => {
     renderWorkspace();
 
-    expect(screen.getByRole("heading", { name: "TECH NEWS ROASTER" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Auto-news" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /primary source tweet bar/i })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /draft canvas/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /^user's direction$/i })).not.toBeInTheDocument();
