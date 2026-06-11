@@ -27,16 +27,11 @@ describe("Workspace generation progress", () => {
     });
 
     await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
-    await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
+    await user.click(screen.getByRole("button", { name: /add direction/i }));
     const usersDirectionInput = screen.getByRole("textbox", {
       name: /^user's direction$/i,
     });
     await user.type(usersDirectionInput, "Keep the joke dry.");
-    await user.click(
-      screen.getByRole("button", {
-        name: /close user's direction panel/i,
-      }),
-    );
     await user.click(generateButton);
 
     const events = buildGenerationEvents({

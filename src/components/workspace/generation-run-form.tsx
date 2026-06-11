@@ -1,13 +1,13 @@
-import { AlignLeft, ArrowRight } from "lucide-react";
-import { type FormEvent, useId } from "react";
+import { ArrowRight, ChevronDown } from "lucide-react";
+import { type FormEvent, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SubmissionState } from "@/services/workspace";
 
 type GenerationRunFormProps = {
   hasRuns: boolean;
-  hasUsersDirection: boolean;
   isRunDisabled: boolean;
   runtimeNotice?: {
     kind: "blocked" | "warning";
@@ -15,26 +15,30 @@ type GenerationRunFormProps = {
   };
   sourceTweetUrl: string;
   submissionState: SubmissionState;
-  onOpenDirectionPanel: () => void;
+  usersDirection: string;
   onSourceTweetUrlChange: (sourceTweetUrl: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onUsersDirectionChange: (usersDirection: string) => void;
 };
 
 export function GenerationRunForm({
   hasRuns,
-  hasUsersDirection,
   isRunDisabled,
   runtimeNotice,
   sourceTweetUrl,
   submissionState,
-  onOpenDirectionPanel,
+  usersDirection,
   onSourceTweetUrlChange,
   onSubmit,
+  onUsersDirectionChange,
 }: GenerationRunFormProps) {
   const sourceTweetUrlId = useId();
   const sourceTweetUrlErrorId = `${sourceTweetUrlId}-error`;
   const statusId = `${sourceTweetUrlId}-status`;
   const runtimeNoticeId = `${sourceTweetUrlId}-runtime-notice`;
+  const directionId = `${sourceTweetUrlId}-direction`;
+  const hasUsersDirection = usersDirection.trim().length > 0;
+  const [isDirectionOpen, setIsDirectionOpen] = useState(hasUsersDirection);
   const visibleRuntimeNotice = submissionState.kind === "idle" ? runtimeNotice : undefined;
   const sourceTweetUrlDescription = [
     submissionState.kind === "invalid" ? sourceTweetUrlErrorId : null,
@@ -43,6 +47,14 @@ export function GenerationRunForm({
   ]
     .filter(Boolean)
     .join(" ");
+
+  // Auto-reveal the direction whenever it carries content (e.g. reopening a
+  // saved run), while leaving a manual collapse of an empty field untouched.
+  useEffect(() => {
+    if (hasUsersDirection) {
+      setIsDirectionOpen(true);
+    }
+  }, [hasUsersDirection]);
 
   return (
     <section
@@ -53,7 +65,7 @@ export function GenerationRunForm({
       <form
         noValidate
         onSubmit={onSubmit}
-        className="grid grid-cols-[minmax(0,1fr)_2.75rem] items-center gap-2 rounded-md bg-card/85 p-2 shadow-2xl shadow-black/25 backdrop-blur sm:grid-cols-[minmax(0,1fr)_auto_3rem]">
+        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md bg-card/85 p-2 shadow-2xl shadow-black/25 backdrop-blur">
         <div className="min-w-0">
           <label htmlFor={sourceTweetUrlId} className="sr-only">
             Source Tweet URL
@@ -66,42 +78,63 @@ export function GenerationRunForm({
             aria-describedby={sourceTweetUrlDescription || undefined}
             aria-invalid={submissionState.kind === "invalid"}
             placeholder="https://x.com/handle/status/1234567890"
-            className="h-11 rounded-md border-transparent bg-secondary/60 px-3 placeholder:text-muted-foreground/60 sm:px-4 md:text-base dark:bg-secondary/60"
+            className="h-11 rounded-md border-transparent bg-transparent px-3 placeholder:text-muted-foreground/40 sm:px-4 md:text-base dark:bg-transparent"
           />
         </div>
-
-        <Button
-          type="submit"
-          aria-describedby={visibleRuntimeNotice ? runtimeNoticeId : undefined}
-          disabled={isRunDisabled}
-          className="col-span-2 row-start-2 h-11 gap-2 px-3 font-semibold sm:col-auto sm:row-auto sm:px-4">
-          <ArrowRight aria-hidden className="size-4" strokeWidth={1.75} />
-          <span>Run</span>
-        </Button>
 
         <Tooltip>
           <TooltipTrigger
             render={
               <Button
-                aria-label="Open user's direction panel"
-                className="relative col-start-2 row-start-1 justify-self-center text-muted-foreground sm:col-auto sm:row-auto"
-                onClick={onOpenDirectionPanel}
+                aria-describedby={visibleRuntimeNotice ? runtimeNoticeId : undefined}
+                aria-label="Run"
+                className="size-11 rounded-full"
+                disabled={isRunDisabled}
                 size="icon"
-                type="button"
-                variant="ghost"
+                type="submit"
               />
             }>
-            <AlignLeft aria-hidden className="size-3.5" strokeWidth={1.75} />
-            {hasUsersDirection ? (
-              <span
-                title="User's Direction has content"
-                className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary"
-              />
-            ) : null}
+            <ArrowRight aria-hidden className="size-4" strokeWidth={1.75} />
           </TooltipTrigger>
-          <TooltipContent>User's direction</TooltipContent>
+          <TooltipContent>Run</TooltipContent>
         </Tooltip>
       </form>
+
+      <div className="grid gap-2 px-2">
+        <Button
+          aria-controls={directionId}
+          aria-expanded={isDirectionOpen}
+          className="h-auto w-fit gap-1.5 px-1.5 py-1 font-normal text-muted-foreground text-sm hover:bg-transparent hover:text-foreground"
+          onClick={() => setIsDirectionOpen((open) => !open)}
+          size="sm"
+          type="button"
+          variant="ghost">
+          <ChevronDown
+            aria-hidden
+            className={`size-3.5 transition-transform ${isDirectionOpen ? "" : "-rotate-90"}`}
+            strokeWidth={1.75}
+          />
+          <span>{isDirectionOpen ? "Hide direction" : "Add direction"}</span>
+          {!isDirectionOpen && hasUsersDirection ? (
+            <span
+              title="User's Direction has content"
+              className="ml-0.5 h-1.5 w-1.5 rounded-full bg-primary"
+            />
+          ) : null}
+        </Button>
+
+        {isDirectionOpen ? (
+          <Textarea
+            id={directionId}
+            aria-label="User's Direction"
+            name="usersDirection"
+            value={usersDirection}
+            onChange={(event) => onUsersDirectionChange(event.target.value)}
+            placeholder="Add context to respect, a constraint, or a line you want challenged (optional)."
+            className="min-h-28 resize-y rounded-md border-transparent bg-card/80 px-4 py-3 leading-7 placeholder:text-muted-foreground/40 md:text-base dark:bg-card/80"
+          />
+        ) : null}
+      </div>
 
       <div className="min-h-5 px-2">
         {submissionState.kind === "invalid" ? (

@@ -6,7 +6,7 @@ import type { GenerationRun } from "./workspace";
 import { renderWorkspace } from "./workspace-test-utils";
 
 describe("Workspace runs navigation", () => {
-  test("pins the runs sidebar open and toggles it from the same icon, with the User's Direction panel on the opposite side", async () => {
+  test("pins the runs sidebar open and toggles it from the same icon, with the User's Direction inline in the composer", async () => {
     const user = userEvent.setup();
 
     vi.stubGlobal("innerWidth", 1280);
@@ -26,22 +26,14 @@ describe("Workspace runs navigation", () => {
     expect(screen.getByRole("button", { name: /open runs, 0 saved/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /collapse runs/i })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
-    expect(
-      screen.getByRole("dialog", {
-        name: /user's direction panel/i,
-      }),
-    ).toHaveAttribute("data-side", "right");
-
+    await user.click(screen.getByRole("button", { name: /add direction/i }));
     await user.type(
       screen.getByRole("textbox", { name: /^user's direction$/i }),
       "Respect the SEC angle.",
     );
-    await user.click(
-      screen.getByRole("button", {
-        name: /close user's direction panel/i,
-      }),
-    );
+    // Collapsing the field while it holds content surfaces the "has content" dot.
+    await user.click(screen.getByRole("button", { name: /hide direction/i }));
+    expect(screen.queryByRole("textbox", { name: /^user's direction$/i })).not.toBeInTheDocument();
     expect(screen.getByTitle("User's Direction has content")).toBeInTheDocument();
   });
 

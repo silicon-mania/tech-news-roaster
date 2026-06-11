@@ -10,8 +10,7 @@ describe("Workspace run form", () => {
 
     expect(screen.getByRole("heading", { name: "TECH NEWS ROASTER" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /primary source tweet bar/i })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /empty draft canvas/i })).toBeInTheDocument();
-    expect(screen.queryByRole("dialog", { name: /runs drawer/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /draft canvas/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /^user's direction$/i })).not.toBeInTheDocument();
   });
 
@@ -23,16 +22,11 @@ describe("Workspace run form", () => {
     });
 
     await user.type(sourceTweetUrlInput, " https://x.com/siliconmania/status/1234567890 ");
-    await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
+    await user.click(screen.getByRole("button", { name: /add direction/i }));
     const usersDirectionInput = screen.getByRole("textbox", {
       name: /^user's direction$/i,
     });
     await user.type(usersDirectionInput, "Make it sharper about platform risk.");
-    await user.click(
-      screen.getByRole("button", {
-        name: /close user's direction panel/i,
-      }),
-    );
     await user.click(generateButton);
 
     expect(startGenerationRun).toHaveBeenCalledWith({
@@ -222,16 +216,11 @@ describe("Workspace run form", () => {
     const { sourceTweetUrlInput, generateButton, generationStreamUrls } = renderWorkspace();
 
     await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/13579");
-    await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
+    await user.click(screen.getByRole("button", { name: /add direction/i }));
     const usersDirectionInput = screen.getByRole("textbox", {
       name: /^user's direction$/i,
     });
     await user.type(usersDirectionInput, "Challenge the premise.");
-    await user.click(
-      screen.getByRole("button", {
-        name: /close user's direction panel/i,
-      }),
-    );
     await user.click(generateButton);
 
     expect(generationStreamUrls).toEqual([

@@ -15,7 +15,6 @@ import type {
 import { createRunId, isRunInFlight, parseSourceTweetUrl } from "@/services/workspace";
 import { ActiveRunPanel } from "./active-run-panel";
 import { GenerationRunForm } from "./generation-run-form";
-import { PanelOverlay } from "./panel-overlay";
 import { RunsSidebar } from "./runs-sidebar";
 import { genericRunningRunLabel, useGenerationRunStream } from "./use-generation-stream";
 import { useImageGenerationStream } from "./use-image-generation-stream";
@@ -23,7 +22,6 @@ import { useRunAutosave } from "./use-run-autosave";
 import { useRunsSidebarPin } from "./use-runs-sidebar-pin";
 import { useRuntimeStatus } from "./use-runtime-status";
 import { useSavedRunHydration } from "./use-saved-run-hydration";
-import { UsersDirectionPanel } from "./users-direction-panel";
 import { WorkspaceHeader } from "./workspace-header";
 
 export type { GenerationRun, GenerationRunInput } from "@/services/workspace";
@@ -70,7 +68,6 @@ export function Workspace({
   const [activeRunId, setActiveRunId] = useState<string | null>(initialActiveRun?.id ?? null);
   const { isPinned: isRunsSidebarPinned, togglePinned: toggleRunsSidebarPinned } =
     useRunsSidebarPin();
-  const [isDirectionPanelOpen, setIsDirectionPanelOpen] = useState(false);
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
     kind: "idle",
   });
@@ -95,7 +92,6 @@ export function Workspace({
   const activeRunUsersDirection = activeRun?.usersDirection;
   const hasInFlightRun = runs.some(isRunInFlight);
   const hasRuns = runs.length > 0;
-  const hasUsersDirection = usersDirection.trim().length > 0;
   const productionRunDisabled =
     runtimeEnvironment === "production" && runtimeStatus?.productionReady !== true;
   const liveApisEnabled = runtimeStatus
@@ -366,31 +362,46 @@ export function Workspace({
       className={`min-h-screen overflow-hidden py-4 pr-3 text-foreground transition-[padding] duration-300 ease-out sm:py-6 sm:pr-8 lg:pr-10 ${
         isRunsSidebarPinned ? "pl-3 sm:pl-8 lg:pl-[20rem]" : "pl-3 sm:pl-8 lg:pl-10"
       }`}>
-      <div
-        className={`mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] transition-[gap] duration-300 sm:min-h-[calc(100vh-3rem)] ${
-          hasRuns ? "gap-4 sm:gap-6" : "gap-7 sm:gap-10"
-        }`}>
-        <WorkspaceHeader />
+      {hasRuns ? (
+        <div className="mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] gap-4 sm:min-h-[calc(100vh-3rem)] sm:gap-6">
+          <WorkspaceHeader compact />
 
-        <GenerationRunForm
-          hasRuns={hasRuns}
-          hasUsersDirection={hasUsersDirection}
-          isRunDisabled={hasInFlightRun || productionRunDisabled}
-          runtimeNotice={runtimeNotice}
-          sourceTweetUrl={sourceTweetUrl}
-          submissionState={submissionState}
-          onOpenDirectionPanel={() => setIsDirectionPanelOpen(true)}
-          onSourceTweetUrlChange={updateSourceTweetUrl}
-          onSubmit={submitSourceTweet}
-        />
+          <GenerationRunForm
+            hasRuns
+            isRunDisabled={hasInFlightRun || productionRunDisabled}
+            runtimeNotice={runtimeNotice}
+            sourceTweetUrl={sourceTweetUrl}
+            submissionState={submissionState}
+            usersDirection={usersDirection}
+            onSourceTweetUrlChange={updateSourceTweetUrl}
+            onSubmit={submitSourceTweet}
+            onUsersDirectionChange={updateUsersDirection}
+          />
 
-        <ActiveRunPanel
-          activeRun={activeRun}
-          onDraftTextChange={updateDraftText}
-          onSelectedVisualJokeChange={updateSelectedVisualJoke}
-          onStartImageGeneration={startImageGeneration}
-        />
-      </div>
+          <ActiveRunPanel
+            activeRun={activeRun}
+            onDraftTextChange={updateDraftText}
+            onSelectedVisualJokeChange={updateSelectedVisualJoke}
+            onStartImageGeneration={startImageGeneration}
+          />
+        </div>
+      ) : (
+        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col items-center justify-center gap-8 sm:min-h-[calc(100vh-3rem)] sm:gap-10">
+          <WorkspaceHeader />
+
+          <GenerationRunForm
+            hasRuns={false}
+            isRunDisabled={hasInFlightRun || productionRunDisabled}
+            runtimeNotice={runtimeNotice}
+            sourceTweetUrl={sourceTweetUrl}
+            submissionState={submissionState}
+            usersDirection={usersDirection}
+            onSourceTweetUrlChange={updateSourceTweetUrl}
+            onSubmit={submitSourceTweet}
+            onUsersDirectionChange={updateUsersDirection}
+          />
+        </div>
+      )}
 
       <RunsSidebar
         activeRunId={activeRunId}
@@ -400,18 +411,6 @@ export function Workspace({
         onSelectRun={reopenRun}
         onTogglePinned={toggleRunsSidebarPinned}
       />
-
-      {isDirectionPanelOpen ? (
-        <PanelOverlay
-          label="User's direction panel"
-          side="right"
-          onClose={() => setIsDirectionPanelOpen(false)}>
-          <UsersDirectionPanel
-            usersDirection={usersDirection}
-            onUsersDirectionChange={updateUsersDirection}
-          />
-        </PanelOverlay>
-      ) : null}
     </main>
   );
 }

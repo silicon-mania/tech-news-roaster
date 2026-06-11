@@ -193,11 +193,10 @@ describe("Workspace saved runs", () => {
     expect(imageGenerationStreamFetcher).not.toHaveBeenCalled();
     expect(sourceTweetUrlInput).toHaveValue("https://x.com/siliconmania/status/1234567890");
 
-    await user.click(screen.getByRole("button", { name: /open user's direction panel/i }));
+    // A reopened run with a saved direction auto-reveals the inline field.
     expect(screen.getByRole("textbox", { name: /^user's direction$/i })).toHaveValue(
       "Keep the saved direction.",
     );
-    await user.click(screen.getByRole("button", { name: /close user's direction panel/i }));
 
     await user.click(screen.getByRole("button", { name: /open joke context snapshot/i }));
     expect(screen.getByRole("dialog", { name: /joke context snapshot/i })).toHaveTextContent(
