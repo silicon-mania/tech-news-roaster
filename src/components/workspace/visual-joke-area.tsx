@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Eye } from "lucide-react";
+import { Circle, CircleDot, Copy, Form } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,28 +25,28 @@ export function VisualJokeArea({
 
   return (
     <>
-      <div className="flex min-w-0 items-center gap-2">
-        <h1 className="font-medium text-foreground text-lg md:text-2xl">Visual jokes</h1>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <h1 className="title-serif text-2xl text-foreground md:text-3xl">Visual jokes</h1>
         {hasVisualJokeDirection ? (
           <Tooltip>
             <TooltipTrigger
               render={
                 <Button
                   aria-label="Open Visual Joke Direction"
-                  className="text-muted-foreground"
+                  className="shrink-0 text-muted-foreground"
                   onClick={() => setIsDirectionOpen(true)}
                   size="icon"
                   type="button"
                   variant="ghost"
                 />
               }>
-              <Eye aria-hidden className="size-3.5" strokeWidth={1.75} />
+              <Form aria-hidden className="size-3.5" strokeWidth={1.75} />
             </TooltipTrigger>
             <TooltipContent>Visual joke direction</TooltipContent>
           </Tooltip>
         ) : null}
       </div>
-      <section aria-label="Visual Joke Creative Result Area" className="grid gap-3 bg-card/40 p-3">
+      <section aria-label="Visual Joke Creative Result Area" className="grid gap-2">
         <ul className="grid gap-2">
           {visualJokeSet.jokes.map((joke, index) => {
             const isSelected = selectedVisualJokeId === joke.id;
@@ -56,56 +56,51 @@ export function VisualJokeArea({
                 <article
                   aria-label={`Visual joke ${index + 1}`}
                   className={`grid gap-3 rounded-md p-3 transition ${
-                    isSelected ? "bg-primary/10 ring-1 ring-primary/45" : "bg-card/70"
+                    isSelected ? "bg-primary/10" : "bg-card/70"
                   }`}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <span className="text-muted-foreground text-xs uppercase tracking-[0.14em]">
-                        #{index + 1}
-                      </span>
-                      {index === 0 ? (
-                        <span className="text-muted-foreground/60 text-sm">(Recommended)</span>
-                      ) : null}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <Button
-                              aria-label={`Copy visual joke ${index + 1}`}
-                              className="text-muted-foreground"
-                              onClick={() => void copyVisualJokeText(joke.text)}
-                              size="icon"
-                              type="button"
-                              variant="ghost"
-                            />
-                          }>
-                          <Copy aria-hidden className="size-3.5" strokeWidth={1.75} />
-                        </TooltipTrigger>
-                        <TooltipContent>Copy visual joke</TooltipContent>
-                      </Tooltip>
-                      <Button
-                        aria-label={
-                          isSelected
-                            ? `Clear visual joke ${index + 1} selection`
-                            : `Select visual joke ${index + 1}`
-                        }
-                        aria-pressed={isSelected}
-                        className={`min-w-20 font-medium text-xs ${
-                          isSelected ? "bg-primary/15 text-primary hover:bg-primary/25" : ""
-                        }`}
-                        onClick={() =>
-                          onSelectedVisualJokeChange(run.id, isSelected ? null : joke.id)
-                        }
-                        type="button"
-                        variant="secondary">
-                        {isSelected ? "Selected" : "Select"}
-                      </Button>
-                    </div>
-                  </div>
                   <p className="break-words text-foreground text-sm leading-6 sm:text-base sm:leading-7">
                     {joke.text}
                   </p>
+                  <div className="flex items-center gap-1">
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            aria-label={`Copy visual joke ${index + 1}`}
+                            className="text-muted-foreground"
+                            onClick={() => void copyVisualJokeText(joke.text)}
+                            size="icon"
+                            type="button"
+                            variant="ghost"
+                          />
+                        }>
+                        <Copy aria-hidden className="size-3.5" strokeWidth={1.75} />
+                      </TooltipTrigger>
+                      <TooltipContent>Copy visual joke</TooltipContent>
+                    </Tooltip>
+                    <Button
+                      aria-label={
+                        isSelected
+                          ? `Clear visual joke ${index + 1} selection`
+                          : `Select visual joke ${index + 1}`
+                      }
+                      aria-pressed={isSelected}
+                      className={`font-normal text-xs ${
+                        isSelected ? "text-primary hover:text-primary" : "text-muted-foreground"
+                      }`}
+                      onClick={() =>
+                        onSelectedVisualJokeChange(run.id, isSelected ? null : joke.id)
+                      }
+                      type="button"
+                      variant="ghost">
+                      {isSelected ? (
+                        <CircleDot aria-hidden className="size-3.5" strokeWidth={1.75} />
+                      ) : (
+                        <Circle aria-hidden className="size-3.5" strokeWidth={1.75} />
+                      )}
+                      {isSelected ? "Selected" : "Select"}
+                    </Button>
+                  </div>
                 </article>
               </li>
             );

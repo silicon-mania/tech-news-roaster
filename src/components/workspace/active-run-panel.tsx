@@ -15,6 +15,7 @@ import { ImageGenerationArea } from "./image-generation-area";
 import { QuietRunReveals } from "./quiet-run-reveals";
 import { SourceTweetPreview } from "./source-tweet-preview";
 import { VisualJokeArea } from "./visual-joke-area";
+import { VisualJokeSkeleton } from "./visual-joke-skeleton";
 
 type ActiveRunPanelProps = {
   activeRun: GenerationRun | null;
@@ -76,6 +77,8 @@ export function ActiveRunPanel({
       heading="Visual jokes"
       failure={getStageFailure(activeRun.generationResultStates?.visualJokeGeneration)}
     />
+  ) : activeRun.status === "running" ? (
+    <VisualJokeSkeleton />
   ) : null;
   // Derived-on-demand consumer (ADR 0018): it reads the run's two picks and
   // re-renders the composite from them plus the baked template. Gated on the

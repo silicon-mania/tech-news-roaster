@@ -94,6 +94,10 @@ textarea {
   font-family: var(--font-editorial-serif);
 }
 
+.title-serif {
+  font-family: "VC Henrietta Condensed", var(--font-editorial-serif);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,

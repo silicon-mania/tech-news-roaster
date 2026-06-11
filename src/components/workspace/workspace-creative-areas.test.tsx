@@ -156,7 +156,8 @@ describe("Workspace creative result areas", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(within(visualJokeArea).getAllByRole("article")).toHaveLength(5);
-    expect(within(visualJokeArea).getByText("(Recommended)")).toBeInTheDocument();
+    expect(within(visualJokeArea).queryByText("(Recommended)")).not.toBeInTheDocument();
+    expect(within(visualJokeArea).queryByText("#1")).not.toBeInTheDocument();
     expect(
       within(visualJokeArea).getByRole("button", {
         name: /select visual joke 1/i,
