@@ -5,6 +5,7 @@ import {
   imageGenerationAttemptStateSchema,
   imageModelProvenanceSchema,
   imageSetSchema,
+  selectedGeneratedImageSchema,
   selectedImageOriginalSchema,
 } from "./image-generation";
 import { jokeContextSnapshotSchema } from "./joke-context";
@@ -140,6 +141,7 @@ export const completedGenerationRunPayloadSchema = z
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
     phase: generationRunPhaseSchema.optional(),
     selectedVisualJoke: selectedVisualJokeSchema.nullable().optional(),
+    selectedGeneratedImage: selectedGeneratedImageSchema.nullable().optional(),
     selectedImageOriginals: z.array(selectedImageOriginalSchema).max(2).optional(),
     visualJokeDirection: visualJokeDirectionTextSchema.optional(),
     visualJokeSet: visualJokeSetSchema.optional(),
@@ -177,6 +179,7 @@ const savedGenerationRunSchema = z
     phase: generationRunPhaseSchema.optional(),
     savedAt: z.string().datetime().optional(),
     selectedVisualJoke: selectedVisualJokeSchema.nullable().optional(),
+    selectedGeneratedImage: selectedGeneratedImageSchema.nullable().optional(),
     selectedImageOriginals: z.array(selectedImageOriginalSchema).max(2).optional(),
     sourceTweet: retrievedSourceTweetSchema.optional(),
     visualJokeDirection: visualJokeDirectionTextSchema.optional(),

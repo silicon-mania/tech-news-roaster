@@ -66,6 +66,13 @@ export const imageSetSchema = z
     },
   );
 
+export const selectedGeneratedImageSchema = z
+  .object({
+    imageOptionId: runLocalIdSchema,
+    selectedAt: z.string().datetime(),
+  })
+  .strict();
+
 export const failedImageSetSchema = z
   .object({
     id: runLocalIdSchema,
@@ -155,6 +162,7 @@ export type ImageGenerationInput = z.infer<typeof imageGenerationInputSchema>;
 export type ImageGenerationParentRun = z.infer<typeof imageGenerationParentRunSchema>;
 export type ImageModelProvenance = z.infer<typeof imageModelProvenanceSchema>;
 export type ImageSet = z.infer<typeof imageSetSchema>;
+export type SelectedGeneratedImage = z.infer<typeof selectedGeneratedImageSchema> | null;
 export type SelectedImageOriginal = z.infer<typeof selectedImageOriginalSchema>;
 
 export function parseImageGenerationInput(input: unknown): ImageGenerationInput {
@@ -175,4 +183,23 @@ export function parseImageSet(imageSet: unknown): ImageSet {
 
 export function parseFailedImageSet(failedImageSet: unknown): FailedImageSet {
   return failedImageSetSchema.parse(failedImageSet);
+}
+
+export function parseSelectedGeneratedImage(
+  selectedGeneratedImage: unknown,
+  imageSets?: ImageSet[],
+): SelectedGeneratedImage {
+  const selection = z.nullable(selectedGeneratedImageSchema).parse(selectedGeneratedImage);
+
+  if (!selection || !imageSets) {
+    return selection;
+  }
+
+  const isSelectableVariation = imageSets.some((imageSet) =>
+    imageSet.options.some(
+      (option) => option.id === selection.imageOptionId && option.kind === "variation",
+    ),
+  );
+
+  return isSelectableVariation ? selection : null;
 }
