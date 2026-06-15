@@ -1,5 +1,4 @@
 import { parseImageGenerationParentRun } from "@/services/generation";
-import { upsertById } from "@/utils/upsert-by-id";
 import type { GenerationRun, GenerationRunInput } from "./types";
 
 export function mergeRuns(currentRuns: GenerationRun[], savedRuns: GenerationRun[]) {
@@ -55,42 +54,15 @@ export function getImageGenerationStartedAt(run: GenerationRun) {
   return state.startedAt;
 }
 
-export function collectSelectedImageOriginals({
-  currentSelectedImageOriginals,
-  failedImageSets,
-  imageSets,
-}: {
-  currentSelectedImageOriginals: NonNullable<GenerationRun["selectedImageOriginals"]>;
-  failedImageSets: NonNullable<GenerationRun["failedImageSets"]>;
-  imageSets: NonNullable<GenerationRun["imageSets"]>;
-}) {
-  let selectedImageOriginals = currentSelectedImageOriginals;
-
-  for (const imageSet of imageSets) {
-    selectedImageOriginals = upsertById(selectedImageOriginals, imageSet.selectedImageOriginal);
-  }
-
-  for (const failedImageSet of failedImageSets) {
-    if (failedImageSet.selectedImageOriginal) {
-      selectedImageOriginals = upsertById(
-        selectedImageOriginals,
-        failedImageSet.selectedImageOriginal,
-      );
-    }
-  }
-
-  return selectedImageOriginals;
-}
-
 export function buildImageGenerationParentRun(run: GenerationRun) {
   return parseImageGenerationParentRun({
-    failedImageSets: run.failedImageSets,
+    failedImageSet: run.failedImageSet,
     id: run.id,
     imageGenerationState: run.imageGenerationState,
     imageOriginalCandidates: run.imageOriginalCandidates,
-    imageSets: run.imageSets,
+    imageSet: run.imageSet,
     phase: run.phase,
-    selectedImageOriginals: run.selectedImageOriginals,
+    selectedImageOriginal: run.selectedImageOriginal,
   });
 }
 

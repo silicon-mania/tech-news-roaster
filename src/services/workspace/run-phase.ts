@@ -12,7 +12,7 @@ const phaseLabels: Record<GenerationRunPhase, string> = {
   "enrichment-running": "Enrichment running",
   failed: "Failed",
   "image-generation-complete": "Image generation complete",
-  "image-generation-partially-failed": "Partial image failure",
+  "image-generation-failed": "Image generation failed",
   "image-generation-running": "Image generation running",
   "text-generation-running": "Text generation running",
   "waiting-for-image-selection": "Waiting for image selection",

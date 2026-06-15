@@ -12,7 +12,7 @@ import type {
 import { streamImageGenerationRun } from "./route";
 
 describe("image generation stream route", () => {
-  test("streams completed image sets sequentially from an active text-generation run", async () => {
+  test("streams a completed image set from an active text-generation run", async () => {
     const calls: string[] = [];
     const parentRun = buildParentRun({
       imageGenerationState: {
@@ -33,17 +33,10 @@ describe("image generation stream route", () => {
           return buildPreparedOriginal(candidate);
         },
         provider: buildProvider({
-          async generateVariations({ original }) {
+          async generateVariations({ original, variationCount }) {
             calls.push(`provider:${original.selectedImageOriginal.candidateId}`);
 
-            return [
-              {
-                url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-1.jpg`,
-              },
-              {
-                url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-2.jpg`,
-              },
-            ];
+            return buildVariations(original, variationCount);
           },
         }),
       },
@@ -51,14 +44,8 @@ describe("image generation stream route", () => {
     const events = await readImageGenerationStreamEvents(response);
 
     expect(response.headers.get("Content-Type")).toContain("text/event-stream");
-    expect(calls).toEqual([
-      "prepare:candidate-1",
-      "provider:candidate-1",
-      "prepare:candidate-2",
-      "provider:candidate-2",
-    ]);
+    expect(calls).toEqual(["prepare:candidate-1", "provider:candidate-1"]);
     expect(events.map((event) => event.type)).toEqual([
-      "image-set-completed",
       "image-set-completed",
       "image-generation-completed",
     ]);
@@ -73,26 +60,15 @@ describe("image generation stream route", () => {
       },
     });
     expect(events[1]).toMatchObject({
-      type: "image-set-completed",
-      imageSet: {
-        id: "image-set-candidate-2",
-      },
-    });
-    expect(events[2]).toMatchObject({
       type: "image-generation-completed",
       state: {
-        failedImageSets: [],
-        imageSets: [
-          expect.objectContaining({
-            id: "image-set-candidate-1",
-          }),
-          expect.objectContaining({
-            id: "image-set-candidate-2",
-          }),
-        ],
+        imageSet: expect.objectContaining({
+          id: "image-set-candidate-1",
+        }),
         status: "completed",
       },
     });
+    expect(events[1]).not.toHaveProperty(["state", "failedImageSet"]);
   });
 
   test("can start from a reopened saved run that never started image generation", async () => {
@@ -105,7 +81,7 @@ describe("image generation stream route", () => {
     const response = await streamImageGenerationRun(
       buildRequest({
         input: buildInput({
-          selectedImageIds: ["candidate-1"],
+          selectedImageId: "candidate-1",
         }),
         parentRun,
       }),
@@ -126,19 +102,12 @@ describe("image generation stream route", () => {
 
   test("uses only the User Image Prompt to steer image generation", async () => {
     const generateVariations = vi.fn<ImageVariationProvider["generateVariations"]>(
-      async ({ original }) => [
-        {
-          url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-1.jpg`,
-        },
-        {
-          url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-2.jpg`,
-        },
-      ],
+      async ({ original, variationCount }) => buildVariations(original, variationCount),
     );
     const response = await streamImageGenerationRun(
       buildRequest({
         input: buildInput({
-          selectedImageIds: ["candidate-1"],
+          selectedImageId: "candidate-1",
           userImagePrompt: "Make the visual launch-ready.",
         }),
         parentRun: buildParentRun({
@@ -172,7 +141,7 @@ describe("image generation stream route", () => {
     const response = await streamImageGenerationRun(
       buildRequest({
         input: buildInput({
-          selectedImageIds: ["candidate-1"],
+          selectedImageId: "candidate-1",
         }),
         parentRun: {
           ...buildParentRun({
@@ -196,21 +165,15 @@ describe("image generation stream route", () => {
     });
   });
 
-  test("streams failed image sets without dropping earlier successful sets", async () => {
+  test("streams a failed image set when the provider throws", async () => {
     const generateVariations = vi
       .fn<ImageVariationProvider["generateVariations"]>()
-      .mockResolvedValueOnce([
-        {
-          url: "https://example.com/generated-1.jpg",
-        },
-        {
-          url: "https://example.com/generated-2.jpg",
-        },
-      ])
-      .mockRejectedValueOnce(new Error("The configured image model failed."));
+      .mockRejectedValue(new Error("The configured image model failed."));
     const response = await streamImageGenerationRun(
       buildRequest({
-        input: buildInput(),
+        input: buildInput({
+          selectedImageId: "candidate-2",
+        }),
         parentRun: buildParentRun({
           imageGenerationState: {
             status: "not-started",
@@ -228,35 +191,28 @@ describe("image generation stream route", () => {
     );
     const events = await readImageGenerationStreamEvents(response);
 
-    expect(generateVariations).toHaveBeenCalledTimes(2);
+    expect(generateVariations).toHaveBeenCalledTimes(1);
     expect(events.map((event) => event.type)).toEqual([
-      "image-set-completed",
       "image-set-failed",
       "image-generation-completed",
     ]);
-    expect(events[1]).toMatchObject({
+    expect(events[0]).toMatchObject({
       type: "image-set-failed",
       failedImageSet: {
         message: "The configured image model failed.",
         selectedImageId: "candidate-2",
       },
     });
-    expect(events[2]).toMatchObject({
+    expect(events[1]).toMatchObject({
       type: "image-generation-completed",
       state: {
-        failedImageSets: [
-          expect.objectContaining({
-            selectedImageId: "candidate-2",
-          }),
-        ],
-        imageSets: [
-          expect.objectContaining({
-            id: "image-set-candidate-1",
-          }),
-        ],
-        status: "partially-failed",
+        failedImageSet: expect.objectContaining({
+          selectedImageId: "candidate-2",
+        }),
+        status: "failed",
       },
     });
+    expect(events[1]).not.toHaveProperty(["state", "imageSet"]);
   });
 
   test.each([
@@ -277,20 +233,7 @@ describe("image generation stream route", () => {
       name: "invalid selected image ID",
       body: {
         input: buildInput({
-          selectedImageIds: ["candidate-1", "missing-candidate"],
-        }),
-        parentRun: buildParentRun({
-          imageGenerationState: {
-            status: "not-started",
-          },
-        }),
-      },
-    },
-    {
-      name: "more than two selected images",
-      body: {
-        input: buildInput({
-          selectedImageIds: ["candidate-1", "candidate-2", "candidate-3"],
+          selectedImageId: "missing-candidate",
         }),
         parentRun: buildParentRun({
           imageGenerationState: {
@@ -305,7 +248,7 @@ describe("image generation stream route", () => {
         input: buildInput(),
         parentRun: buildParentRun({
           imageGenerationState: {
-            selectedImageIds: ["candidate-1"],
+            selectedImageId: "candidate-1",
             startedAt: "2026-06-05T10:20:00.000Z",
             status: "running",
             userImagePrompt: "Already started.",
@@ -351,7 +294,7 @@ function buildRequest(body: unknown) {
 function buildInput(overrides: Partial<ImageGenerationInput> = {}): ImageGenerationInput {
   return {
     parentRunId: "saved-run",
-    selectedImageIds: ["candidate-1", "candidate-2"],
+    selectedImageId: "candidate-1",
     userImagePrompt: "Make it feel like a serious product launch image.",
     ...overrides,
   };
@@ -405,21 +348,22 @@ function buildPreparedOriginal(candidate: ImageOriginalCandidate): PreparedSelec
   };
 }
 
+function buildVariations(original: PreparedSelectedImageOriginal, variationCount: number) {
+  return Array.from({ length: variationCount }, (_, index) => ({
+    url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-${
+      index + 1
+    }.jpg`,
+  }));
+}
+
 function buildProvider(overrides: Partial<ImageVariationProvider> = {}): ImageVariationProvider {
   return {
     imageModelProvenance: {
       model: "image-model-v1",
       provider: "test-provider",
     },
-    async generateVariations({ original }) {
-      return [
-        {
-          url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-1.jpg`,
-        },
-        {
-          url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-2.jpg`,
-        },
-      ];
+    async generateVariations({ original, variationCount }) {
+      return buildVariations(original, variationCount);
     },
     ...overrides,
   };

@@ -144,13 +144,13 @@ export const completedGenerationRunPayloadSchema = z
       .array(imageOriginalCandidateSchema)
       .max(imageOriginalCandidateTarget)
       .optional(),
-    imageSets: z.array(imageSetSchema).max(2).optional(),
-    failedImageSets: z.array(failedImageSetSchema).max(2).optional(),
+    imageSet: imageSetSchema.optional(),
+    failedImageSet: failedImageSetSchema.optional(),
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
     phase: generationRunPhaseSchema.optional(),
     selectedVisualJoke: selectedVisualJokeSchema.nullable().optional(),
     selectedGeneratedImage: selectedGeneratedImageSchema.nullable().optional(),
-    selectedImageOriginals: z.array(selectedImageOriginalSchema).max(2).optional(),
+    selectedImageOriginal: selectedImageOriginalSchema.optional(),
     visualJokeDirection: visualJokeDirectionTextSchema.optional(),
     visualJokeSet: visualJokeSetSchema.optional(),
   })
@@ -178,7 +178,7 @@ const savedGenerationRunSchema = z
     drafts: z.array(quoteTweetDraftSchema).max(draftTarget),
     failureMessage: nonEmptyTrimmedStringSchema.optional(),
     fallbackDisclosure: nonEmptyTrimmedStringSchema.optional(),
-    failedImageSets: z.array(failedImageSetSchema).max(2).optional(),
+    failedImageSet: failedImageSetSchema.optional(),
     generationResultStates: generationResultStatesSchema.optional(),
     imageGenerationState: imageGenerationAttemptStateSchema.optional(),
     imageModelProvenance: imageModelProvenanceSchema.optional(),
@@ -186,13 +186,13 @@ const savedGenerationRunSchema = z
       .array(imageOriginalCandidateSchema)
       .max(imageOriginalCandidateTarget)
       .optional(),
-    imageSets: z.array(imageSetSchema).max(2).optional(),
+    imageSet: imageSetSchema.optional(),
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
     phase: generationRunPhaseSchema.optional(),
     savedAt: z.string().datetime().optional(),
     selectedVisualJoke: selectedVisualJokeSchema.nullable().optional(),
     selectedGeneratedImage: selectedGeneratedImageSchema.nullable().optional(),
-    selectedImageOriginals: z.array(selectedImageOriginalSchema).max(2).optional(),
+    selectedImageOriginal: selectedImageOriginalSchema.optional(),
     sourceTweet: retrievedSourceTweetSchema.optional(),
     visualJokeDirection: visualJokeDirectionTextSchema.optional(),
     visualJokeSet: visualJokeSetSchema.optional(),

@@ -40,6 +40,20 @@ export function buildImageSet() {
         url: "https://example.com/generated-2.jpg",
         altText: "Generated visual variation 2.",
       },
+      {
+        id: "image-option-variation-3",
+        kind: "variation",
+        label: "Variation 3",
+        url: "https://example.com/generated-3.jpg",
+        altText: "Generated visual variation 3.",
+      },
+      {
+        id: "image-option-variation-4",
+        kind: "variation",
+        label: "Variation 4",
+        url: "https://example.com/generated-4.jpg",
+        altText: "Generated visual variation 4.",
+      },
     ],
   };
 }

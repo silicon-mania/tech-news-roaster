@@ -114,7 +114,7 @@ function getStatusDotClass(run: GenerationRun) {
     return "bg-destructive/70";
   }
 
-  if (run.phase === "image-generation-partially-failed") {
+  if (run.phase === "image-generation-failed") {
     return "bg-warning/80";
   }
 

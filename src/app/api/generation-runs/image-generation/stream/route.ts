@@ -12,7 +12,7 @@ import {
 import {
   type ImageVariationProvider,
   type SelectedImageOriginalPreparer,
-  streamImageSetsForRun as streamImageSetsForRunService,
+  streamImageSetForRun as streamImageSetForRunService,
 } from "@/services/generation/image-generation-service";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ type ImageGenerationStreamDependencies = {
   now?: () => Date;
   prepareSelectedImageOriginal?: SelectedImageOriginalPreparer;
   provider?: ImageVariationProvider;
-  streamImageSetsForRun?: typeof streamImageSetsForRunService;
+  streamImageSetForRun?: typeof streamImageSetForRunService;
 };
 
 export async function POST(request: Request) {
@@ -51,15 +51,15 @@ export async function streamImageGenerationRun(
   }
 
   const encoder = new TextEncoder();
-  const streamImageSetsForRun = dependencies.streamImageSetsForRun ?? streamImageSetsForRunService;
+  const streamImageSetForRun = dependencies.streamImageSetForRun ?? streamImageSetForRunService;
   const now = dependencies.now ?? (() => new Date());
   const stream = new ReadableStream({
     async start(controller) {
-      const imageSets: ImageSet[] = [];
-      const failedImageSets: FailedImageSet[] = [];
+      let imageSet: ImageSet | undefined;
+      let failedImageSet: FailedImageSet | undefined;
 
       try {
-        for await (const serviceEvent of streamImageSetsForRun(
+        for await (const serviceEvent of streamImageSetForRun(
           {
             input: parsedRequest.input,
             parentRun: parsedRequest.parentRun,
@@ -71,13 +71,13 @@ export async function streamImageGenerationRun(
           },
         )) {
           if (serviceEvent.type === "image-set-completed") {
-            imageSets.push(serviceEvent.imageSet);
+            imageSet = serviceEvent.imageSet;
             enqueueImageGenerationEvent(controller, encoder, {
               type: "image-set-completed",
               imageSet: serviceEvent.imageSet,
             });
           } else {
-            failedImageSets.push(serviceEvent.failedImageSet);
+            failedImageSet = serviceEvent.failedImageSet;
             enqueueImageGenerationEvent(controller, encoder, {
               type: "image-set-failed",
               failedImageSet: serviceEvent.failedImageSet,
@@ -89,9 +89,9 @@ export async function streamImageGenerationRun(
           type: "image-generation-completed",
           state: {
             completedAt: now().toISOString(),
-            failedImageSets,
-            imageSets,
-            status: inferTerminalStatus({ failedImageSets, imageSets }),
+            failedImageSet,
+            imageSet,
+            status: imageSet ? "completed" : "failed",
           },
         });
         controller.close();
@@ -162,15 +162,12 @@ function validateImageGenerationStart({ input, parentRun }: ImageGenerationStrea
     return "Image Generation has already started for this run.";
   }
 
-  const availableImageIds = new Set(
-    parentRun.imageOriginalCandidates.map((candidate) => candidate.id),
-  );
-  const unavailableImageId = input.selectedImageIds.find(
-    (selectedImageId) => !availableImageIds.has(selectedImageId),
+  const isSelectedImageAvailable = parentRun.imageOriginalCandidates.some(
+    (candidate) => candidate.id === input.selectedImageId,
   );
 
-  if (unavailableImageId) {
-    return `Selected image ID ${unavailableImageId} is not available on the parent run.`;
+  if (!isSelectedImageAvailable) {
+    return `Selected image ID ${input.selectedImageId} is not available on the parent run.`;
   }
 
   return null;
@@ -188,32 +185,14 @@ function enqueueImageGenerationEvent(
   );
 }
 
-function inferTerminalStatus({
-  failedImageSets,
-  imageSets,
-}: {
-  failedImageSets: FailedImageSet[];
-  imageSets: ImageSet[];
-}) {
-  if (imageSets.length > 0 && failedImageSets.length === 0) {
-    return "completed";
-  }
-
-  if (imageSets.length > 0 && failedImageSets.length > 0) {
-    return "partially-failed";
-  }
-
-  return "failed";
-}
-
 function hasImageGenerationStarted(run: ImageGenerationParentRun) {
   return (
     (run.imageGenerationState && run.imageGenerationState.status !== "not-started") ||
-    (run.imageSets?.length ?? 0) > 0 ||
-    (run.failedImageSets?.length ?? 0) > 0 ||
-    (run.selectedImageOriginals?.length ?? 0) > 0 ||
+    Boolean(run.imageSet) ||
+    Boolean(run.failedImageSet) ||
+    Boolean(run.selectedImageOriginal) ||
     run.phase === "image-generation-running" ||
-    run.phase === "image-generation-partially-failed" ||
+    run.phase === "image-generation-failed" ||
     run.phase === "image-generation-complete"
   );
 }
@@ -229,16 +208,14 @@ function toRecord(value: unknown): Record<string, unknown> {
 function normalizeRequestValidationError(error: unknown) {
   if (error instanceof ZodError) {
     const promptIssue = error.issues.find((issue) => issue.path.includes("userImagePrompt"));
-    const selectedImageIssue = error.issues.find((issue) =>
-      issue.path.includes("selectedImageIds"),
-    );
+    const selectedImageIssue = error.issues.find((issue) => issue.path.includes("selectedImageId"));
 
     if (promptIssue) {
       return "User Image Prompt is required.";
     }
 
     if (selectedImageIssue) {
-      return "Select one or two images.";
+      return "Select an image original.";
     }
   }
 

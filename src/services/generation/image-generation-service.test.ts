@@ -1,13 +1,13 @@
 import { describe, expect, test, vi } from "vitest";
 import type { ImageOriginalCandidate } from "@/services/generation";
 import {
-  generateImageSetsForRun,
+  generateImageSetForRun,
   type PreparedSelectedImageOriginal,
   prepareSelectedImageOriginal,
 } from "./image-generation-service";
 
 describe("image generation service", () => {
-  test("resolves selected candidates, prepares originals, and calls one image model sequentially", async () => {
+  test("resolves the selected candidate, prepares the original, and generates four variations", async () => {
     const calls: string[] = [];
     const provider = {
       imageModelProvenance: {
@@ -17,28 +17,24 @@ describe("image generation service", () => {
       async generateVariations(input: {
         original: PreparedSelectedImageOriginal;
         userImagePrompt: string;
-        variationCount: 2;
+        variationCount: number;
       }) {
         calls.push(`provider:${input.original.selectedImageOriginal.candidateId}`);
 
-        return [
-          {
-            altText: "Generated visual variation 1.",
-            url: `https://example.com/${input.original.selectedImageOriginal.candidateId}-variation-1.jpg`,
-          },
-          {
-            altText: "Generated visual variation 2.",
-            url: `https://example.com/${input.original.selectedImageOriginal.candidateId}-variation-2.jpg`,
-          },
-        ];
+        return Array.from({ length: input.variationCount }, (_, index) => ({
+          altText: `Generated visual variation ${index + 1}.`,
+          url: `https://example.com/${input.original.selectedImageOriginal.candidateId}-variation-${
+            index + 1
+          }.jpg`,
+        }));
       },
     };
 
-    const result = await generateImageSetsForRun(
+    const result = await generateImageSetForRun(
       {
         input: {
           parentRunId: "run-1",
-          selectedImageIds: ["candidate-1", "candidate-2"],
+          selectedImageId: "candidate-1",
           userImagePrompt: "Make it feel like a product launch image.",
         },
         parentRun: {
@@ -57,32 +53,22 @@ describe("image generation service", () => {
       },
     );
 
-    expect(calls).toEqual([
-      "prepare:candidate-1",
-      "provider:candidate-1",
-      "prepare:candidate-2",
-      "provider:candidate-2",
-    ]);
+    expect(calls).toEqual(["prepare:candidate-1", "provider:candidate-1"]);
     expect(result.imageModelProvenance).toEqual({
       model: "image-model-v1",
       provider: "test-provider",
     });
-    expect(result.failedImageSets).toEqual([]);
+    expect(result.failedImageSet).toBeUndefined();
     // The selected original keeps a pointer back to its candidate and origin, so a
     // Source Tweet image flows through exactly like a News-Linked one.
-    expect(result.selectedImageOriginals).toEqual([
+    expect(result.selectedImageOriginal).toEqual(
       expect.objectContaining({
         id: "selected-original-candidate-1",
         candidateId: "candidate-1",
         origin: "source-tweet-media",
       }),
-      expect.objectContaining({
-        id: "selected-original-candidate-2",
-        candidateId: "candidate-2",
-        origin: "news-linked-image",
-      }),
-    ]);
-    expect(result.imageSets).toEqual([
+    );
+    expect(result.imageSet).toEqual(
       expect.objectContaining({
         id: "image-set-candidate-1",
         imageModelProvenance: {
@@ -90,27 +76,17 @@ describe("image generation service", () => {
           provider: "test-provider",
         },
         options: [
-          expect.objectContaining({
-            kind: "original",
-            label: "Original",
-          }),
-          expect.objectContaining({
-            kind: "variation",
-            label: "Variation 1",
-          }),
-          expect.objectContaining({
-            kind: "variation",
-            label: "Variation 2",
-          }),
+          expect.objectContaining({ kind: "original", label: "Original" }),
+          expect.objectContaining({ kind: "variation", label: "Variation 1" }),
+          expect.objectContaining({ kind: "variation", label: "Variation 2" }),
+          expect.objectContaining({ kind: "variation", label: "Variation 3" }),
+          expect.objectContaining({ kind: "variation", label: "Variation 4" }),
         ],
       }),
-      expect.objectContaining({
-        id: "image-set-candidate-2",
-      }),
-    ]);
+    );
   });
 
-  test("rejects unknown selected image IDs before preparation or provider calls", async () => {
+  test("rejects an unknown selected image ID before preparation or provider calls", async () => {
     const prepareSelectedImageOriginal = vi.fn();
     const provider = {
       imageModelProvenance: {
@@ -120,11 +96,11 @@ describe("image generation service", () => {
     };
 
     await expect(
-      generateImageSetsForRun(
+      generateImageSetForRun(
         {
           input: {
             parentRunId: "run-1",
-            selectedImageIds: ["candidate-1", "missing-image"],
+            selectedImageId: "missing-image",
             userImagePrompt: "Use the selected original.",
           },
           parentRun: {
@@ -142,7 +118,7 @@ describe("image generation service", () => {
     expect(provider.generateVariations).not.toHaveBeenCalled();
   });
 
-  test("uses AI Gateway chat completions for selected-candidate variations", async () => {
+  test("uses AI Gateway chat completions for the four variations", async () => {
     const previousApiKey = process.env.AI_GATEWAY_API_KEY;
     const previousBaseUrl = process.env.AI_GATEWAY_BASE_URL;
     const previousImageModel = process.env.AI_GATEWAY_IMAGE_MODEL;
@@ -173,11 +149,11 @@ describe("image generation service", () => {
     globalThis.fetch = fetcher;
 
     try {
-      const result = await generateImageSetsForRun(
+      const result = await generateImageSetForRun(
         {
           input: {
             parentRunId: "run-1",
-            selectedImageIds: ["candidate-1"],
+            selectedImageId: "candidate-1",
             userImagePrompt: "Make it feel like a launch visual.",
           },
           parentRun: {
@@ -191,7 +167,7 @@ describe("image generation service", () => {
         },
       );
 
-      expect(fetcher).toHaveBeenCalledTimes(2);
+      expect(fetcher).toHaveBeenCalledTimes(4);
       expect(fetcher).toHaveBeenNthCalledWith(
         1,
         "https://ai-gateway.example/v1/chat/completions",
@@ -225,7 +201,7 @@ describe("image generation service", () => {
           model: "google/gemini-2.5-flash-image",
         }),
       );
-      expect(result.imageSets[0]?.options[1]).toMatchObject({
+      expect(result.imageSet?.options[1]).toMatchObject({
         label: "Variation 1",
         url: "data:image/png;base64,generated-image",
       });
@@ -237,17 +213,9 @@ describe("image generation service", () => {
     }
   });
 
-  test("keeps successful image sets when a later selected image fails without retry or fallback", async () => {
+  test("captures a failed image set without retry or fallback when the provider throws", async () => {
     const generateVariations = vi
       .fn()
-      .mockResolvedValueOnce([
-        {
-          url: "https://example.com/generated-1.jpg",
-        },
-        {
-          url: "https://example.com/generated-2.jpg",
-        },
-      ])
       .mockRejectedValueOnce(new Error("The configured image model failed."));
     const provider = {
       imageModelProvenance: {
@@ -257,11 +225,11 @@ describe("image generation service", () => {
       generateVariations,
     };
 
-    const result = await generateImageSetsForRun(
+    const result = await generateImageSetForRun(
       {
         input: {
           parentRunId: "run-1",
-          selectedImageIds: ["candidate-1", "candidate-2"],
+          selectedImageId: "candidate-2",
           userImagePrompt: "Generate launch imagery.",
         },
         parentRun: {
@@ -276,10 +244,10 @@ describe("image generation service", () => {
       },
     );
 
-    expect(generateVariations).toHaveBeenCalledTimes(2);
-    expect(generateVariations.mock.calls.map(([input]) => input.variationCount)).toEqual([2, 2]);
-    expect(result.imageSets).toHaveLength(1);
-    expect(result.failedImageSets).toEqual([
+    expect(generateVariations).toHaveBeenCalledTimes(1);
+    expect(generateVariations.mock.calls[0]?.[0]?.variationCount).toBe(4);
+    expect(result.imageSet).toBeUndefined();
+    expect(result.failedImageSet).toEqual(
       expect.objectContaining({
         message: "The configured image model failed.",
         selectedImageId: "candidate-2",
@@ -287,7 +255,7 @@ describe("image generation service", () => {
           candidateId: "candidate-2",
         }),
       }),
-    ]);
+    );
   });
 
   test("fetches and prepares selected image originals server-side", async () => {

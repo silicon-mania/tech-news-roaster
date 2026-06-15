@@ -202,14 +202,13 @@ export function buildCompletedV3Run(overrides: Partial<GenerationRun> = {}): Gen
   const sourceTweetId = "1234567890";
   const newsLinkedImages = buildNewsLinkedImages();
   const imageSet = buildImageSet(newsLinkedImages[0]);
-  const failedImageSet = buildFailedImageSet(newsLinkedImages[1]);
   const jokeContextSnapshot = buildJokeContextSnapshot(sourceTweetId);
   const visualJokeSet = buildVisualJokeSet();
   const imageGenerationState: NonNullable<GenerationRun["imageGenerationState"]> = {
     completedAt: "2026-06-06T10:25:00.000Z",
-    selectedImageIds: [newsLinkedImages[0].id, newsLinkedImages[1].id],
+    selectedImageId: newsLinkedImages[0].id,
     startedAt: "2026-06-06T10:20:00.000Z",
-    status: "partially-failed",
+    status: "completed",
     userImagePrompt: "Make the image feel launch-ready.",
   };
   const generationResultStates: NonNullable<GenerationRun["generationResultStates"]> = {
@@ -241,17 +240,16 @@ export function buildCompletedV3Run(overrides: Partial<GenerationRun> = {}): Gen
   };
 
   return buildCompletedRun({
-    failedImageSets: [failedImageSet],
     generationResultStates,
     imageGenerationState,
     imageModelProvenance: imageSet.imageModelProvenance,
     imageOriginalCandidates: buildImageOriginalCandidates(),
-    imageSets: [imageSet],
+    imageSet,
     jokeContextSnapshot,
     newsLinkedImages,
-    phase: "image-generation-partially-failed",
+    phase: "image-generation-complete",
     savedAt: "2026-06-06T10:26:00.000Z",
-    selectedImageOriginals: [imageSet.selectedImageOriginal],
+    selectedImageOriginal: imageSet.selectedImageOriginal,
     selectedVisualJoke: {
       selectedAt: "2026-06-06T10:16:00.000Z",
       visualJokeId: visualJokeSet.jokes[1].id,
@@ -542,6 +540,20 @@ export function buildImageSet(newsLinkedImage: NewsLinkedImage): ImageSet {
         kind: "variation",
         label: "Variation 2",
         url: `https://example.com/${newsLinkedImage.id}-variation-2.jpg`,
+      },
+      {
+        altText: `${newsLinkedImage.title} variation 3.`,
+        id: `image-option-${newsLinkedImage.id}-variation-3`,
+        kind: "variation",
+        label: "Variation 3",
+        url: `https://example.com/${newsLinkedImage.id}-variation-3.jpg`,
+      },
+      {
+        altText: `${newsLinkedImage.title} variation 4.`,
+        id: `image-option-${newsLinkedImage.id}-variation-4`,
+        kind: "variation",
+        label: "Variation 4",
+        url: `https://example.com/${newsLinkedImage.id}-variation-4.jpg`,
       },
     ],
   });

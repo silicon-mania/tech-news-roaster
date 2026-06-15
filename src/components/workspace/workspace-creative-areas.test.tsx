@@ -106,7 +106,7 @@ describe("Workspace creative result areas", () => {
 
     expect(startImageGeneration).toHaveBeenCalledWith({
       parentRunId: "saved-run",
-      selectedImageIds: ["news-linked-image-2"],
+      selectedImageId: "news-linked-image-2",
       userImagePrompt: "Make it feel like a serious product launch, not a meme.",
     });
     expect(JSON.stringify(startImageGeneration.mock.calls[0]?.[0])).not.toMatch(
@@ -116,7 +116,7 @@ describe("Workspace creative result areas", () => {
     expect(savedRunStore.save).toHaveBeenCalledWith(
       expect.objectContaining({
         imageGenerationState: expect.objectContaining({
-          selectedImageIds: ["news-linked-image-2"],
+          selectedImageId: "news-linked-image-2",
           status: "running",
           userImagePrompt: "Make it feel like a serious product launch, not a meme.",
         }),
@@ -266,7 +266,7 @@ describe("Workspace creative result areas", () => {
 
     expect(startImageGeneration).toHaveBeenCalledWith({
       parentRunId: "saved-run",
-      selectedImageIds: ["news-linked-image-1"],
+      selectedImageId: "news-linked-image-1",
       userImagePrompt: "Make it feel like a serious product launch image.",
     });
   });

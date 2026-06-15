@@ -16,29 +16,27 @@ import {
 } from "./workspace-test-utils";
 
 describe("Workspace image generation", () => {
-  test("renders image sets, failed image states, modal navigation, and image downloads", async () => {
+  test("renders the four-variation image set, modal navigation, and image downloads", async () => {
     const user = userEvent.setup();
     const newsLinkedImages = buildNewsLinkedImages();
     const imageSet = buildImageSet(newsLinkedImages[0]);
-    const failedImageSet = buildFailedImageSet(newsLinkedImages[1]);
 
     renderWorkspace({
       initialActiveRunId: "saved-run",
       initialRuns: [
         buildCompletedRun({
-          failedImageSets: [failedImageSet],
           imageGenerationState: {
             completedAt: "2026-06-05T10:23:00.000Z",
-            selectedImageIds: [newsLinkedImages[0].id, newsLinkedImages[1].id],
+            selectedImageId: newsLinkedImages[0].id,
             startedAt: "2026-06-05T10:20:00.000Z",
-            status: "partially-failed",
+            status: "completed",
             userImagePrompt: "Make it feel like a serious product launch image.",
           },
           imageModelProvenance: imageSet.imageModelProvenance,
-          imageSets: [imageSet],
-          newsLinkedImages: newsLinkedImages.slice(0, 2),
-          phase: "image-generation-partially-failed",
-          selectedImageOriginals: [imageSet.selectedImageOriginal],
+          imageSet,
+          newsLinkedImages: newsLinkedImages.slice(0, 1),
+          phase: "image-generation-complete",
+          selectedImageOriginal: imageSet.selectedImageOriginal,
         }),
       ],
     });
@@ -49,47 +47,33 @@ describe("Workspace image generation", () => {
     const imageResultsArea = within(imageGenerationArea).getByRole("region", {
       name: /image results area/i,
     });
-    const failedState = within(imageResultsArea).getByRole("article", {
-      name: /failed image set 1/i,
-    });
 
     expect(imageGenerationArea).toHaveTextContent(imageSet.imageModelProvenance.model);
-    expect(
-      within(imageResultsArea).getByRole("article", {
-        name: /^image set 1$/i,
-      }),
-    ).toHaveTextContent("Original");
+
+    const imageSetArticle = within(imageResultsArea).getByRole("article", {
+      name: /^image set$/i,
+    });
+
+    expect(imageSetArticle).toHaveTextContent("Original");
     expect(imageResultsArea).toHaveTextContent("Variation 1");
     expect(imageResultsArea).toHaveTextContent("Variation 2");
-    expect(failedState).toHaveTextContent("This image set could not be generated.");
-    expect(failedState).not.toHaveTextContent("The configured image model failed.");
-    expect(within(failedState).queryByRole("link")).not.toBeInTheDocument();
+    expect(imageResultsArea).toHaveTextContent("Variation 3");
+    expect(imageResultsArea).toHaveTextContent("Variation 4");
+    // The Selected Image Original is locked: there is no re-original action on a generated set.
+    expect(
+      within(imageGenerationArea).queryByRole("button", {
+        name: /as the image original/i,
+      }),
+    ).not.toBeInTheDocument();
     expect(
       within(imageResultsArea).getByRole("link", {
-        name: /download original from image set 1/i,
+        name: /^download original$/i,
       }),
     ).toHaveAttribute("href", imageSet.options[0].url);
-    expect(
-      screen.getByRole("button", {
-        name: /copy draft 1/i,
-      }),
-    ).toBeInTheDocument();
-
-    await user.click(
-      within(failedState).getByRole("button", {
-        name: /open quiet failure details for failed image set 1/i,
-      }),
-    );
-
-    expect(screen.getByRole("dialog", { name: /quiet failure details/i })).toHaveTextContent(
-      "The configured image model failed.",
-    );
-
-    await user.click(screen.getByRole("button", { name: /close quiet failure details/i }));
 
     await user.click(
       within(imageResultsArea).getByRole("button", {
-        name: /open original from image set 1/i,
+        name: /^open original$/i,
       }),
     );
 
@@ -133,12 +117,59 @@ describe("Workspace image generation", () => {
     ).toBeInTheDocument();
   });
 
+  test("renders a failed image state with quiet failure details", async () => {
+    const user = userEvent.setup();
+    const newsLinkedImages = buildNewsLinkedImages();
+    const failedImageSet = buildFailedImageSet(newsLinkedImages[0]);
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          failedImageSet,
+          imageGenerationState: {
+            completedAt: "2026-06-05T10:23:00.000Z",
+            selectedImageId: newsLinkedImages[0].id,
+            startedAt: "2026-06-05T10:20:00.000Z",
+            status: "failed",
+            userImagePrompt: "Make it feel like a serious product launch image.",
+          },
+          newsLinkedImages: newsLinkedImages.slice(0, 1),
+          phase: "image-generation-failed",
+        }),
+      ],
+    });
+
+    const imageResultsArea = screen.getByRole("region", {
+      name: /image results area/i,
+    });
+    const failedState = within(imageResultsArea).getByRole("article", {
+      name: /^failed image set$/i,
+    });
+
+    expect(failedState).toHaveTextContent("This image set could not be generated.");
+    expect(failedState).not.toHaveTextContent("The configured image model failed.");
+    expect(within(failedState).queryByRole("link")).not.toBeInTheDocument();
+    expect(
+      within(imageResultsArea).queryByRole("article", { name: /^image set$/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(failedState).getByRole("button", {
+        name: /open quiet failure details for failed image set/i,
+      }),
+    );
+
+    expect(screen.getByRole("dialog", { name: /quiet failure details/i })).toHaveTextContent(
+      "The configured image model failed.",
+    );
+  });
+
   test("streams image generation results into the active run", async () => {
     const user = userEvent.setup();
     const savedRunStore = createMemorySavedRunStore();
     const newsLinkedImages = buildNewsLinkedImages();
     const imageSet = buildImageSet(newsLinkedImages[0]);
-    const failedImageSet = buildFailedImageSet(newsLinkedImages[1]);
     const jokeContextSnapshot = buildJokeContextSnapshot("1234567890");
     const visualJokeSet = buildVisualJokeSet();
     const selectedVisualJoke = {
@@ -153,16 +184,11 @@ describe("Workspace image generation", () => {
             imageSet,
           },
           {
-            type: "image-set-failed",
-            failedImageSet,
-          },
-          {
             type: "image-generation-completed",
             state: {
               completedAt: "2026-06-05T10:23:00.000Z",
-              failedImageSets: [failedImageSet],
-              imageSets: [imageSet],
-              status: "partially-failed",
+              imageSet,
+              status: "completed",
             },
           },
         ]),
@@ -234,7 +260,7 @@ describe("Workspace image generation", () => {
     expect(JSON.parse(String(imageGenerationStreamFetcher.mock.calls[0]?.[1]?.body))).toEqual({
       input: {
         parentRunId: "saved-run",
-        selectedImageIds: ["news-linked-image-1"],
+        selectedImageId: "news-linked-image-1",
         userImagePrompt: "Make it feel like a serious product launch image.",
       },
       parentRun: {
@@ -254,20 +280,18 @@ describe("Workspace image generation", () => {
         within(imageGenerationArea).getByRole("region", {
           name: /image results area/i,
         }),
-      ).toHaveTextContent("Variation 2"),
+      ).toHaveTextContent("Variation 4"),
     );
-    expect(imageGenerationArea).toHaveTextContent("Partial image failure");
-    expect(imageGenerationArea).not.toHaveTextContent("The configured image model failed.");
+    expect(imageGenerationArea).toHaveTextContent("Image generation complete");
     await waitFor(() =>
       expect(savedRunStore.save).toHaveBeenCalledWith(
         expect.objectContaining({
-          failedImageSets: [failedImageSet],
           imageGenerationState: expect.objectContaining({
-            status: "partially-failed",
+            status: "completed",
           }),
-          imageSets: [imageSet],
+          imageSet,
           jokeContextSnapshot,
-          phase: "image-generation-partially-failed",
+          phase: "image-generation-complete",
           selectedVisualJoke,
           visualJokeDirection: "Internal visual joke direction.",
           visualJokeSet,
@@ -362,9 +386,9 @@ describe("Workspace image generation", () => {
       expect(savedRunStore.save).toHaveBeenCalledWith(
         expect.objectContaining({
           imageModelProvenance: imageSet.imageModelProvenance,
-          imageSets: [imageSet],
+          imageSet,
           phase: "image-generation-running",
-          selectedImageOriginals: [imageSet.selectedImageOriginal],
+          selectedImageOriginal: imageSet.selectedImageOriginal,
         }),
       ),
     );
@@ -374,11 +398,11 @@ describe("Workspace image generation", () => {
     });
   });
 
-  test("persists exactly one selected generated variation across image sets via autosave", async () => {
+  test("persists exactly one selected generated variation across the four variations via autosave", async () => {
     const user = userEvent.setup();
     const savedRunStore = createMemorySavedRunStore();
     const newsLinkedImages = buildNewsLinkedImages();
-    const imageSets = [buildImageSet(newsLinkedImages[0]), buildImageSet(newsLinkedImages[1])];
+    const imageSet = buildImageSet(newsLinkedImages[0]);
 
     renderWorkspace({
       initialActiveRunId: "saved-run",
@@ -386,16 +410,16 @@ describe("Workspace image generation", () => {
         buildCompletedRun({
           imageGenerationState: {
             completedAt: "2026-06-05T10:23:00.000Z",
-            selectedImageIds: [newsLinkedImages[0].id, newsLinkedImages[1].id],
+            selectedImageId: newsLinkedImages[0].id,
             startedAt: "2026-06-05T10:20:00.000Z",
             status: "completed",
             userImagePrompt: "Make it feel like a serious product launch image.",
           },
-          imageModelProvenance: imageSets[0].imageModelProvenance,
-          imageSets,
-          newsLinkedImages: newsLinkedImages.slice(0, 2),
+          imageModelProvenance: imageSet.imageModelProvenance,
+          imageSet,
+          newsLinkedImages: newsLinkedImages.slice(0, 1),
           phase: "image-generation-complete",
-          selectedImageOriginals: imageSets.map((imageSet) => imageSet.selectedImageOriginal),
+          selectedImageOriginal: imageSet.selectedImageOriginal,
         }),
       ],
       savedRunStore,
@@ -405,20 +429,21 @@ describe("Workspace image generation", () => {
       name: /image results area/i,
     });
 
+    // The original is locked and never selectable.
     expect(
       within(imageResultsArea).queryByRole("button", {
-        name: /select original/i,
+        name: /^select original$/i,
       }),
     ).not.toBeInTheDocument();
     expect(
       within(imageResultsArea).getByRole("button", {
-        name: /select variation 1 from image set 1/i,
+        name: /^select variation 1$/i,
       }),
     ).toHaveAttribute("aria-pressed", "false");
 
     await user.click(
       within(imageResultsArea).getByRole("button", {
-        name: /select variation 1 from image set 1/i,
+        name: /^select variation 1$/i,
       }),
     );
 
@@ -433,13 +458,13 @@ describe("Workspace image generation", () => {
     );
     expect(
       within(imageResultsArea).getByRole("button", {
-        name: /clear variation 1 from image set 1 selection/i,
+        name: /clear variation 1 selection/i,
       }),
     ).toHaveAttribute("aria-pressed", "true");
 
     await user.click(
       within(imageResultsArea).getByRole("button", {
-        name: /select variation 2 from image set 2/i,
+        name: /^select variation 3$/i,
       }),
     );
 
@@ -447,21 +472,21 @@ describe("Workspace image generation", () => {
       expect(savedRunStore.save).toHaveBeenCalledWith(
         expect.objectContaining({
           selectedGeneratedImage: expect.objectContaining({
-            imageOptionId: "image-option-news-linked-image-2-variation-2",
+            imageOptionId: "image-option-news-linked-image-1-variation-3",
           }),
         }),
       ),
     );
     expect(
       within(imageResultsArea).getByRole("button", {
-        name: /select variation 1 from image set 1/i,
+        name: /^select variation 1$/i,
       }),
     ).toHaveAttribute("aria-pressed", "false");
     expect(within(imageResultsArea).getAllByRole("button", { pressed: true })).toHaveLength(1);
 
     await user.click(
       within(imageResultsArea).getByRole("button", {
-        name: /clear variation 2 from image set 2 selection/i,
+        name: /clear variation 3 selection/i,
       }),
     );
 
@@ -476,7 +501,7 @@ describe("Workspace image generation", () => {
     expect(within(imageResultsArea).queryAllByRole("button", { pressed: true })).toHaveLength(0);
   });
 
-  test("reserves the image results footprint with skeleton sets while generation runs", () => {
+  test("reserves the image results footprint with a skeleton set while generation runs", () => {
     const newsLinkedImages = buildNewsLinkedImages();
 
     renderWorkspace({
@@ -484,12 +509,12 @@ describe("Workspace image generation", () => {
       initialRuns: [
         buildCompletedRun({
           imageGenerationState: {
-            selectedImageIds: [newsLinkedImages[0].id, newsLinkedImages[1].id],
+            selectedImageId: newsLinkedImages[0].id,
             startedAt: "2026-06-05T10:20:00.000Z",
             status: "running",
             userImagePrompt: "Keep the image polished.",
           },
-          newsLinkedImages: newsLinkedImages.slice(0, 2),
+          newsLinkedImages: newsLinkedImages.slice(0, 1),
           phase: "image-generation-running",
         }),
       ],
@@ -499,9 +524,8 @@ describe("Workspace image generation", () => {
       name: /image generation area/i,
     });
 
-    expect(within(imageGenerationArea).getByLabelText(/pending image set 1/i)).toBeInTheDocument();
-    expect(within(imageGenerationArea).getByLabelText(/pending image set 2/i)).toBeInTheDocument();
-    expect(within(imageGenerationArea).queryByLabelText(/^image set 1$/i)).not.toBeInTheDocument();
+    expect(within(imageGenerationArea).getByLabelText(/pending image set/i)).toBeInTheDocument();
+    expect(within(imageGenerationArea).queryByLabelText(/^image set$/i)).not.toBeInTheDocument();
   });
 
   test("surfaces the used image prompt read-only once generation has run", async () => {
@@ -515,16 +539,16 @@ describe("Workspace image generation", () => {
         buildCompletedRun({
           imageGenerationState: {
             completedAt: "2026-06-05T10:23:00.000Z",
-            selectedImageIds: [newsLinkedImages[0].id],
+            selectedImageId: newsLinkedImages[0].id,
             startedAt: "2026-06-05T10:20:00.000Z",
             status: "completed",
             userImagePrompt: "Make it feel like a serious product launch image.",
           },
           imageModelProvenance: imageSet.imageModelProvenance,
-          imageSets: [imageSet],
+          imageSet,
           newsLinkedImages: newsLinkedImages.slice(0, 1),
           phase: "image-generation-complete",
-          selectedImageOriginals: [imageSet.selectedImageOriginal],
+          selectedImageOriginal: imageSet.selectedImageOriginal,
         }),
       ],
     });

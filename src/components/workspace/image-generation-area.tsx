@@ -29,11 +29,7 @@ function getImageGenerationAreaStatus(run: GenerationRun): {
     return { kind: "failed", label };
   }
 
-  if (
-    imageGenerationStatus === "failed" ||
-    imageGenerationStatus === "partially-failed" ||
-    run.phase === "image-generation-partially-failed"
-  ) {
+  if (imageGenerationStatus === "failed" || run.phase === "image-generation-failed") {
     return { kind: "failed", label };
   }
 
@@ -53,7 +49,7 @@ function getImageGenerationAreaStatus(run: GenerationRun): {
     return { kind: "loading", label };
   }
 
-  if (run.status === "completed" && (run.imageSets?.length ?? 0) > 0) {
+  if (run.status === "completed" && run.imageSet) {
     return { kind: "success", label };
   }
 
@@ -88,12 +84,11 @@ export function ImageGenerationArea({
   onStartImageGeneration: (input: ImageGenerationInput) => void;
 }) {
   const candidates = run.imageOriginalCandidates ?? [];
-  const imageSets = run.imageSets ?? [];
-  const failedImageSets = run.failedImageSets ?? [];
+  const imageSet = run.imageSet;
+  const failedImageSet = run.failedImageSet;
   const imageGenerationState = run.imageGenerationState;
   const imageGenerationStatus = imageGenerationState?.status;
-  const expectedImageSetCount =
-    imageGenerationState?.status === "running" ? imageGenerationState.selectedImageIds.length : 0;
+  const isGenerationPending = imageGenerationStatus === "running" && !imageSet && !failedImageSet;
   const canSelectCandidate =
     candidates.length > 0 && (!imageGenerationStatus || imageGenerationStatus === "not-started");
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
@@ -136,7 +131,7 @@ export function ImageGenerationArea({
     onStartImageGeneration(
       parseImageGenerationInput({
         parentRunId,
-        selectedImageIds: [selectedCandidateId],
+        selectedImageId: selectedCandidateId,
         userImagePrompt: trimmedUserImagePrompt,
       }),
     );
@@ -158,11 +153,11 @@ export function ImageGenerationArea({
           </p>
           <ImageGenerationAreaStatus run={run} />
         </div>
-        {imageSets.length > 0 || failedImageSets.length > 0 || expectedImageSetCount > 0 ? (
+        {imageSet || failedImageSet || isGenerationPending ? (
           <ImageResultsArea
-            expectedImageSetCount={expectedImageSetCount}
-            failedImageSets={failedImageSets}
-            imageSets={imageSets}
+            failedImageSet={failedImageSet}
+            imageSet={imageSet}
+            isGenerationPending={isGenerationPending}
             selectedGeneratedImageOptionId={run.selectedGeneratedImage?.imageOptionId ?? null}
             onSelectedGeneratedImageChange={(imageOptionId) =>
               onSelectedGeneratedImageChange(parentRunId, imageOptionId)

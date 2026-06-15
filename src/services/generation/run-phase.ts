@@ -5,7 +5,7 @@ export const generationRunPhaseSchema = z.enum([
   "text-generation-running",
   "waiting-for-image-selection",
   "image-generation-running",
-  "image-generation-partially-failed",
+  "image-generation-failed",
   "image-generation-complete",
   "failed",
 ]);

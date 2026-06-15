@@ -56,7 +56,7 @@ describe("generation run contracts", () => {
         }).flatMap((event) => (event.type === "progress" ? [event.draft] : [])),
         imageGenerationState: {
           status: "completed",
-          selectedImageIds: ["news-linked-image-1"],
+          selectedImageId: "news-linked-image-1",
           userImagePrompt: "Make it brighter.",
           startedAt: "2026-06-05T10:20:00.000Z",
           completedAt: "2026-06-05T10:25:00.000Z",
@@ -65,8 +65,8 @@ describe("generation run contracts", () => {
           model: "image-model-v1",
           provider: "ai-gateway",
         },
-        imageSets: [imageSet],
-        selectedImageOriginals: [imageSet.selectedImageOriginal],
+        imageSet,
+        selectedImageOriginal: imageSet.selectedImageOriginal,
       }),
     ).toMatchObject({
       id: "run-1",

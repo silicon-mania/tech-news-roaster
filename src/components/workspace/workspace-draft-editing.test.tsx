@@ -145,16 +145,16 @@ describe("Workspace draft editing", () => {
     const completedRun = buildCompletedRun({
       imageGenerationState: {
         completedAt: "2026-06-05T10:23:00.000Z",
-        selectedImageIds: [newsLinkedImages[0].id],
+        selectedImageId: newsLinkedImages[0].id,
         startedAt: "2026-06-05T10:20:00.000Z",
         status: "completed",
         userImagePrompt: "Keep the image polished.",
       },
       imageModelProvenance: imageSet.imageModelProvenance,
-      imageSets: [imageSet],
+      imageSet,
       newsLinkedImages: newsLinkedImages.slice(0, 1),
       phase: "image-generation-complete",
-      selectedImageOriginals: [imageSet.selectedImageOriginal],
+      selectedImageOriginal: imageSet.selectedImageOriginal,
     });
 
     Object.defineProperty(navigator, "clipboard", {
@@ -203,9 +203,9 @@ describe("Workspace draft editing", () => {
           }),
         ]),
         imageGenerationState: completedRun.imageGenerationState,
-        imageSets: [imageSet],
+        imageSet,
         newsLinkedImages: newsLinkedImages.slice(0, 1),
-        selectedImageOriginals: [imageSet.selectedImageOriginal],
+        selectedImageOriginal: imageSet.selectedImageOriginal,
       }),
     );
 

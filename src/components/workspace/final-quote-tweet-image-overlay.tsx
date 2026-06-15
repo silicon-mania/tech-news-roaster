@@ -52,15 +52,15 @@ export function FinalQuoteTweetImageOverlay({
     selectedVisualJokeId: run?.selectedVisualJoke?.visualJokeId ?? null,
   });
 
-  const imageSets = run?.imageSets ?? [];
+  const imageSet = run?.imageSet;
   const jokes = run?.visualJokeSet?.jokes ?? [];
-  const isAvailable = Boolean(run) && imageSets.length > 0 && jokes.length > 0;
+  const isAvailable = Boolean(run) && Boolean(imageSet) && jokes.length > 0;
 
   if (!run || !isAvailable) {
     return null;
   }
 
-  const selectedVariation = findSelectedVariation(imageSets, run.selectedGeneratedImage ?? null);
+  const selectedVariation = findSelectedVariation(imageSet, run.selectedGeneratedImage ?? null);
   const selectedVisualJoke = findSelectedVisualJoke(
     run.visualJokeSet,
     run.selectedVisualJoke ?? null,

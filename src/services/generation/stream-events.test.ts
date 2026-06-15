@@ -110,16 +110,30 @@ describe("generation stream event contracts", () => {
       parseImageGenerationStreamEvent({
         type: "image-generation-completed",
         state: {
-          status: "partially-failed",
+          status: "completed",
           completedAt: "2026-06-05T10:25:00.000Z",
-          imageSets: [imageSet],
-          failedImageSets: [failedImageSet],
+          imageSet,
         },
       }),
     ).toMatchObject({
       type: "image-generation-completed",
       state: {
-        status: "partially-failed",
+        status: "completed",
+      },
+    });
+    expect(
+      parseImageGenerationStreamEvent({
+        type: "image-generation-completed",
+        state: {
+          status: "failed",
+          completedAt: "2026-06-05T10:25:00.000Z",
+          failedImageSet,
+        },
+      }),
+    ).toMatchObject({
+      type: "image-generation-completed",
+      state: {
+        status: "failed",
       },
     });
     expect(() =>
@@ -128,8 +142,7 @@ describe("generation stream event contracts", () => {
         state: {
           status: "completed",
           completedAt: "2026-06-05T10:25:00.000Z",
-          imageSets: [imageSet],
-          failedImageSets: [failedImageSet],
+          failedImageSet,
         },
       }),
     ).toThrow();

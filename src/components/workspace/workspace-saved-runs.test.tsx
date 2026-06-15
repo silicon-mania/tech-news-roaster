@@ -85,16 +85,16 @@ describe("Workspace saved runs", () => {
     const events = buildCompletedGenerationRunEvents({
       run: {
         drafts: completedV3Run.drafts,
-        failedImageSets: completedV3Run.failedImageSets,
+        failedImageSet: completedV3Run.failedImageSet,
         generationResultStates: completedV3Run.generationResultStates,
         imageGenerationState: completedV3Run.imageGenerationState,
         imageModelProvenance: completedV3Run.imageModelProvenance,
-        imageSets: completedV3Run.imageSets,
+        imageSet: completedV3Run.imageSet,
         jokeContextSnapshot: completedV3Run.jokeContextSnapshot,
         label: completedV3Run.label,
         newsLinkedImages: completedV3Run.newsLinkedImages,
         phase: completedV3Run.phase,
-        selectedImageOriginals: completedV3Run.selectedImageOriginals,
+        selectedImageOriginal: completedV3Run.selectedImageOriginal,
         selectedVisualJoke: completedV3Run.selectedVisualJoke,
         sourceTweet: completedV3Run.sourceTweet,
         visualJokeDirection: completedV3Run.visualJokeDirection,
@@ -112,13 +112,12 @@ describe("Workspace saved runs", () => {
     expect(savedRunStore.save).toHaveBeenCalledWith(
       expect.objectContaining({
         drafts: completedV3Run.drafts,
-        failedImageSets: completedV3Run.failedImageSets,
         generationResultStates: completedV3Run.generationResultStates,
         imageGenerationState: completedV3Run.imageGenerationState,
-        imageSets: completedV3Run.imageSets,
+        imageSet: completedV3Run.imageSet,
         jokeContextSnapshot: completedV3Run.jokeContextSnapshot,
         newsLinkedImages: completedV3Run.newsLinkedImages,
-        selectedImageOriginals: completedV3Run.selectedImageOriginals,
+        selectedImageOriginal: completedV3Run.selectedImageOriginal,
         selectedVisualJoke: completedV3Run.selectedVisualJoke,
         visualJokeDirection: completedV3Run.visualJokeDirection,
         visualJokeSet: completedV3Run.visualJokeSet,
@@ -157,7 +156,7 @@ describe("Workspace saved runs", () => {
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
   });
 
-  test("reopens v3 Saved Runs with selected visual jokes, exact joke sets, failures, and no regeneration", async () => {
+  test("reopens v3 Saved Runs with selected visual jokes, exact joke sets, the generated image set, and no regeneration", async () => {
     const user = userEvent.setup();
     const startGenerationRun = vi.fn();
     const startImageGeneration = vi.fn();
@@ -226,13 +225,15 @@ describe("Workspace saved runs", () => {
     const imageGenerationArea = screen.getByRole("complementary", {
       name: /image generation area/i,
     });
+    const imageResultsArea = within(imageGenerationArea).getByRole("region", {
+      name: /image results area/i,
+    });
+    expect(imageResultsArea).toHaveTextContent("Variation 4");
+    expect(imageGenerationArea).toHaveTextContent("Image generation complete");
+    // The single generated set completed — there is no failed image state.
     expect(
-      within(imageGenerationArea).getByRole("region", {
-        name: /image results area/i,
-      }),
-    ).toHaveTextContent("Variation 2");
-    expect(imageGenerationArea).toHaveTextContent("Image set failed");
-    expect(imageGenerationArea).not.toHaveTextContent("The configured image model failed.");
+      within(imageResultsArea).queryByRole("article", { name: /^failed image set$/i }),
+    ).not.toBeInTheDocument();
   });
 
   test("reopens text-successful Saved Runs with unstarted image generation still eligible", async () => {
@@ -302,7 +303,7 @@ describe("Workspace saved runs", () => {
 
     expect(startImageGeneration).toHaveBeenCalledWith({
       parentRunId: "saved-run",
-      selectedImageIds: ["news-linked-image-1"],
+      selectedImageId: "news-linked-image-1",
       userImagePrompt: "Make the visual feel launch-ready.",
     });
   });

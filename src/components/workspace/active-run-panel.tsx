@@ -52,9 +52,7 @@ export function ActiveRunPanel({
   // run is still in flight. This lets text reveal before visual jokes, images
   // reveal before text, etc., rather than gating every section on the whole run.
   const hasImageGenerationContent = Boolean(
-    activeRun.newsLinkedImages?.length ||
-      activeRun.imageSets?.length ||
-      activeRun.failedImageSets?.length,
+    activeRun.newsLinkedImages?.length || activeRun.imageSet || activeRun.failedImageSet,
   );
   const imageDiscoveryFailure = getStageFailure(
     activeRun.generationResultStates?.newsLinkedImageDiscovery,

@@ -14,7 +14,7 @@ import {
 } from "@/services/generation";
 import { readConfiguredAiGatewayImageModel, readEnvValue } from "./ai-gateway-models";
 
-const generatedVariationTarget = 2;
+const generatedVariationTarget = 4;
 
 type ImageModelEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -71,10 +71,10 @@ export type ImageVariationProvider = {
 };
 
 export type ImageGenerationServiceResult = {
-  failedImageSets: FailedImageSet[];
+  failedImageSet?: FailedImageSet;
   imageModelProvenance: ImageModelProvenance;
-  imageSets: ImageSet[];
-  selectedImageOriginals: SelectedImageOriginal[];
+  imageSet?: ImageSet;
+  selectedImageOriginal?: SelectedImageOriginal;
 };
 
 export type ImageGenerationServiceStreamEvent =
@@ -91,7 +91,7 @@ export type ImageGenerationServiceStreamEvent =
       selectedImageOriginal?: SelectedImageOriginal;
     };
 
-export async function generateImageSetsForRun(
+export async function generateImageSetForRun(
   {
     input,
     parentRun,
@@ -106,11 +106,11 @@ export async function generateImageSetsForRun(
   } = {},
 ): Promise<ImageGenerationServiceResult> {
   const provider = options.provider ?? createDefaultImageVariationProvider();
-  const imageSets: ImageSet[] = [];
-  const failedImageSets: FailedImageSet[] = [];
-  const selectedImageOriginals: SelectedImageOriginal[] = [];
+  const result: ImageGenerationServiceResult = {
+    imageModelProvenance: provider.imageModelProvenance,
+  };
 
-  for await (const event of streamImageSetsForRun(
+  for await (const event of streamImageSetForRun(
     {
       input,
       parentRun,
@@ -121,26 +121,21 @@ export async function generateImageSetsForRun(
     },
   )) {
     if (event.type === "image-set-completed") {
-      imageSets.push(event.imageSet);
-      selectedImageOriginals.push(event.selectedImageOriginal);
+      result.imageSet = event.imageSet;
+      result.selectedImageOriginal = event.selectedImageOriginal;
     } else {
-      failedImageSets.push(event.failedImageSet);
+      result.failedImageSet = event.failedImageSet;
 
       if (event.selectedImageOriginal) {
-        selectedImageOriginals.push(event.selectedImageOriginal);
+        result.selectedImageOriginal = event.selectedImageOriginal;
       }
     }
   }
 
-  return {
-    failedImageSets,
-    imageModelProvenance: provider.imageModelProvenance,
-    imageSets,
-    selectedImageOriginals,
-  };
+  return result;
 }
 
-export async function* streamImageSetsForRun(
+export async function* streamImageSetForRun(
   {
     input,
     parentRun,
@@ -160,54 +155,52 @@ export async function* streamImageSetsForRun(
     throw new Error("Image generation input does not match the parent run.");
   }
 
-  const selectedCandidates = resolveSelectedImageOriginalCandidates({
+  const candidate = resolveSelectedImageOriginalCandidate({
     imageOriginalCandidates: parentRun.imageOriginalCandidates,
-    selectedImageIds: parsedInput.selectedImageIds,
+    selectedImageId: parsedInput.selectedImageId,
   });
   const now = options.now ?? (() => new Date());
   const prepare = options.prepareSelectedImageOriginal ?? prepareSelectedImageOriginal;
   const provider = options.provider ?? createDefaultImageVariationProvider();
 
-  for (const candidate of selectedCandidates) {
-    let preparedOriginal: PreparedSelectedImageOriginal | undefined;
+  let preparedOriginal: PreparedSelectedImageOriginal | undefined;
 
-    try {
-      preparedOriginal = await prepare({
+  try {
+    preparedOriginal = await prepare({
+      candidate,
+      now,
+    });
+
+    const variations = await provider.generateVariations({
+      original: preparedOriginal,
+      userImagePrompt: parsedInput.userImagePrompt,
+      variationCount: generatedVariationTarget,
+    });
+
+    yield {
+      type: "image-set-completed",
+      imageModelProvenance: provider.imageModelProvenance,
+      imageSet: buildImageSet({
         candidate,
+        imageModelProvenance: provider.imageModelProvenance,
         now,
-      });
-
-      const variations = await provider.generateVariations({
-        original: preparedOriginal,
-        userImagePrompt: parsedInput.userImagePrompt,
-        variationCount: generatedVariationTarget,
-      });
-
-      yield {
-        type: "image-set-completed",
-        imageModelProvenance: provider.imageModelProvenance,
-        imageSet: buildImageSet({
-          candidate,
-          imageModelProvenance: provider.imageModelProvenance,
-          now,
-          selectedImageOriginal: preparedOriginal.selectedImageOriginal,
-          variations,
-        }),
         selectedImageOriginal: preparedOriginal.selectedImageOriginal,
-      };
-    } catch (error) {
-      yield {
-        type: "image-set-failed",
-        failedImageSet: buildFailedImageSet({
-          candidate,
-          message: normalizeFailureMessage(error),
-          now,
-          selectedImageOriginal: preparedOriginal?.selectedImageOriginal,
-        }),
-        imageModelProvenance: provider.imageModelProvenance,
+        variations,
+      }),
+      selectedImageOriginal: preparedOriginal.selectedImageOriginal,
+    };
+  } catch (error) {
+    yield {
+      type: "image-set-failed",
+      failedImageSet: buildFailedImageSet({
+        candidate,
+        message: normalizeFailureMessage(error),
+        now,
         selectedImageOriginal: preparedOriginal?.selectedImageOriginal,
-      };
-    }
+      }),
+      imageModelProvenance: provider.imageModelProvenance,
+      selectedImageOriginal: preparedOriginal?.selectedImageOriginal,
+    };
   }
 }
 
@@ -388,26 +381,22 @@ function buildImageVariationPrompt({
     .join("\n");
 }
 
-function resolveSelectedImageOriginalCandidates({
+function resolveSelectedImageOriginalCandidate({
   imageOriginalCandidates,
-  selectedImageIds,
+  selectedImageId,
 }: {
   imageOriginalCandidates: ParentGenerationRunForImages["imageOriginalCandidates"];
-  selectedImageIds: ImageGenerationInput["selectedImageIds"];
+  selectedImageId: ImageGenerationInput["selectedImageId"];
 }) {
-  const candidateById = new Map(
-    (imageOriginalCandidates ?? []).map((candidate) => [candidate.id, candidate]),
+  const candidate = (imageOriginalCandidates ?? []).find(
+    (imageOriginalCandidate) => imageOriginalCandidate.id === selectedImageId,
   );
 
-  return selectedImageIds.map((selectedImageId) => {
-    const candidate = candidateById.get(selectedImageId);
+  if (!candidate) {
+    throw new Error(`Selected image ID ${selectedImageId} is not available on the parent run.`);
+  }
 
-    if (!candidate) {
-      throw new Error(`Selected image ID ${selectedImageId} is not available on the parent run.`);
-    }
-
-    return candidate;
-  });
+  return candidate;
 }
 
 function buildImageSet({
@@ -424,7 +413,7 @@ function buildImageSet({
   variations: GeneratedImageVariation[];
 }) {
   if (variations.length !== generatedVariationTarget) {
-    throw new Error("Image provider must return exactly two variations.");
+    throw new Error("Image provider must return exactly four variations.");
   }
 
   const imageSetId = `image-set-${candidate.id}`;
@@ -441,20 +430,13 @@ function buildImageSet({
         label: "Original",
         url: selectedImageOriginal.url,
       },
-      {
-        altText: variations[0].altText,
-        id: `${imageSetId}-variation-1`,
-        kind: "variation",
-        label: "Variation 1",
-        url: variations[0].url,
-      },
-      {
-        altText: variations[1].altText,
-        id: `${imageSetId}-variation-2`,
-        kind: "variation",
-        label: "Variation 2",
-        url: variations[1].url,
-      },
+      ...variations.map((variation, index) => ({
+        altText: variation.altText,
+        id: `${imageSetId}-variation-${index + 1}`,
+        kind: "variation" as const,
+        label: `Variation ${index + 1}`,
+        url: variation.url,
+      })),
     ],
     selectedImageOriginal,
   });

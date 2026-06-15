@@ -304,16 +304,14 @@ export function Workspace({
   function updateSelectedGeneratedImage(runId: string, imageOptionId: string | null) {
     const run = runs.find((candidateRun) => candidateRun.id === runId);
 
-    if (!run?.imageSets?.length) {
+    if (!run?.imageSet) {
       return;
     }
 
     if (
       imageOptionId &&
-      !run.imageSets.some((imageSet) =>
-        imageSet.options.some(
-          (option) => option.id === imageOptionId && option.kind === "variation",
-        ),
+      !run.imageSet.options.some(
+        (option) => option.id === imageOptionId && option.kind === "variation",
       )
     ) {
       return;
@@ -350,14 +348,13 @@ export function Workspace({
 
     const startedAt = new Date().toISOString();
     const startedImageGenerationState: GenerationRun["imageGenerationState"] = {
-      selectedImageIds: input.selectedImageIds,
+      selectedImageId: input.selectedImageId,
       startedAt,
       status: "running",
       userImagePrompt: input.userImagePrompt,
     };
-    const selectedImageIds = new Set(input.selectedImageIds);
-    const selectedImageOriginalCandidates = run.imageOriginalCandidates.filter((candidate) =>
-      selectedImageIds.has(candidate.id),
+    const selectedImageOriginalCandidates = run.imageOriginalCandidates.filter(
+      (candidate) => candidate.id === input.selectedImageId,
     );
     const startedRun: GenerationRun = {
       ...run,

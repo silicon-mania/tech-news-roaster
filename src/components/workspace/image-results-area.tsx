@@ -15,51 +15,39 @@ import { TextRevealModal } from "./text-reveal-modal";
 
 const imageOptionCellClassName = "w-[min(70vw,18rem)] shrink-0 lg:w-[min(18vw,300px)]";
 const overlayActionClassName = "bg-background/80 text-foreground hover:bg-background";
-const imageSetOptionCount = 3;
+// One Selected Image Original plus its four variations.
+const imageSetOptionCount = 5;
 
 export function ImageResultsArea({
-  expectedImageSetCount = 0,
-  failedImageSets,
-  imageSets,
+  failedImageSet,
+  imageSet,
+  isGenerationPending = false,
   selectedGeneratedImageOptionId,
   onSelectedGeneratedImageChange,
 }: {
-  expectedImageSetCount?: number;
-  failedImageSets: FailedImageSet[];
-  imageSets: ImageSet[];
+  failedImageSet?: FailedImageSet;
+  imageSet?: ImageSet;
+  isGenerationPending?: boolean;
   selectedGeneratedImageOptionId: string | null;
   onSelectedGeneratedImageChange: (imageOptionId: string | null) => void;
 }) {
-  const [activeModal, setActiveModal] = useState<{
-    imageSetId: string;
-    optionId: string;
-  } | null>(null);
-  const [activeFailureId, setActiveFailureId] = useState<string | null>(null);
-  const activeImageSet = activeModal
-    ? imageSets.find((imageSet) => imageSet.id === activeModal.imageSetId)
-    : null;
+  const [activeOptionId, setActiveOptionId] = useState<string | null>(null);
+  const [isFailureOpen, setIsFailureOpen] = useState(false);
   const activeOptionIndex =
-    activeImageSet && activeModal
-      ? activeImageSet.options.findIndex((option) => option.id === activeModal.optionId)
+    imageSet && activeOptionId
+      ? imageSet.options.findIndex((option) => option.id === activeOptionId)
       : -1;
-  const activeFailedImageSet = activeFailureId
-    ? failedImageSets.find((failedImageSet) => failedImageSet.id === activeFailureId)
-    : null;
-  const pendingImageSetCount = Math.max(
-    0,
-    expectedImageSetCount - imageSets.length - failedImageSets.length,
-  );
 
   return (
     <section aria-label="Image results area" className="grid gap-3">
       <div className="grid gap-4">
-        {imageSets.map((imageSet, imageSetIndex) => (
+        {imageSet ? (
           <article
-            aria-label={`Image set ${imageSetIndex + 1}`}
+            aria-label="Image set"
             className="grid min-w-0 gap-2 rounded-md bg-card/60 p-2"
             key={imageSet.id}>
             <p className="font-medium text-foreground/90 text-xs">
-              {imageSet.selectedImageOriginal.title ?? `Image set ${imageSetIndex + 1}`}
+              {imageSet.selectedImageOriginal.title ?? "Image set"}
             </p>
             <div className="overflow-x-auto pb-2">
               <ul className="flex w-max gap-2 pr-2">
@@ -75,19 +63,14 @@ export function ImageResultsArea({
                         <div className="relative aspect-[4/3] overflow-hidden rounded-md bg-secondary">
                           <button
                             type="button"
-                            aria-label={`Open ${option.label} from image set ${imageSetIndex + 1}`}
-                            onClick={() =>
-                              setActiveModal({
-                                imageSetId: imageSet.id,
-                                optionId: option.id,
-                              })
-                            }
+                            aria-label={`Open ${option.label}`}
+                            onClick={() => setActiveOptionId(option.id)}
                             className="block h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
                             <Image
                               alt={option.altText ?? option.label}
                               className="h-full w-full object-cover transition group-hover:scale-[1.02]"
                               height={240}
-                              loading={imageSetIndex === 0 && optionIndex === 0 ? "eager" : "lazy"}
+                              loading={optionIndex === 0 ? "eager" : "lazy"}
                               src={option.url}
                               unoptimized
                               width={320}
@@ -98,16 +81,9 @@ export function ImageResultsArea({
                               <TooltipTrigger
                                 render={
                                   <Button
-                                    aria-label={`Expand ${
-                                      option.label
-                                    } from image set ${imageSetIndex + 1}`}
+                                    aria-label={`Expand ${option.label}`}
                                     className={overlayActionClassName}
-                                    onClick={() =>
-                                      setActiveModal({
-                                        imageSetId: imageSet.id,
-                                        optionId: option.id,
-                                      })
-                                    }
+                                    onClick={() => setActiveOptionId(option.id)}
                                     size="icon"
                                     type="button"
                                     variant="ghost"
@@ -121,9 +97,7 @@ export function ImageResultsArea({
                               <TooltipTrigger
                                 render={
                                   <a
-                                    aria-label={`Download ${
-                                      option.label
-                                    } from image set ${imageSetIndex + 1}`}
+                                    aria-label={`Download ${option.label}`}
                                     className={cn(
                                       buttonVariants({ size: "icon", variant: "ghost" }),
                                       overlayActionClassName,
@@ -144,8 +118,8 @@ export function ImageResultsArea({
                             <Button
                               aria-label={
                                 isSelected
-                                  ? `Clear ${option.label} from image set ${imageSetIndex + 1} selection`
-                                  : `Select ${option.label} from image set ${imageSetIndex + 1}`
+                                  ? `Clear ${option.label} selection`
+                                  : `Select ${option.label}`
                               }
                               aria-pressed={isSelected}
                               className={`min-w-20 font-medium text-xs ${
@@ -168,14 +142,12 @@ export function ImageResultsArea({
               </ul>
             </div>
           </article>
-        ))}
-        {Array.from({ length: pendingImageSetCount }, (_, pendingIndex) => (
+        ) : null}
+        {isGenerationPending ? (
           <article
             aria-busy="true"
-            aria-label={`Pending image set ${imageSets.length + failedImageSets.length + pendingIndex + 1}`}
-            className="grid min-w-0 gap-2 rounded-md bg-card/60 p-2"
-            // biome-ignore lint/suspicious/noArrayIndexKey: placeholders have no identity beyond position
-            key={`pending-image-set-${pendingIndex}`}>
+            aria-label="Pending image set"
+            className="grid min-w-0 gap-2 rounded-md bg-card/60 p-2">
             <Skeleton className="h-4 w-40" />
             <div className="overflow-x-auto pb-2">
               <ul className="flex w-max gap-2 pr-2">
@@ -193,10 +165,10 @@ export function ImageResultsArea({
               </ul>
             </div>
           </article>
-        ))}
-        {failedImageSets.map((failedImageSet, failedIndex) => (
+        ) : null}
+        {failedImageSet ? (
           <article
-            aria-label={`Failed image set ${failedIndex + 1}`}
+            aria-label="Failed image set"
             className="grid gap-1 rounded-md bg-destructive/10 p-3"
             key={failedImageSet.id}>
             <div className="flex items-start justify-between gap-2">
@@ -205,9 +177,9 @@ export function ImageResultsArea({
                 <TooltipTrigger
                   render={
                     <Button
-                      aria-label={`Open Quiet Failure Details for failed image set ${failedIndex + 1}`}
+                      aria-label="Open Quiet Failure Details for failed image set"
                       className="text-destructive/80 hover:text-destructive"
-                      onClick={() => setActiveFailureId(failedImageSet.id)}
+                      onClick={() => setIsFailureOpen(true)}
                       size="icon"
                       type="button"
                       variant="ghost"
@@ -222,28 +194,25 @@ export function ImageResultsArea({
               This image set could not be generated.
             </p>
           </article>
-        ))}
+        ) : null}
       </div>
-      {activeFailedImageSet ? (
-        <TextRevealModal title="Quiet Failure Details" onClose={() => setActiveFailureId(null)}>
+      {failedImageSet && isFailureOpen ? (
+        <TextRevealModal title="Quiet Failure Details" onClose={() => setIsFailureOpen(false)}>
           <FailureDetails
             failure={{
-              message: activeFailedImageSet.message,
-              failedAt: activeFailedImageSet.failedAt,
+              message: failedImageSet.message,
+              failedAt: failedImageSet.failedAt,
             }}
           />
         </TextRevealModal>
       ) : null}
-      {activeImageSet && activeOptionIndex >= 0 ? (
+      {imageSet && activeOptionIndex >= 0 ? (
         <ImageOptionModal
-          imageSet={activeImageSet}
+          imageSet={imageSet}
           optionIndex={activeOptionIndex}
-          onClose={() => setActiveModal(null)}
+          onClose={() => setActiveOptionId(null)}
           onOptionIndexChange={(optionIndex) =>
-            setActiveModal({
-              imageSetId: activeImageSet.id,
-              optionId: activeImageSet.options[optionIndex]?.id ?? "",
-            })
+            setActiveOptionId(imageSet.options[optionIndex]?.id ?? null)
           }
         />
       ) : null}

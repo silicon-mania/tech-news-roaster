@@ -12,22 +12,19 @@ import type {
  * that is a `variation` (never the original) and a Selected Visual Joke can
  * assemble the composite. Shared by the overlay and its tests.
  */
-export function findSelectedVariation(imageSets: ImageSet[], selection: SelectedGeneratedImage) {
-  if (!selection) {
+export function findSelectedVariation(
+  imageSet: ImageSet | undefined,
+  selection: SelectedGeneratedImage,
+) {
+  if (!selection || !imageSet) {
     return null;
   }
 
-  for (const imageSet of imageSets) {
-    const variation = imageSet.options.find(
+  return (
+    imageSet.options.find(
       (option) => option.id === selection.imageOptionId && option.kind === "variation",
-    );
-
-    if (variation) {
-      return variation;
-    }
-  }
-
-  return null;
+    ) ?? null
+  );
 }
 
 export function findSelectedVisualJoke(

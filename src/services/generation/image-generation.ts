@@ -46,7 +46,7 @@ const originalImageOptionSchema = imageOptionSchema.extend({
 
 const variationImageOptionSchema = imageOptionSchema.extend({
   kind: z.literal("variation"),
-  label: z.enum(["Variation 1", "Variation 2"]),
+  label: z.enum(["Variation 1", "Variation 2", "Variation 3", "Variation 4"]),
 });
 
 export const imageSetSchema = z
@@ -58,15 +58,20 @@ export const imageSetSchema = z
       originalImageOptionSchema,
       variationImageOptionSchema,
       variationImageOptionSchema,
+      variationImageOptionSchema,
+      variationImageOptionSchema,
     ]),
     selectedImageOriginal: selectedImageOriginalSchema,
   })
   .strict()
   .refine(
     (imageSet) =>
-      imageSet.options[1].label === "Variation 1" && imageSet.options[2].label === "Variation 2",
+      imageSet.options[1].label === "Variation 1" &&
+      imageSet.options[2].label === "Variation 2" &&
+      imageSet.options[3].label === "Variation 3" &&
+      imageSet.options[4].label === "Variation 4",
     {
-      message: "Image Sets must contain Original, Variation 1, and Variation 2.",
+      message: "Image Sets must contain Original and Variations 1 through 4.",
       path: ["options"],
     },
   );
@@ -88,12 +93,10 @@ export const failedImageSetSchema = z
   })
   .strict();
 
-const selectedImageIdsSchema = z.array(runLocalIdSchema).min(1).max(2);
-
 const imageGenerationInputSchema = z
   .object({
     parentRunId: runLocalIdSchema,
-    selectedImageIds: selectedImageIdsSchema,
+    selectedImageId: runLocalIdSchema,
     userImagePrompt: nonEmptyTrimmedStringSchema,
   })
   .strict();
@@ -101,27 +104,24 @@ const imageGenerationInputSchema = z
 export const imageGenerationTerminalStateSchema = z
   .object({
     completedAt: z.string().datetime(),
-    failedImageSets: z.array(failedImageSetSchema).max(2),
-    imageSets: z.array(imageSetSchema).max(2),
-    status: z.enum(["completed", "partially-failed", "failed"]),
+    failedImageSet: failedImageSetSchema.optional(),
+    imageSet: imageSetSchema.optional(),
+    status: z.enum(["completed", "failed"]),
   })
   .strict()
   .refine(
     (state) =>
-      state.status === "partially-failed"
-        ? state.imageSets.length > 0 && state.failedImageSets.length > 0
-        : state.status === "completed"
-          ? state.imageSets.length > 0 && state.failedImageSets.length === 0
-          : state.imageSets.length === 0 && state.failedImageSets.length > 0,
+      state.status === "completed"
+        ? Boolean(state.imageSet) && !state.failedImageSet
+        : !state.imageSet && Boolean(state.failedImageSet),
     {
-      message:
-        "Terminal image-generation state must match completed, partially-failed, or failed set counts.",
+      message: "Terminal image-generation state must match its completed or failed image set.",
     },
   );
 
 const imageGenerationAttemptBaseSchema = z
   .object({
-    selectedImageIds: selectedImageIdsSchema,
+    selectedImageId: runLocalIdSchema,
     startedAt: z.string().datetime(),
     userImagePrompt: nonEmptyTrimmedStringSchema,
   })
@@ -142,10 +142,6 @@ export const imageGenerationAttemptStateSchema = z.discriminatedUnion("status", 
   }),
   imageGenerationAttemptBaseSchema.extend({
     completedAt: z.string().datetime(),
-    status: z.literal("partially-failed"),
-  }),
-  imageGenerationAttemptBaseSchema.extend({
-    completedAt: z.string().datetime(),
     status: z.literal("failed"),
   }),
 ]);
@@ -153,15 +149,15 @@ export const imageGenerationAttemptStateSchema = z.discriminatedUnion("status", 
 const imageGenerationParentRunSchema = z
   .object({
     id: runLocalIdSchema,
-    failedImageSets: z.array(failedImageSetSchema).max(2).optional(),
+    failedImageSet: failedImageSetSchema.optional(),
     imageGenerationState: imageGenerationAttemptStateSchema.optional(),
     imageOriginalCandidates: z
       .array(imageOriginalCandidateSchema)
       .max(imageOriginalCandidateTarget)
       .optional(),
-    imageSets: z.array(imageSetSchema).max(2).optional(),
+    imageSet: imageSetSchema.optional(),
     phase: generationRunPhaseSchema.optional(),
-    selectedImageOriginals: z.array(selectedImageOriginalSchema).max(2).optional(),
+    selectedImageOriginal: selectedImageOriginalSchema.optional(),
   })
   .strict();
 
@@ -195,18 +191,16 @@ export function parseFailedImageSet(failedImageSet: unknown): FailedImageSet {
 
 export function parseSelectedGeneratedImage(
   selectedGeneratedImage: unknown,
-  imageSets?: ImageSet[],
+  imageSet?: ImageSet,
 ): SelectedGeneratedImage {
   const selection = z.nullable(selectedGeneratedImageSchema).parse(selectedGeneratedImage);
 
-  if (!selection || !imageSets) {
+  if (!selection || !imageSet) {
     return selection;
   }
 
-  const isSelectableVariation = imageSets.some((imageSet) =>
-    imageSet.options.some(
-      (option) => option.id === selection.imageOptionId && option.kind === "variation",
-    ),
+  const isSelectableVariation = imageSet.options.some(
+    (option) => option.id === selection.imageOptionId && option.kind === "variation",
   );
 
   return isSelectableVariation ? selection : null;

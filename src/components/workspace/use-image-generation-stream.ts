@@ -4,12 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { ImageGenerationInput } from "@/services/generation";
 import { parseImageGenerationStreamEvent } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
-import {
-  buildImageGenerationParentRun,
-  collectSelectedImageOriginals,
-  getImageGenerationStartedAt,
-} from "@/services/workspace";
-import { upsertById } from "@/utils/upsert-by-id";
+import { buildImageGenerationParentRun, getImageGenerationStartedAt } from "@/services/workspace";
 
 export function useImageGenerationStream({
   scheduleRunAutosave,
@@ -106,17 +101,12 @@ export function useImageGenerationStream({
         }
 
         if (event.type === "image-set-completed") {
-          const imageSets = upsertById(run.imageSets ?? [], event.imageSet);
-          const selectedImageOriginals = upsertById(
-            run.selectedImageOriginals ?? [],
-            event.imageSet.selectedImageOriginal,
-          );
           const updatedRun: GenerationRun = {
             ...run,
             imageModelProvenance: event.imageSet.imageModelProvenance,
-            imageSets,
+            imageSet: event.imageSet,
             phase: "image-generation-running",
-            selectedImageOriginals,
+            selectedImageOriginal: event.imageSet.selectedImageOriginal,
           };
           scheduleRunAutosave(updatedRun);
 
@@ -124,18 +114,12 @@ export function useImageGenerationStream({
         }
 
         if (event.type === "image-set-failed") {
-          const failedImageSets = upsertById(run.failedImageSets ?? [], event.failedImageSet);
-          const selectedImageOriginals = event.failedImageSet.selectedImageOriginal
-            ? upsertById(
-                run.selectedImageOriginals ?? [],
-                event.failedImageSet.selectedImageOriginal,
-              )
-            : run.selectedImageOriginals;
           const updatedRun: GenerationRun = {
             ...run,
-            failedImageSets,
+            failedImageSet: event.failedImageSet,
             phase: "image-generation-running",
-            selectedImageOriginals,
+            selectedImageOriginal:
+              event.failedImageSet.selectedImageOriginal ?? run.selectedImageOriginal,
           };
           scheduleRunAutosave(updatedRun);
 
@@ -143,7 +127,7 @@ export function useImageGenerationStream({
         }
 
         const imageGenerationState: NonNullable<GenerationRun["imageGenerationState"]> = {
-          selectedImageIds: input.selectedImageIds,
+          selectedImageId: input.selectedImageId,
           startedAt: getImageGenerationStartedAt(run) ?? new Date().toISOString(),
           userImagePrompt: input.userImagePrompt,
           completedAt: event.state.completedAt,
@@ -152,20 +136,19 @@ export function useImageGenerationStream({
 
         const updatedRun: GenerationRun = {
           ...run,
-          failedImageSets: event.state.failedImageSets,
+          failedImageSet: event.state.failedImageSet,
           imageGenerationState,
           imageModelProvenance:
-            event.state.imageSets.at(0)?.imageModelProvenance ?? run.imageModelProvenance,
-          imageSets: event.state.imageSets,
+            event.state.imageSet?.imageModelProvenance ?? run.imageModelProvenance,
+          imageSet: event.state.imageSet,
           phase:
             event.state.status === "completed"
               ? "image-generation-complete"
-              : "image-generation-partially-failed",
-          selectedImageOriginals: collectSelectedImageOriginals({
-            failedImageSets: event.state.failedImageSets,
-            imageSets: event.state.imageSets,
-            currentSelectedImageOriginals: run.selectedImageOriginals ?? [],
-          }),
+              : "image-generation-failed",
+          selectedImageOriginal:
+            event.state.imageSet?.selectedImageOriginal ??
+            event.state.failedImageSet?.selectedImageOriginal ??
+            run.selectedImageOriginal,
         };
         scheduleRunAutosave(updatedRun);
 
@@ -183,24 +166,22 @@ export function useImageGenerationStream({
           return run;
         }
 
-        const failedImageSets = input.selectedImageIds.map((selectedImageId) => ({
-          id: `failed-image-set-${selectedImageId}`,
-          failedAt,
-          message,
-          selectedImageId,
-        }));
-
         const updatedRun: GenerationRun = {
           ...run,
-          failedImageSets,
+          failedImageSet: {
+            id: `failed-image-set-${input.selectedImageId}`,
+            failedAt,
+            message,
+            selectedImageId: input.selectedImageId,
+          },
           imageGenerationState: {
-            selectedImageIds: input.selectedImageIds,
+            selectedImageId: input.selectedImageId,
             startedAt: getImageGenerationStartedAt(run) ?? failedAt,
             userImagePrompt: input.userImagePrompt,
             completedAt: failedAt,
             status: "failed",
           },
-          phase: "image-generation-partially-failed",
+          phase: "image-generation-failed",
         };
         scheduleRunAutosave(updatedRun);
 
