@@ -64,18 +64,20 @@ describe("Workspace generation progress", () => {
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/local draft model/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/text generation loading/i)).toBeInTheDocument();
 
     act(() => {
       generationEventSources[0]?.emit(events[1]);
       generationEventSources[0]?.emit(events[2]);
     });
 
-    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
-      "3/3",
-    );
-    expect(
-      screen.queryByRole("region", { name: /completed draft stack/i }),
-    ).not.toBeInTheDocument();
+    // The text section reveals its full draft stack as soon as all three drafts
+    // have streamed in — before the terminal completed event — while the image
+    // section keeps its own skeleton.
+    expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
+    expect(screen.queryByLabelText(/text generation loading/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/image generation loading/i)).toBeInTheDocument();
 
     act(() => {
       generationEventSources[0]?.emit(events[3]);
@@ -93,9 +95,31 @@ describe("Workspace generation progress", () => {
     expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
     expect(screen.getAllByText(/local draft model/i)).toHaveLength(3);
+    expect(screen.queryByLabelText(/image generation loading/i)).not.toBeInTheDocument();
   });
 
-  test("renders compact generation progress from run-state events without polling", async () => {
+  test("renders independent skeletons for all three sections while the run is in flight", async () => {
+    const user = userEvent.setup();
+    const generationEventSources: FakeGenerationEventSource[] = [];
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
+      generationEventSources,
+    });
+    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/2468");
+    await user.click(generateButton);
+
+    // Right after a run starts — before any content has streamed in — every section
+    // shows its own skeleton rather than a single shared waiting state.
+    expect(screen.getByLabelText(/text generation loading/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/image generation loading/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /visual joke creative result area/i }),
+    ).toHaveAttribute("aria-busy", "true");
+    expect(
+      screen.queryByRole("region", { name: /completed draft stack/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("swaps the image section skeleton for the failure area when image discovery fails", async () => {
     const user = userEvent.setup();
     const generationEventSources: FakeGenerationEventSource[] = [];
     const { sourceTweetUrlInput, generateButton } = renderWorkspace({
@@ -106,116 +130,6 @@ describe("Workspace generation progress", () => {
 
     await user.type(sourceTweetUrlInput, sourceTweetUrl);
     await user.click(generateButton);
-
-    act(() => {
-      generationEventSources[0]?.emit(
-        buildGenerationRunStateEvent({
-          generationResultStates: {
-            contextGathering: {
-              startedAt: "2026-06-06T10:08:00.000Z",
-              status: "running",
-            },
-            imageGeneration: {
-              status: "not-started",
-            },
-            newsLinkedImageDiscovery: {
-              status: "not-started",
-            },
-            textGeneration: {
-              status: "not-started",
-            },
-            visualJokeGeneration: {
-              status: "not-started",
-            },
-          },
-          label: "Drafts for 2468",
-          sourceTweet: tweetContext.sourceTweet,
-        }),
-      );
-    });
-
-    const progress = screen.getByLabelText(/generation progress/i);
-
-    expect(progress).toHaveTextContent("Context gathering");
-    expect(progress).toHaveTextContent("Running");
-    expect(progress).toHaveTextContent("Draft creation");
-    expect(progress).toHaveTextContent("Queued");
-    expect(progress).toHaveTextContent("Image generation");
-
-    act(() => {
-      generationEventSources[0]?.emit(
-        buildGenerationRunStateEvent({
-          generationResultStates: {
-            contextGathering: {
-              completedAt: "2026-06-06T10:10:00.000Z",
-              jokeContextSnapshot: buildJokeContextSnapshot("2468"),
-              startedAt: "2026-06-06T10:08:00.000Z",
-              status: "completed",
-            },
-            imageGeneration: {
-              status: "not-started",
-            },
-            newsLinkedImageDiscovery: {
-              startedAt: "2026-06-06T10:10:02.000Z",
-              status: "running",
-            },
-            textGeneration: {
-              startedAt: "2026-06-06T10:10:01.000Z",
-              status: "running",
-            },
-            visualJokeGeneration: {
-              startedAt: "2026-06-06T10:10:03.000Z",
-              status: "running",
-            },
-          },
-          label: "Drafts for 2468",
-          sourceTweet: tweetContext.sourceTweet,
-        }),
-      );
-    });
-
-    expect(progress).toHaveTextContent("Complete");
-    expect(progress).toHaveTextContent("Image discovery");
-    expect(progress).toHaveTextContent("Visual jokes");
-    expect(progress).toHaveTextContent("Queued");
-
-    act(() => {
-      generationEventSources[0]?.emit(
-        buildGenerationRunStateEvent({
-          generationResultStates: {
-            contextGathering: {
-              completedAt: "2026-06-06T10:10:00.000Z",
-              jokeContextSnapshot: buildJokeContextSnapshot("2468"),
-              startedAt: "2026-06-06T10:08:00.000Z",
-              status: "completed",
-            },
-            imageGeneration: {
-              status: "not-started",
-            },
-            newsLinkedImageDiscovery: {
-              completedAt: "2026-06-06T10:12:00.000Z",
-              newsLinkedImages: buildNewsLinkedImages(),
-              startedAt: "2026-06-06T10:10:02.000Z",
-              status: "completed",
-            },
-            textGeneration: {
-              startedAt: "2026-06-06T10:10:01.000Z",
-              status: "running",
-            },
-            visualJokeGeneration: {
-              startedAt: "2026-06-06T10:10:03.000Z",
-              status: "running",
-            },
-          },
-          label: "Drafts for 2468",
-          sourceTweet: tweetContext.sourceTweet,
-        }),
-      );
-    });
-
-    const readyForImageGenerationProgress = screen.getByLabelText(/generation progress/i);
-
-    expect(readyForImageGenerationProgress).toHaveTextContent("Not started");
 
     act(() => {
       generationEventSources[0]?.emit(
@@ -251,10 +165,13 @@ describe("Workspace generation progress", () => {
       );
     });
 
-    const imageDiscoveryFailedProgress = screen.getByLabelText(/generation progress/i);
-
-    expect(imageDiscoveryFailedProgress).toHaveTextContent("Failed");
-    expect(imageDiscoveryFailedProgress).toHaveTextContent("Unavailable");
+    // The image section resolves to its failure area while text and visual jokes
+    // keep loading independently.
+    expect(
+      screen.getByRole("region", { name: /image work creative result area/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/image generation loading/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/text generation loading/i)).toBeInTheDocument();
   });
 
   test("renders the full v3 happy path as separated responsive creative result areas", async () => {
@@ -356,9 +273,7 @@ describe("Workspace generation progress", () => {
     expect(imageGenerationArea).toHaveTextContent("Launch visual");
     expect(imageGenerationArea).toHaveTextContent("Platform visual");
     expect(imageGenerationArea).toHaveTextContent("Text generation running");
-    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
-      "0/3",
-    );
+    expect(screen.getByLabelText(/text generation loading/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
@@ -376,9 +291,10 @@ describe("Workspace generation progress", () => {
       generationEventSources[0]?.emit(events[0]);
     });
 
-    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
-      "1/3",
-    );
+    expect(screen.getByLabelText(/text generation loading/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: /completed draft stack/i }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("complementary", {
         name: /image generation area/i,
@@ -390,12 +306,10 @@ describe("Workspace generation progress", () => {
       generationEventSources[0]?.emit(events[2]);
     });
 
-    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
-      "3/3",
-    );
-    expect(
-      screen.queryByRole("region", { name: /completed draft stack/i }),
-    ).not.toBeInTheDocument();
+    // The draft stack reveals as soon as the third draft streams in — before the
+    // terminal completed event — independently of the still-open image section.
+    expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/text generation loading/i)).not.toBeInTheDocument();
 
     act(() => {
       generationEventSources[0]?.emit(events[3]);

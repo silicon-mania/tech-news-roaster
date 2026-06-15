@@ -8,11 +8,12 @@ import { CreativeFailureArea } from "./creative-failure-area";
 import { DraftComparison } from "./draft-comparison";
 import { getStageFailure } from "./failure-details";
 import { GenerationFailureState } from "./generation-failure-state";
-import { GenerationWaitingState } from "./generation-waiting-state";
 import { ImageGenerationArea } from "./image-generation-area";
+import { ImageGenerationSkeleton } from "./image-generation-skeleton";
 import { QuietRunReveals } from "./quiet-run-reveals";
 import { SourceTweetPreview } from "./source-tweet-preview";
 import { TextGenerationSection } from "./text-generation-section";
+import { TextGenerationSkeleton } from "./text-generation-skeleton";
 import { VisualJokeArea } from "./visual-joke-area";
 import { VisualJokeSkeleton } from "./visual-joke-skeleton";
 
@@ -35,12 +36,21 @@ export function ActiveRunPanel({
     return <section aria-label="Empty draft canvas" className="min-h-72 sm:min-h-88" />;
   }
 
+  const isRunning = activeRun.status === "running";
+  const isFailed = activeRun.status === "failed";
+  const isCompleted = activeRun.status === "completed";
+
   const sourceTweetPreview = activeRun.sourceTweet ? (
     <SourceTweetPreview
       contextReveal={<QuietRunReveals run={activeRun} />}
       text={activeRun.sourceTweet.text}
     />
   ) : null;
+
+  // Each section resolves independently — content if its own data has arrived,
+  // otherwise its failure (if that stage failed), otherwise a skeleton while the
+  // run is still in flight. This lets text reveal before visual jokes, images
+  // reveal before text, etc., rather than gating every section on the whole run.
   const hasImageGenerationContent = Boolean(
     activeRun.newsLinkedImages?.length ||
       activeRun.imageSets?.length ||
@@ -63,79 +73,60 @@ export function ActiveRunPanel({
       heading="Image work"
       failure={imageDiscoveryFailure}
     />
+  ) : isRunning ? (
+    <ImageGenerationSkeleton />
   ) : null;
+
+  const visualJokeFailure = getStageFailure(activeRun.generationResultStates?.visualJokeGeneration);
   const visualJokeArea = activeRun.visualJokeSet ? (
     <VisualJokeArea
       run={activeRun}
       visualJokeSet={activeRun.visualJokeSet}
       onSelectedVisualJokeChange={onSelectedVisualJokeChange}
     />
-  ) : getStageFailure(activeRun.generationResultStates?.visualJokeGeneration) ? (
+  ) : visualJokeFailure ? (
     <CreativeFailureArea
       ariaLabel="Visual Joke Creative Result Area"
       detailsLabel="Visual Joke Failure Details"
       heading="Visual jokes"
-      failure={getStageFailure(activeRun.generationResultStates?.visualJokeGeneration)}
+      failure={visualJokeFailure}
     />
-  ) : activeRun.status === "running" ? (
+  ) : isRunning ? (
     <VisualJokeSkeleton />
   ) : null;
 
-  if (activeRun.status === "running") {
-    return (
-      <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
-        {sourceTweetPreview}
-        <RunWorkspaceLayout
-          imageGenerationArea={imageGenerationArea}
-          usersDirection={activeRun.usersDirection}
-          visualJokeArea={visualJokeArea}>
-          <GenerationWaitingState run={activeRun} />
-        </RunWorkspaceLayout>
-      </section>
-    );
-  }
-
-  if (activeRun.status === "failed") {
-    return (
-      <section className="mx-auto grid w-full max-w-5xl gap-3 self-start">
-        {sourceTweetPreview}
-        <RunWorkspaceLayout
-          imageGenerationArea={imageGenerationArea}
-          usersDirection={activeRun.usersDirection}
-          visualJokeArea={visualJokeArea}>
-          <GenerationFailureState run={activeRun} />
-        </RunWorkspaceLayout>
-      </section>
-    );
-  }
   const hasCompleteDraftStack =
     activeRun.drafts.length === draftTarget && activeRun.draftCount === draftTarget;
+  const textGenerationFailure = getStageFailure(activeRun.generationResultStates?.textGeneration);
+  const textGenerationArea = isFailed ? (
+    <GenerationFailureState run={activeRun} />
+  ) : hasCompleteDraftStack ? (
+    <DraftComparison
+      drafts={activeRun.drafts}
+      fallbackDisclosure={activeRun.fallbackDisclosure}
+      onDraftTextChange={onDraftTextChange}
+    />
+  ) : textGenerationFailure ? (
+    <CreativeFailureArea
+      ariaLabel="Text Generation Creative Result Area"
+      detailsLabel="Text Generation Failure Details"
+      heading="Drafts"
+      failure={textGenerationFailure}
+    />
+  ) : isRunning ? (
+    <TextGenerationSkeleton />
+  ) : null;
 
   return (
     <section
-      aria-label="Completed draft canvas"
+      aria-label={isCompleted ? "Completed draft canvas" : undefined}
       className="mx-auto grid w-full max-w-5xl gap-3 self-start">
       {sourceTweetPreview}
       <RunWorkspaceLayout
         imageGenerationArea={imageGenerationArea}
         usersDirection={activeRun.usersDirection}
         visualJokeArea={visualJokeArea}>
-        {hasCompleteDraftStack ? (
-          <DraftComparison
-            drafts={activeRun.drafts}
-            fallbackDisclosure={activeRun.fallbackDisclosure}
-            onDraftTextChange={onDraftTextChange}
-          />
-        ) : getStageFailure(activeRun.generationResultStates?.textGeneration) ? (
-          <CreativeFailureArea
-            ariaLabel="Text Generation Creative Result Area"
-            detailsLabel="Text Generation Failure Details"
-            heading="Drafts"
-            failure={getStageFailure(activeRun.generationResultStates?.textGeneration)}
-          />
-        ) : (
-          <GenerationWaitingState run={activeRun} />
-        )}
+        {textGenerationArea}
       </RunWorkspaceLayout>
     </section>
   );

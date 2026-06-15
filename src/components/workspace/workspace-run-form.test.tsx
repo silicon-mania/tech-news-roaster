@@ -37,9 +37,10 @@ describe("Workspace run form", () => {
     expect(
       screen.getByRole("region", { name: /compressed source tweet bar/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /generation waiting state/i })).toHaveTextContent(
-      "0/3",
-    );
+    expect(screen.getByLabelText(/text generation loading/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: /completed draft stack/i }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /open runs, 1 saved/i }));
     expect(
