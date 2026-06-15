@@ -201,11 +201,21 @@ describe("Workspace image generation", () => {
         name: /select platform visual/i,
       }),
     );
+    await user.click(
+      screen.getByRole("button", {
+        name: /open image direction/i,
+      }),
+    );
     await user.type(
-      within(imageGenerationArea).getByRole("textbox", {
+      screen.getByRole("textbox", {
         name: /user image prompt/i,
       }),
       "Make it feel like a serious product launch image.",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /close image direction/i,
+      }),
     );
     await user.click(
       within(imageGenerationArea).getByRole("button", {
@@ -317,11 +327,21 @@ describe("Workspace image generation", () => {
         name: /select launch visual/i,
       }),
     );
+    await user.click(
+      screen.getByRole("button", {
+        name: /open image direction/i,
+      }),
+    );
     await user.type(
-      within(imageGenerationArea).getByRole("textbox", {
+      screen.getByRole("textbox", {
         name: /user image prompt/i,
       }),
       "Make it feel like a serious product launch image.",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /close image direction/i,
+      }),
     );
     await user.click(
       within(imageGenerationArea).getByRole("button", {
@@ -486,5 +506,44 @@ describe("Workspace image generation", () => {
     expect(within(imageGenerationArea).getByLabelText(/pending image set 1/i)).toBeInTheDocument();
     expect(within(imageGenerationArea).getByLabelText(/pending image set 2/i)).toBeInTheDocument();
     expect(within(imageGenerationArea).queryByLabelText(/^image set 1$/i)).not.toBeInTheDocument();
+  });
+
+  test("surfaces the used image prompt read-only once generation has run", async () => {
+    const user = userEvent.setup();
+    const newsLinkedImages = buildNewsLinkedImages();
+    const imageSet = buildImageSet(newsLinkedImages[0]);
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          imageGenerationState: {
+            completedAt: "2026-06-05T10:23:00.000Z",
+            selectedImageIds: [newsLinkedImages[0].id],
+            startedAt: "2026-06-05T10:20:00.000Z",
+            status: "completed",
+            userImagePrompt: "Make it feel like a serious product launch image.",
+          },
+          imageModelProvenance: imageSet.imageModelProvenance,
+          imageSets: [imageSet],
+          newsLinkedImages: newsLinkedImages.slice(0, 1),
+          phase: "image-generation-complete",
+          selectedImageOriginals: [imageSet.selectedImageOriginal],
+        }),
+      ],
+    });
+
+    // Source selection is closed, but the direction button is still reachable.
+    await user.click(screen.getByRole("button", { name: /open image direction/i }));
+
+    const imageDirectionPanel = screen.getByRole("complementary", {
+      name: /image direction/i,
+    });
+
+    expect(imageDirectionPanel).toHaveTextContent(
+      "Make it feel like a serious product launch image.",
+    );
+    // Read-only: the prompt is shown, not editable.
+    expect(within(imageDirectionPanel).queryByRole("textbox")).not.toBeInTheDocument();
   });
 });

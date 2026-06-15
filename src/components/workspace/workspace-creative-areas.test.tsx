@@ -51,11 +51,21 @@ describe("Workspace creative result areas", () => {
     ).toBeTruthy();
     expect(imageGenerationButton).toBeDisabled();
 
+    await user.click(
+      screen.getByRole("button", {
+        name: /open image direction/i,
+      }),
+    );
     await user.type(
-      within(imageGenerationArea).getByRole("textbox", {
+      screen.getByRole("textbox", {
         name: /user image prompt/i,
       }),
       "Make it feel like a serious product launch, not a meme.",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /close image direction/i,
+      }),
     );
 
     expect(imageGenerationButton).toBeDisabled();
@@ -222,11 +232,21 @@ describe("Workspace creative result areas", () => {
         name: /select launch visual/i,
       }),
     );
+    await user.click(
+      screen.getByRole("button", {
+        name: /open image direction/i,
+      }),
+    );
     await user.type(
-      within(imageGenerationArea).getByRole("textbox", {
+      screen.getByRole("textbox", {
         name: /user image prompt/i,
       }),
       "Make it feel like a serious product launch image.",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /close image direction/i,
+      }),
     );
     await user.click(
       within(imageGenerationArea).getByRole("button", {
@@ -271,10 +291,18 @@ describe("Workspace creative result areas", () => {
       draftStack.compareDocumentPosition(directionButton) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: /open joke context snapshot/i }));
+    // The tweet context button lives in the source-post card now.
+    expect(
+      within(screen.getByRole("complementary", { name: /source tweet preview/i })).getByRole(
+        "button",
+        { name: /open tweet context/i },
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /open tweet context/i }));
 
     const contextDialog = screen.getByRole("dialog", {
-      name: /joke context snapshot/i,
+      name: /tweet context/i,
     });
 
     expect(contextDialog).toHaveTextContent("Source Tweet Claim");
@@ -287,35 +315,59 @@ describe("Workspace creative result areas", () => {
 
     await user.click(
       within(contextDialog).getByRole("button", {
-        name: /close joke context snapshot/i,
+        name: /close tweet context/i,
       }),
     );
     await user.click(directionButton);
 
-    const directionDialog = screen.getByRole("dialog", {
+    const directionPanel = screen.getByRole("complementary", {
       name: /visual joke direction/i,
     });
 
     expect(
-      within(directionDialog).getByText(
+      within(directionPanel).getByText(
         (_content, element) =>
           element?.tagName.toLowerCase() === "pre" && element.textContent === visualJokeDirection,
       ),
     ).toBeInTheDocument();
 
     await user.click(
-      within(directionDialog).getByRole("button", {
+      screen.getByRole("button", {
         name: /close visual joke direction/i,
       }),
     );
     await user.click(screen.getByRole("button", { name: /open visual joke direction/i }));
 
     expect(
-      within(screen.getByRole("dialog", { name: /visual joke direction/i })).getByText(
+      within(screen.getByRole("complementary", { name: /visual joke direction/i })).getByText(
         (_content, element) =>
           element?.tagName.toLowerCase() === "pre" && element.textContent === visualJokeDirection,
       ),
     ).toBeInTheDocument();
+  });
+
+  test("shows the run's direction read-only in the text generation direction panel", async () => {
+    const user = userEvent.setup();
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          usersDirection: "Keep the platform-risk angle sharp.",
+          visualJokeSet: buildVisualJokeSet(),
+        }),
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: /open text direction/i }));
+
+    const textDirectionPanel = screen.getByRole("complementary", {
+      name: /text direction/i,
+    });
+
+    expect(textDirectionPanel).toHaveTextContent("Keep the platform-risk angle sharp.");
+    // The text-generation prompt is the run's "User's Direction" — read-only here.
+    expect(within(textDirectionPanel).queryByRole("textbox")).not.toBeInTheDocument();
   });
 
   test("keeps context and visual joke failure details behind quiet reveals", async () => {

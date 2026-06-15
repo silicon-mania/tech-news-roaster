@@ -22,7 +22,7 @@ export function QuietRunReveals({ run }: { run: GenerationRun }) {
         <TooltipTrigger
           render={
             <Button
-              aria-label="Open Joke Context Snapshot"
+              aria-label="Open Tweet context"
               className="text-muted-foreground"
               onClick={() => setIsContextOpen(true)}
               size="icon"
@@ -32,10 +32,10 @@ export function QuietRunReveals({ run }: { run: GenerationRun }) {
           }>
           <Eye aria-hidden className="size-3.5" strokeWidth={1.75} />
         </TooltipTrigger>
-        <TooltipContent>Joke context snapshot</TooltipContent>
+        <TooltipContent>Tweet context</TooltipContent>
       </Tooltip>
       {isContextOpen ? (
-        <TextRevealModal title="Joke Context Snapshot" onClose={() => setIsContextOpen(false)}>
+        <TextRevealModal title="Tweet context" onClose={() => setIsContextOpen(false)}>
           <JokeContextSnapshotDetails snapshot={jokeContextSnapshot} />
         </TextRevealModal>
       ) : null}

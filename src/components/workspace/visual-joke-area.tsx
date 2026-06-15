@@ -1,14 +1,15 @@
 "use client";
 
-import { Circle, CircleDot, Copy, Form } from "lucide-react";
-import { useState } from "react";
+import { Circle, CircleDot, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VisualJokeSet } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { copyTextToClipboard } from "@/utils/copy-text-to-clipboard";
-import { TextRevealModal } from "./text-reveal-modal";
+import { DirectionPanel } from "./direction-panel";
+import { useDirectionPanel } from "./direction-panel-context";
+import { SectionHeader } from "./section-header";
 
 export function VisualJokeArea({
   run,
@@ -20,32 +21,20 @@ export function VisualJokeArea({
   onSelectedVisualJokeChange: (runId: string, visualJokeId: string | null) => void;
 }) {
   const selectedVisualJokeId = run.selectedVisualJoke?.visualJokeId ?? null;
-  const [isDirectionOpen, setIsDirectionOpen] = useState(false);
+  const { openPanelId, togglePanel } = useDirectionPanel();
+  const panelId = "visual-joke-direction";
+  const isDirectionOpen = openPanelId === panelId;
   const hasVisualJokeDirection = Boolean(run.visualJokeDirection?.trim());
 
   return (
     <>
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <h1 className="title-serif text-2xl text-foreground md:text-3xl">Visual jokes</h1>
-        {hasVisualJokeDirection ? (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  aria-label="Open Visual Joke Direction"
-                  className="shrink-0 text-muted-foreground"
-                  onClick={() => setIsDirectionOpen(true)}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                />
-              }>
-              <Form aria-hidden className="size-3.5" strokeWidth={1.75} />
-            </TooltipTrigger>
-            <TooltipContent>Visual joke direction</TooltipContent>
-          </Tooltip>
-        ) : null}
-      </div>
+      <SectionHeader
+        directionLabel="Visual joke direction"
+        directionPanelId={panelId}
+        isDirectionOpen={isDirectionOpen}
+        onToggleDirection={hasVisualJokeDirection ? () => togglePanel(panelId) : undefined}
+        title="Visual jokes"
+      />
       <section aria-label="Visual Joke Creative Result Area" className="grid gap-2">
         <ul className="grid gap-2">
           {visualJokeSet.jokes.map((joke, index) => {
@@ -107,12 +96,12 @@ export function VisualJokeArea({
           })}
         </ul>
       </section>
-      {isDirectionOpen && run.visualJokeDirection ? (
-        <TextRevealModal title="Visual Joke Direction" onClose={() => setIsDirectionOpen(false)}>
+      {hasVisualJokeDirection ? (
+        <DirectionPanel id={panelId} isOpen={isDirectionOpen} title="Visual joke direction">
           <pre className="whitespace-pre-wrap break-words rounded-md bg-card p-3 text-foreground/90 text-sm leading-6">
             {run.visualJokeDirection}
           </pre>
-        </TextRevealModal>
+        </DirectionPanel>
       ) : null}
     </>
   );

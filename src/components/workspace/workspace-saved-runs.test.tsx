@@ -198,14 +198,14 @@ describe("Workspace saved runs", () => {
       "Keep the saved direction.",
     );
 
-    await user.click(screen.getByRole("button", { name: /open joke context snapshot/i }));
-    expect(screen.getByRole("dialog", { name: /joke context snapshot/i })).toHaveTextContent(
+    await user.click(screen.getByRole("button", { name: /open tweet context/i }));
+    expect(screen.getByRole("dialog", { name: /tweet context/i })).toHaveTextContent(
       "The source tweet claims the launch removes the final workflow bottleneck.",
     );
-    await user.click(screen.getByRole("button", { name: /close joke context snapshot/i }));
+    await user.click(screen.getByRole("button", { name: /close tweet context/i }));
 
     await user.click(screen.getByRole("button", { name: /open visual joke direction/i }));
-    expect(screen.getByRole("dialog", { name: /visual joke direction/i })).toHaveTextContent(
+    expect(screen.getByRole("complementary", { name: /visual joke direction/i })).toHaveTextContent(
       "Ground every visual joke in the source media and lock-in replies.",
     );
     await user.click(screen.getByRole("button", { name: /close visual joke direction/i }));
@@ -278,11 +278,21 @@ describe("Workspace saved runs", () => {
         name: /select launch visual/i,
       }),
     );
+    await user.click(
+      screen.getByRole("button", {
+        name: /open image direction/i,
+      }),
+    );
     await user.type(
-      within(imageGenerationArea).getByRole("textbox", {
+      screen.getByRole("textbox", {
         name: /user image prompt/i,
       }),
       "Make the visual feel launch-ready.",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: /close image direction/i,
+      }),
     );
     await user.click(
       within(imageGenerationArea).getByRole("button", {

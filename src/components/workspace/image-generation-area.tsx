@@ -10,8 +10,11 @@ import type { ImageGenerationInput } from "@/services/generation";
 import { parseImageGenerationInput } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { getRunPhaseLabel } from "@/services/workspace";
+import { DirectionPanel } from "./direction-panel";
+import { useDirectionPanel } from "./direction-panel-context";
 import { formatImageModelProvenance, getDisplayImageUrl, getImageTitle } from "./image-helpers";
 import { ImageResultsArea } from "./image-results-area";
+import { SectionHeader } from "./section-header";
 
 type ImageGenerationAreaStatusKind = "loading" | "success" | "failed";
 
@@ -96,8 +99,17 @@ export function ImageGenerationArea({
   const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
   const [userImagePrompt, setUserImagePrompt] = useState("");
   const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
+  const { openPanelId, togglePanel } = useDirectionPanel();
+  const panelId = "image-direction";
+  const isDirectionOpen = openPanelId === panelId;
   const trimmedUserImagePrompt = userImagePrompt.trim();
   const canStartImageGeneration = selectedImageIds.length > 0 && trimmedUserImagePrompt.length > 0;
+  // Once generation has started the prompt is locked in; surface it read-only.
+  const usedImagePrompt =
+    imageGenerationState && imageGenerationState.status !== "not-started"
+      ? imageGenerationState.userImagePrompt
+      : null;
+  const hasImageDirection = canSelectSourceImages || Boolean(usedImagePrompt);
 
   useEffect(() => {
     const availableImageIds = new Set(images.map((image) => image.id));
@@ -142,7 +154,13 @@ export function ImageGenerationArea({
 
   return (
     <>
-      <h1 className="font-medium text-foreground text-lg md:text-2xl">Image generation</h1>
+      <SectionHeader
+        directionLabel="Image direction"
+        directionPanelId={panelId}
+        isDirectionOpen={isDirectionOpen}
+        onToggleDirection={hasImageDirection ? () => togglePanel(panelId) : undefined}
+        title="Image generation"
+      />
       <aside aria-label="Image generation area" className="grid gap-3 bg-card/40 p-3">
         <div className="flex items-center justify-between gap-3">
           <p className="min-w-0 truncate text-muted-foreground text-xs">
@@ -204,19 +222,6 @@ export function ImageGenerationArea({
               </p>
             ) : null}
             <form className="grid gap-2" onSubmit={submitImageGeneration}>
-              <label
-                className="font-medium text-foreground/80 text-xs"
-                htmlFor={`${parentRunId}-user-image-prompt`}>
-                User Image Prompt
-              </label>
-              <Textarea
-                id={`${parentRunId}-user-image-prompt`}
-                aria-label="User Image Prompt"
-                value={userImagePrompt}
-                onChange={(event) => setUserImagePrompt(event.target.value)}
-                className="min-h-20 resize-y rounded-md border-transparent bg-card/80 px-3 py-2 text-sm leading-6 placeholder:text-muted-foreground/60 dark:bg-card/80"
-                placeholder="Describe the visual variation to generate."
-              />
               <Button
                 className="justify-self-start"
                 disabled={!canStartImageGeneration}
@@ -227,6 +232,34 @@ export function ImageGenerationArea({
           </>
         ) : null}
       </aside>
+      {hasImageDirection ? (
+        <DirectionPanel id={panelId} isOpen={isDirectionOpen} title="Image direction">
+          {canSelectSourceImages ? (
+            <div className="grid gap-2">
+              <label
+                className="font-medium text-foreground/80 text-xs"
+                htmlFor={`${parentRunId}-user-image-prompt`}>
+                User Image Prompt
+              </label>
+              <Textarea
+                aria-label="User Image Prompt"
+                className="min-h-40 resize-y rounded-md border-transparent bg-card/80 px-3 py-2 text-sm leading-6 placeholder:text-muted-foreground/60 dark:bg-card/80"
+                id={`${parentRunId}-user-image-prompt`}
+                onChange={(event) => setUserImagePrompt(event.target.value)}
+                placeholder="Describe the visual variation to generate."
+                value={userImagePrompt}
+              />
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <p className="font-medium text-foreground/80 text-xs">User Image Prompt</p>
+              <pre className="whitespace-pre-wrap break-words rounded-md bg-card p-3 text-foreground/90 text-sm leading-6">
+                {usedImagePrompt}
+              </pre>
+            </div>
+          )}
+        </DirectionPanel>
+      ) : null}
     </>
   );
 }

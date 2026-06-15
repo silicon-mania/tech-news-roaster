@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { CompositeRasterizer } from "@/services/final-quote-tweet-image";
 import { draftTarget, type ImageGenerationInput } from "@/services/generation";
@@ -15,6 +15,7 @@ import type {
 } from "@/services/workspace";
 import { createRunId, isRunInFlight, parseSourceTweetUrl } from "@/services/workspace";
 import { ActiveRunPanel } from "./active-run-panel";
+import { DirectionPanelContext } from "./direction-panel-context";
 import { FinalQuoteTweetImageOverlay } from "./final-quote-tweet-image-overlay";
 import { GenerationRunForm } from "./generation-run-form";
 import { RunsSidebar } from "./runs-sidebar";
@@ -72,6 +73,19 @@ export function Workspace({
   const [activeRunId, setActiveRunId] = useState<string | null>(initialActiveRun?.id ?? null);
   const { isPinned: isRunsSidebarPinned, togglePinned: toggleRunsSidebarPinned } =
     useRunsSidebarPin();
+  const [openDirectionPanelId, setOpenDirectionPanelId] = useState<string | null>(null);
+  const toggleDirectionPanel = useCallback((panelId: string) => {
+    setOpenDirectionPanelId((current) => (current === panelId ? null : panelId));
+  }, []);
+  const closeDirectionPanel = useCallback(() => setOpenDirectionPanelId(null), []);
+  const directionPanel = useMemo(
+    () => ({
+      closePanel: closeDirectionPanel,
+      openPanelId: openDirectionPanelId,
+      togglePanel: toggleDirectionPanel,
+    }),
+    [closeDirectionPanel, openDirectionPanelId, toggleDirectionPanel],
+  );
   const [submissionState, setSubmissionState] = useState<SubmissionState>({
     kind: "idle",
   });
@@ -128,6 +142,11 @@ export function Workspace({
     setSourceTweetUrl(activeRunSourceTweetUrl);
     setUsersDirection(activeRunUsersDirection ?? "");
   }, [activeRunSourceTweetUrl, activeRunUsersDirection]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeRunId is the intended trigger — close any open direction panel whenever the active run changes, even though the body only resets state.
+  useEffect(() => {
+    setOpenDirectionPanelId(null);
+  }, [activeRunId]);
 
   function submitSourceTweet(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -402,62 +421,64 @@ export function Workspace({
   }
 
   return (
-    <main
-      className={`min-h-screen overflow-hidden py-4 pr-3 text-foreground transition-[padding] duration-300 ease-out sm:py-6 sm:pr-8 lg:pr-10 ${
-        isRunsSidebarPinned ? "pl-3 sm:pl-8 lg:pl-[20rem]" : "pl-3 sm:pl-8 lg:pl-10"
-      }`}>
-      {hasRuns ? (
-        <div className="mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] gap-4 sm:min-h-[calc(100vh-3rem)] sm:gap-6">
-          <WorkspaceHeader compact />
+    <DirectionPanelContext.Provider value={directionPanel}>
+      <main
+        className={`min-h-screen overflow-hidden py-4 text-foreground transition-[padding] duration-300 ease-out sm:py-6 ${
+          isRunsSidebarPinned ? "pl-3 sm:pl-8 lg:pl-[20rem]" : "pl-3 sm:pl-8 lg:pl-10"
+        } ${openDirectionPanelId ? "pr-3 sm:pr-8 lg:pr-[20rem]" : "pr-3 sm:pr-8 lg:pr-10"}`}>
+        {hasRuns ? (
+          <div className="mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] gap-4 sm:min-h-[calc(100vh-3rem)] sm:gap-6">
+            <WorkspaceHeader compact />
 
-          <GenerationRunForm
-            hasRuns
-            isRunDisabled={hasInFlightRun || productionRunDisabled}
-            runtimeNotice={runtimeNotice}
-            sourceTweetUrl={sourceTweetUrl}
-            submissionState={submissionState}
-            usersDirection={usersDirection}
-            onSourceTweetUrlChange={updateSourceTweetUrl}
-            onSubmit={submitSourceTweet}
-            onUsersDirectionChange={updateUsersDirection}
-          />
+            <GenerationRunForm
+              hasRuns
+              isRunDisabled={hasInFlightRun || productionRunDisabled}
+              runtimeNotice={runtimeNotice}
+              sourceTweetUrl={sourceTweetUrl}
+              submissionState={submissionState}
+              usersDirection={usersDirection}
+              onSourceTweetUrlChange={updateSourceTweetUrl}
+              onSubmit={submitSourceTweet}
+              onUsersDirectionChange={updateUsersDirection}
+            />
 
-          <ActiveRunPanel
-            activeRun={activeRun}
-            onDraftTextChange={updateDraftText}
-            onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
-            onSelectedVisualJokeChange={updateSelectedVisualJoke}
-            onStartImageGeneration={startImageGeneration}
-          />
-        </div>
-      ) : (
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col items-center justify-center gap-8 sm:min-h-[calc(100vh-3rem)] sm:gap-10">
-          <WorkspaceHeader />
+            <ActiveRunPanel
+              activeRun={activeRun}
+              onDraftTextChange={updateDraftText}
+              onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
+              onSelectedVisualJokeChange={updateSelectedVisualJoke}
+              onStartImageGeneration={startImageGeneration}
+            />
+          </div>
+        ) : (
+          <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col items-center justify-center gap-8 sm:min-h-[calc(100vh-3rem)] sm:gap-10">
+            <WorkspaceHeader />
 
-          <GenerationRunForm
-            hasRuns={false}
-            isRunDisabled={hasInFlightRun || productionRunDisabled}
-            runtimeNotice={runtimeNotice}
-            sourceTweetUrl={sourceTweetUrl}
-            submissionState={submissionState}
-            usersDirection={usersDirection}
-            onSourceTweetUrlChange={updateSourceTweetUrl}
-            onSubmit={submitSourceTweet}
-            onUsersDirectionChange={updateUsersDirection}
-          />
-        </div>
-      )}
+            <GenerationRunForm
+              hasRuns={false}
+              isRunDisabled={hasInFlightRun || productionRunDisabled}
+              runtimeNotice={runtimeNotice}
+              sourceTweetUrl={sourceTweetUrl}
+              submissionState={submissionState}
+              usersDirection={usersDirection}
+              onSourceTweetUrlChange={updateSourceTweetUrl}
+              onSubmit={submitSourceTweet}
+              onUsersDirectionChange={updateUsersDirection}
+            />
+          </div>
+        )}
 
-      <RunsSidebar
-        activeRunId={activeRunId}
-        isPinned={isRunsSidebarPinned}
-        runs={runs}
-        onDeleteRun={deleteSavedRun}
-        onSelectRun={reopenRun}
-        onTogglePinned={toggleRunsSidebarPinned}
-      />
+        <RunsSidebar
+          activeRunId={activeRunId}
+          isPinned={isRunsSidebarPinned}
+          runs={runs}
+          onDeleteRun={deleteSavedRun}
+          onSelectRun={reopenRun}
+          onTogglePinned={toggleRunsSidebarPinned}
+        />
 
-      <FinalQuoteTweetImageOverlay rasterizeComposite={rasterizeComposite} run={activeRun} />
-    </main>
+        <FinalQuoteTweetImageOverlay rasterizeComposite={rasterizeComposite} run={activeRun} />
+      </main>
+    </DirectionPanelContext.Provider>
   );
 }

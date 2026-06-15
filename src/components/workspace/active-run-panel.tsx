@@ -12,6 +12,7 @@ import { GenerationWaitingState } from "./generation-waiting-state";
 import { ImageGenerationArea } from "./image-generation-area";
 import { QuietRunReveals } from "./quiet-run-reveals";
 import { SourceTweetPreview } from "./source-tweet-preview";
+import { TextGenerationSection } from "./text-generation-section";
 import { VisualJokeArea } from "./visual-joke-area";
 import { VisualJokeSkeleton } from "./visual-joke-skeleton";
 
@@ -35,7 +36,10 @@ export function ActiveRunPanel({
   }
 
   const sourceTweetPreview = activeRun.sourceTweet ? (
-    <SourceTweetPreview text={activeRun.sourceTweet.text} />
+    <SourceTweetPreview
+      contextReveal={<QuietRunReveals run={activeRun} />}
+      text={activeRun.sourceTweet.text}
+    />
   ) : null;
   const hasImageGenerationContent = Boolean(
     activeRun.newsLinkedImages?.length ||
@@ -83,8 +87,8 @@ export function ActiveRunPanel({
         {sourceTweetPreview}
         <RunWorkspaceLayout
           imageGenerationArea={imageGenerationArea}
+          usersDirection={activeRun.usersDirection}
           visualJokeArea={visualJokeArea}>
-          <QuietRunReveals run={activeRun} />
           <GenerationWaitingState run={activeRun} />
         </RunWorkspaceLayout>
       </section>
@@ -97,8 +101,8 @@ export function ActiveRunPanel({
         {sourceTweetPreview}
         <RunWorkspaceLayout
           imageGenerationArea={imageGenerationArea}
+          usersDirection={activeRun.usersDirection}
           visualJokeArea={visualJokeArea}>
-          <QuietRunReveals run={activeRun} />
           <GenerationFailureState run={activeRun} />
         </RunWorkspaceLayout>
       </section>
@@ -112,8 +116,10 @@ export function ActiveRunPanel({
       aria-label="Completed draft canvas"
       className="mx-auto grid w-full max-w-5xl gap-3 self-start">
       {sourceTweetPreview}
-      <RunWorkspaceLayout imageGenerationArea={imageGenerationArea} visualJokeArea={visualJokeArea}>
-        <QuietRunReveals run={activeRun} />
+      <RunWorkspaceLayout
+        imageGenerationArea={imageGenerationArea}
+        usersDirection={activeRun.usersDirection}
+        visualJokeArea={visualJokeArea}>
         {hasCompleteDraftStack ? (
           <DraftComparison
             drafts={activeRun.drafts}
@@ -138,10 +144,12 @@ export function ActiveRunPanel({
 function RunWorkspaceLayout({
   children,
   imageGenerationArea,
+  usersDirection,
   visualJokeArea,
 }: {
   children: ReactNode;
   imageGenerationArea: ReactNode;
+  usersDirection: string;
   visualJokeArea: ReactNode;
 }) {
   if (!imageGenerationArea && !visualJokeArea) {
@@ -150,7 +158,7 @@ function RunWorkspaceLayout({
 
   return (
     <section aria-label="Responsive creative workspace" className="grid items-start gap-4">
-      <div className="min-w-0">{children}</div>
+      <TextGenerationSection usersDirection={usersDirection}>{children}</TextGenerationSection>
       {visualJokeArea}
       {imageGenerationArea}
     </section>
