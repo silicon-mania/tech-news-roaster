@@ -8,12 +8,60 @@ This context is the language of a product that turns a source tweet about tech n
 The parent attempt to turn a source tweet into candidate drafts, a visual joke set, and optional image options for the quote tweet.
 _Avoid_: Session, job, request
 
+**Manual Run**:
+A generation run started by the user submitting a source tweet URL in the source tweet bar, keeping user-owned image selection, user image prompt, and visual joke selection.
+_Avoid_: Interactive run, browser run, classic run
+
+**Automated Run**:
+A generation run started by the system from a discovered viral tweet while the user is away, owned by the operator account, and able to reach a final quote tweet image without human input while every system choice remains overridable afterward. It prepares the final quote tweet image and selected draft but never publishes to X; the operator still copies or downloads the pieces and posts manually.
+_Avoid_: Background job, cron run, bot run
+
+**Automated Selection**:
+The rule by which an automated run makes, without human input, the choices a manual run leaves to the user: the first text draft, the recommended visual joke, the first image original candidate, and the first generated variation. Each remains overridable once the operator opens the run.
+_Avoid_: Auto-publish, locked choice, final pick
+
+**Operator Account**:
+The single authenticated account that owns every manual and automated run.
+_Avoid_: Multi-user workspace, team account, admin role
+
+**Viral Tweet**:
+A tweet from the discovery source that has crossed the system's virality bar and therefore qualifies to start an automated run, regardless of whether it carries images, videos, or text only.
+_Avoid_: Trending topic, popular tweet, top tweet
+
+**Discovery Source**:
+The operator's followed accounts, watched by the system as the origin of viral tweets for automated runs. The algorithmic For You feed is deliberately excluded from the discovery source and reaches the product only through manual runs.
+_Avoid_: For You feed, timeline scrape, home feed
+
+**Tweet Discovery**:
+The recurring, scheduled system activity that scans the discovery source over a trailing time window for viral tweets and starts automated runs from them, distinct from the per-run tweet retrieval that fetches one source tweet and its replies.
+_Avoid_: Scroll, feed crawl, ingestion
+
+**Discovery Sweep**:
+One scheduled execution of tweet discovery, covering the tweets posted in the trailing window since the previous sweep. Consecutive sweeps may overlap their windows, and the system remembers which tweets it has already considered so the same tweet is never processed by two sweeps.
+_Avoid_: Cron tick, batch job, poll cycle
+
+**Discovery Service**:
+The provider-agnostic server-side boundary that scans the discovery source and surfaces candidate viral tweets without binding the product language to a specific provider or access mechanism.
+_Avoid_: X scraper, list poller, timeline client
+
+**Author Baseline**:
+The system's record of an author's normal engagement velocity, used to judge whether one of their tweets is viral relative to themselves rather than against a global threshold, so small and large accounts are treated fairly.
+_Avoid_: Follower count, global threshold, average likes
+
+**Newsworthiness Filter**:
+The lightweight, permissive language-model judgment applied to a viral tweet before committing an automated run, deciding whether it is tech news worth a recap rather than off-topic viral noise. A tweet it rejects is dropped permanently and is not surfaced for manual recovery.
+_Avoid_: Moderation, spam filter, keyword match
+
+**News Coverage Cluster**:
+The single tech-news event that several viral tweets are witnesses to, formed by grouping the viral tweets that are about the same news so that the event produces at most one automated run. The earliest viral tweet that crossed virality becomes that run's source tweet, with ties broken toward media presence and then author authority. Once a cluster has produced a run, later viral tweets joining the same cluster do not start another run.
+_Avoid_: Story, topic, trend, thread
+
 **Saved Run**:
 A generation run that remains available to the user after creation, including its source tweet, user's direction, joke context snapshot, visual joke direction, visual joke set, selected visual joke, persisted selected image originals, user image prompt, image sets, model provenance, date, and the latest edited version of each draft, and that can be reopened, edited again, inspected, downloaded, or deleted by the user without ever regenerating its drafts, visual jokes, or images.
 _Avoid_: History item, cache entry, record
 
 **Saved Run Retention**:
-The automatic limit that keeps only the ten latest successful saved runs in browser-only storage, without counting running or failed runs toward that limit.
+The rule that every successful run is kept server-side under the operator account without a fixed count limit, while running and failed runs are not retained. An age-based limit may be introduced later if storage grows.
 _Avoid_: Storage cleanup, pruning, history cap
 
 **Successful Run**:
@@ -96,32 +144,40 @@ _Avoid_: Three-column board, equal cards grid, side-by-side comparison
 A publishable candidate tweet produced within a generation run and intended for direct comparison, editing, and eventual posting as a quote tweet.
 _Avoid_: Output, completion, response
 
+**Selected Draft**:
+The one candidate draft chosen as the run's quote-tweet commentary. The user chooses it in a manual run and the system takes the first draft in an automated run, and it can be changed afterward without regenerating the drafts.
+_Avoid_: Final draft, winning draft, expanded draft
+
 **Text Generation**:
 The part of a generation run that creates exactly three candidate drafts from the joke context snapshot and user's direction.
 _Avoid_: Text generation run, copy job, draft workflow
 
 **Image Set**:
-One user-selected news-linked image plus exactly two generated image variations derived from it for use with a quote tweet. A generation run may include one or two image sets.
+One selected image original plus exactly four generated image variations derived from it for use with a quote tweet. A generation run includes exactly one image set.
 _Avoid_: Visual set, image bundle, image pack
 
 **News-Linked Images**:
-The one to five images gathered during news-linked image discovery that are directly tied to the underlying news and eligible for user selection before image generation.
+Images gathered during news-linked image discovery that are directly tied to the underlying news, used to top up the image original candidates to four when the source tweet does not carry enough usable media.
 _Avoid_: Search images, candidate images, scraped images
 
 **News-Linked Image Discovery**:
-The automatic initial-run step that gathers original image candidates directly tied to the underlying news for later image generation, separate from joke context gathering.
+The automatic initial-run step that gathers original image candidates directly tied to the underlying news, used to fill the image original candidates up to four when the source tweet has fewer than four usable images, separate from joke context gathering.
 _Avoid_: Joke Context Gathering, visual joke research, generic image search
 
+**Image Original Candidate**:
+One of exactly four images offered for the image original selection, drawn first from the source tweet's own media and topped up with news-linked images when the tweet carries fewer than four usable images.
+_Avoid_: News-Linked Image, thumbnail, search result
+
 **Selected Image Original**:
-A news-linked image chosen by the user for image generation and preserved as the original image option inside an image set.
+The single image chosen as the input to image generation, taken from the source tweet's own media when available and otherwise from news-linked images, and preserved as the original image option inside the image set. It is locked once its four variations are generated and cannot be changed afterward without a new run.
 _Avoid_: Source image, input image, chosen image
 
 **Image Option**:
-A non-editable image inside an image set, either the original news-linked image or one generated variation derived from it, that can be opened for full-screen inspection or downloaded individually.
+A non-editable image inside an image set, either the selected image original or one of the four generated variations derived from it, that can be opened for full-screen inspection or downloaded individually.
 _Avoid_: Asset, picture, visual output
 
 **Image Generation**:
-The one-time part of a generation run where the user selects one or two news-linked images and provides one user image prompt before one configured image model creates variations using only the selected images and that prompt, without using the joke context snapshot in v3.
+The one-time part of a generation run where exactly one image original is selected from four candidates and a prompt is provided — the user image prompt in a manual run, the default image prompt in an automated run — before one configured image model creates four variations using only the selected original and that prompt, without using the joke context snapshot in v3.
 _Avoid_: Image generation run, visual job, image workflow
 
 **Image Generation Service**:
@@ -173,8 +229,12 @@ The selective use of profanity, sexual bluntness, dark humor, or harsh phrasing 
 _Avoid_: Random profanity, shock value, edgy filler
 
 **User Image Prompt**:
-Required freeform guidance provided by the user to steer generated image variations for the selected news-linked image or images.
+Required freeform guidance provided by the user in a manual run to steer the four generated image variations for the selected image original.
 _Avoid_: Image prompt, visual direction, generation prompt
+
+**Default Image Prompt**:
+The system-owned image prompt that an automated run uses in place of the user image prompt when generating the four image variations.
+_Avoid_: User image prompt, fallback prompt, hardcoded prompt
 
 **Model Provenance**:
 The visible record of which AI company and model produced a draft, plus the configured image model used by image generation.
@@ -293,7 +353,7 @@ A higher-risk visual joke candidate included when the context supports earned ed
 _Avoid_: Unsafe joke, random shock, default edge
 
 **Selected Visual Joke**:
-The optional visual joke chosen by the user from the visual joke set and persisted for later image/title work without gating image generation in v3.
+The visual joke whose joke title is placed on the final quote tweet image: the user chooses it from the visual joke set in a manual run and the system takes the recommended visual joke in an automated run, and it can be changed afterward.
 _Avoid_: Required joke choice, final caption, edited joke
 
 **Joke Pattern Diversity**:
@@ -305,7 +365,7 @@ The internal structure attached to a visual joke, such as its joke pattern, joke
 _Avoid_: Visible explanation, joke card details, debug notes
 
 **Selected Generated Image**:
-The one generated Image Option — always a variation, never the original — that the user chooses as the picture placed inside the Final Quote Tweet Image. It is distinct from the Selected Image Original, which is the news-linked input to image generation.
+The one generated Image Option — always one of the four variations, never the original — chosen as the picture placed inside the Final Quote Tweet Image: the user chooses it in a manual run and the system takes the first variation in an automated run. It is distinct from the Selected Image Original, which is the input to image generation.
 _Avoid_: Selected Image Original, selected variation, composite image, chosen image
 
 **Final Quote Tweet Image**:
