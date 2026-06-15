@@ -181,6 +181,7 @@ export function useGenerationRunStream({
       const completedRun: GenerationRun = {
         id: runId,
         label: event.run.label,
+        origin: "manual",
         sourceTweetUrl: runInput.sourceTweetUrl,
         usersDirection: runInput.usersDirection,
         status: "completed",

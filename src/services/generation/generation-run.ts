@@ -165,11 +165,17 @@ export const completedGenerationRunPayloadSchema = z
     addSelectedVisualJokeIssues(run, ctx);
   });
 
+const runOriginSchema = z.enum(["manual", "automated"]);
+
 const savedGenerationRunSchema = z
   .object({
     id: runLocalIdSchema,
     jokeContextSnapshot: jokeContextSnapshotSchema.optional(),
     label: nonEmptyTrimmedStringSchema,
+    // The run's provenance. Manual runs (and every run that predates server-side
+    // persistence) default to "manual"; automated discovery runs land later.
+    origin: runOriginSchema.optional(),
+    seenAt: z.string().datetime().optional(),
     sourceTweetUrl: z.string().url(),
     usersDirection: z.string(),
     status: z.enum(["running", "completed", "failed"]),

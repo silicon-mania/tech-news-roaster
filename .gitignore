@@ -11,3 +11,6 @@ coverage/
 .env*.local
 npm-debug.log*
 *.tsbuildinfo
+
+# Supabase CLI local cache (project ref, linked-project, versions)
+supabase/.temp/

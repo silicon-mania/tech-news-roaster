@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import type { CompositeRasterizer } from "@/services/final-quote-tweet-image";
 import { draftTarget, type ImageGenerationInput } from "@/services/generation";
 import type { RuntimeStatus } from "@/services/runtime-status";
-import { indexedDbSavedRunStore } from "@/services/saved-runs";
+import { httpSavedRunStore } from "@/services/saved-runs";
 import type {
   GenerationEventSourceFactory,
   GenerationRun,
@@ -63,7 +63,7 @@ export function Workspace({
   rasterizeComposite,
   runtimeEnvironment = process.env.NODE_ENV === "production" ? "production" : "development",
   runtimeStatusFetcher,
-  savedRunStore = indexedDbSavedRunStore,
+  savedRunStore = httpSavedRunStore,
 }: WorkspaceProps) {
   const initialActiveRun =
     initialRuns.find((run) => run.id === initialActiveRunId) ?? initialRuns.at(0) ?? null;

@@ -67,7 +67,9 @@ export function renderWorkspace({
   onStartImageGeneration = vi.fn(),
   rasterizeComposite,
   runtimeEnvironment,
-  savedRunStore,
+  // Default to an empty in-memory store so tests never reach the network through
+  // the production HTTP store; tests that assert on persistence pass their own.
+  savedRunStore = createMemorySavedRunStore(),
 }: {
   generationEventSources?: FakeGenerationEventSource[];
   imageGenerationStreamFetcher?: typeof fetch;
@@ -122,23 +124,47 @@ export function renderWorkspace({
 
 export function createMemorySavedRunStore(initialRuns: GenerationRun[] = []) {
   const savedRuns = new Map(initialRuns.map((run) => [run.id, run]));
+  const sortedRuns = () =>
+    Array.from(savedRuns.values()).sort((left, right) => {
+      const leftSavedAt = Date.parse(left.savedAt ?? "");
+      const rightSavedAt = Date.parse(right.savedAt ?? "");
+
+      return rightSavedAt - leftSavedAt;
+    });
   const save = vi.fn(async (run: GenerationRun) => {
     savedRuns.set(run.id, run);
   });
   const deleteRun = vi.fn(async (runId: string) => {
     savedRuns.delete(runId);
   });
+  const listPaginated = vi.fn(
+    async ({ cursor, limit }: { cursor?: string | null; limit: number }) => {
+      const runs = sortedRuns();
+      const offset = cursor ? Number.parseInt(cursor, 10) : 0;
+      const nextOffset = offset + limit;
+
+      return {
+        nextCursor: nextOffset < runs.length ? String(nextOffset) : null,
+        runs: runs.slice(offset, nextOffset),
+      };
+    },
+  );
+  const loadById = vi.fn(async (runId: string) => savedRuns.get(runId) ?? null);
+  const markSeen = vi.fn(async (runId: string) => {
+    const run = savedRuns.get(runId);
+
+    if (run) {
+      savedRuns.set(runId, { ...run, seenAt: "2026-06-06T10:30:00.000Z" });
+    }
+  });
   const store = {
     savedRuns,
-    list: async () =>
-      Array.from(savedRuns.values()).sort((left, right) => {
-        const leftSavedAt = Date.parse(left.savedAt ?? "");
-        const rightSavedAt = Date.parse(right.savedAt ?? "");
-
-        return rightSavedAt - leftSavedAt;
-      }),
+    list: async () => sortedRuns(),
+    listPaginated,
+    loadById,
     save,
     delete: deleteRun,
+    markSeen,
   };
 
   return store;
