@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import {
   type ImageGenerationInput,
   type ImageGenerationParentRun,
-  type NewsLinkedImage,
+  type ImageOriginalCandidate,
   parseImageGenerationStreamEvent,
 } from "@/services/generation";
 import type {
@@ -27,21 +27,21 @@ describe("image generation stream route", () => {
       }),
       {
         now: () => new Date("2026-06-05T10:20:00.000Z"),
-        prepareSelectedImageOriginal: async ({ newsLinkedImage }) => {
-          calls.push(`prepare:${newsLinkedImage.id}`);
+        prepareSelectedImageOriginal: async ({ candidate }) => {
+          calls.push(`prepare:${candidate.id}`);
 
-          return buildPreparedOriginal(newsLinkedImage);
+          return buildPreparedOriginal(candidate);
         },
         provider: buildProvider({
           async generateVariations({ original }) {
-            calls.push(`provider:${original.selectedImageOriginal.newsLinkedImageId}`);
+            calls.push(`provider:${original.selectedImageOriginal.candidateId}`);
 
             return [
               {
-                url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-1.jpg`,
+                url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-1.jpg`,
               },
               {
-                url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-2.jpg`,
+                url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-2.jpg`,
               },
             ];
           },
@@ -52,10 +52,10 @@ describe("image generation stream route", () => {
 
     expect(response.headers.get("Content-Type")).toContain("text/event-stream");
     expect(calls).toEqual([
-      "prepare:news-linked-image-1",
-      "provider:news-linked-image-1",
-      "prepare:news-linked-image-2",
-      "provider:news-linked-image-2",
+      "prepare:candidate-1",
+      "provider:candidate-1",
+      "prepare:candidate-2",
+      "provider:candidate-2",
     ]);
     expect(events.map((event) => event.type)).toEqual([
       "image-set-completed",
@@ -65,16 +65,17 @@ describe("image generation stream route", () => {
     expect(events[0]).toMatchObject({
       type: "image-set-completed",
       imageSet: {
-        id: "image-set-news-linked-image-1",
+        id: "image-set-candidate-1",
         selectedImageOriginal: {
-          newsLinkedImageId: "news-linked-image-1",
+          candidateId: "candidate-1",
+          origin: "source-tweet-media",
         },
       },
     });
     expect(events[1]).toMatchObject({
       type: "image-set-completed",
       imageSet: {
-        id: "image-set-news-linked-image-2",
+        id: "image-set-candidate-2",
       },
     });
     expect(events[2]).toMatchObject({
@@ -83,10 +84,10 @@ describe("image generation stream route", () => {
         failedImageSets: [],
         imageSets: [
           expect.objectContaining({
-            id: "image-set-news-linked-image-1",
+            id: "image-set-candidate-1",
           }),
           expect.objectContaining({
-            id: "image-set-news-linked-image-2",
+            id: "image-set-candidate-2",
           }),
         ],
         status: "completed",
@@ -104,14 +105,13 @@ describe("image generation stream route", () => {
     const response = await streamImageGenerationRun(
       buildRequest({
         input: buildInput({
-          selectedImageIds: ["news-linked-image-1"],
+          selectedImageIds: ["candidate-1"],
         }),
         parentRun,
       }),
       {
         now: () => new Date("2026-06-05T10:20:00.000Z"),
-        prepareSelectedImageOriginal: async ({ newsLinkedImage }) =>
-          buildPreparedOriginal(newsLinkedImage),
+        prepareSelectedImageOriginal: async ({ candidate }) => buildPreparedOriginal(candidate),
         provider: buildProvider(),
       },
     );
@@ -128,17 +128,17 @@ describe("image generation stream route", () => {
     const generateVariations = vi.fn<ImageVariationProvider["generateVariations"]>(
       async ({ original }) => [
         {
-          url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-1.jpg`,
+          url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-1.jpg`,
         },
         {
-          url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-2.jpg`,
+          url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-2.jpg`,
         },
       ],
     );
     const response = await streamImageGenerationRun(
       buildRequest({
         input: buildInput({
-          selectedImageIds: ["news-linked-image-1"],
+          selectedImageIds: ["candidate-1"],
           userImagePrompt: "Make the visual launch-ready.",
         }),
         parentRun: buildParentRun({
@@ -150,8 +150,7 @@ describe("image generation stream route", () => {
       }),
       {
         now: () => new Date("2026-06-05T10:20:00.000Z"),
-        prepareSelectedImageOriginal: async ({ newsLinkedImage }) =>
-          buildPreparedOriginal(newsLinkedImage),
+        prepareSelectedImageOriginal: async ({ candidate }) => buildPreparedOriginal(candidate),
         provider: buildProvider({
           generateVariations,
         }),
@@ -173,7 +172,7 @@ describe("image generation stream route", () => {
     const response = await streamImageGenerationRun(
       buildRequest({
         input: buildInput({
-          selectedImageIds: ["news-linked-image-1"],
+          selectedImageIds: ["candidate-1"],
         }),
         parentRun: {
           ...buildParentRun({
@@ -221,8 +220,7 @@ describe("image generation stream route", () => {
       }),
       {
         now: () => new Date("2026-06-05T10:20:00.000Z"),
-        prepareSelectedImageOriginal: async ({ newsLinkedImage }) =>
-          buildPreparedOriginal(newsLinkedImage),
+        prepareSelectedImageOriginal: async ({ candidate }) => buildPreparedOriginal(candidate),
         provider: buildProvider({
           generateVariations,
         }),
@@ -240,7 +238,7 @@ describe("image generation stream route", () => {
       type: "image-set-failed",
       failedImageSet: {
         message: "The configured image model failed.",
-        selectedImageId: "news-linked-image-2",
+        selectedImageId: "candidate-2",
       },
     });
     expect(events[2]).toMatchObject({
@@ -248,12 +246,12 @@ describe("image generation stream route", () => {
       state: {
         failedImageSets: [
           expect.objectContaining({
-            selectedImageId: "news-linked-image-2",
+            selectedImageId: "candidate-2",
           }),
         ],
         imageSets: [
           expect.objectContaining({
-            id: "image-set-news-linked-image-1",
+            id: "image-set-candidate-1",
           }),
         ],
         status: "partially-failed",
@@ -279,7 +277,7 @@ describe("image generation stream route", () => {
       name: "invalid selected image ID",
       body: {
         input: buildInput({
-          selectedImageIds: ["news-linked-image-1", "missing-image"],
+          selectedImageIds: ["candidate-1", "missing-candidate"],
         }),
         parentRun: buildParentRun({
           imageGenerationState: {
@@ -292,7 +290,7 @@ describe("image generation stream route", () => {
       name: "more than two selected images",
       body: {
         input: buildInput({
-          selectedImageIds: ["news-linked-image-1", "news-linked-image-2", "news-linked-image-3"],
+          selectedImageIds: ["candidate-1", "candidate-2", "candidate-3"],
         }),
         parentRun: buildParentRun({
           imageGenerationState: {
@@ -307,7 +305,7 @@ describe("image generation stream route", () => {
         input: buildInput(),
         parentRun: buildParentRun({
           imageGenerationState: {
-            selectedImageIds: ["news-linked-image-1"],
+            selectedImageIds: ["candidate-1"],
             startedAt: "2026-06-05T10:20:00.000Z",
             status: "running",
             userImagePrompt: "Already started.",
@@ -353,7 +351,7 @@ function buildRequest(body: unknown) {
 function buildInput(overrides: Partial<ImageGenerationInput> = {}): ImageGenerationInput {
   return {
     parentRunId: "saved-run",
-    selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
+    selectedImageIds: ["candidate-1", "candidate-2"],
     userImagePrompt: "Make it feel like a serious product launch image.",
     ...overrides,
   };
@@ -364,50 +362,45 @@ function buildParentRun(
 ): ImageGenerationParentRun {
   return {
     id: "saved-run",
-    newsLinkedImages: buildNewsLinkedImages(),
+    imageOriginalCandidates: buildImageOriginalCandidates(),
     phase: "waiting-for-image-selection",
     ...overrides,
   };
 }
 
-function buildNewsLinkedImages(): NewsLinkedImage[] {
+function buildImageOriginalCandidates(): ImageOriginalCandidate[] {
   return [
     {
-      altText: "Product launch screenshot.",
-      id: "news-linked-image-1",
-      sourceUrl: "https://example.com/report",
-      title: "Launch visual 1",
-      url: "https://example.com/news-linked-image-1.jpg",
+      altText: "Source tweet launch screenshot.",
+      id: "candidate-1",
+      origin: "source-tweet-media",
+      previewUrl: "https://example.com/candidate-1-preview.jpg",
+      url: "https://example.com/candidate-1.jpg",
     },
     {
       altText: "Executive demo image.",
-      id: "news-linked-image-2",
+      id: "candidate-2",
+      origin: "news-linked-image",
       sourceUrl: "https://example.com/report",
       title: "Launch visual 2",
-      url: "https://example.com/news-linked-image-2.jpg",
-    },
-    {
-      altText: "Product roadmap screenshot.",
-      id: "news-linked-image-3",
-      sourceUrl: "https://example.com/report",
-      title: "Launch visual 3",
-      url: "https://example.com/news-linked-image-3.jpg",
+      url: "https://example.com/candidate-2.jpg",
     },
   ];
 }
 
-function buildPreparedOriginal(newsLinkedImage: NewsLinkedImage): PreparedSelectedImageOriginal {
+function buildPreparedOriginal(candidate: ImageOriginalCandidate): PreparedSelectedImageOriginal {
   return {
-    dataUrl: `data:image/jpeg;base64,${newsLinkedImage.id}`,
+    dataUrl: `data:image/jpeg;base64,${candidate.id}`,
     mediaType: "image/jpeg",
     selectedImageOriginal: {
-      altText: newsLinkedImage.altText,
-      id: `selected-original-${newsLinkedImage.id}`,
-      newsLinkedImageId: newsLinkedImage.id,
+      altText: candidate.altText,
+      candidateId: candidate.id,
+      id: `selected-original-${candidate.id}`,
+      origin: candidate.origin,
       preparedAt: "2026-06-05T10:20:00.000Z",
-      sourceUrl: newsLinkedImage.sourceUrl,
-      title: newsLinkedImage.title,
-      url: newsLinkedImage.url,
+      sourceUrl: candidate.sourceUrl,
+      title: candidate.title,
+      url: candidate.url,
     },
   };
 }
@@ -421,10 +414,10 @@ function buildProvider(overrides: Partial<ImageVariationProvider> = {}): ImageVa
     async generateVariations({ original }) {
       return [
         {
-          url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-1.jpg`,
+          url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-1.jpg`,
         },
         {
-          url: `https://example.com/${original.selectedImageOriginal.newsLinkedImageId}-variation-2.jpg`,
+          url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-2.jpg`,
         },
       ];
     },

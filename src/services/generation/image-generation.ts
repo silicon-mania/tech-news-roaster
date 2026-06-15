@@ -1,12 +1,17 @@
 import { z } from "zod";
-import { newsLinkedImageSchema } from "./news-linked-image";
+import {
+  imageOriginalCandidateOriginSchema,
+  imageOriginalCandidateSchema,
+  imageOriginalCandidateTarget,
+} from "./image-original-candidate";
 import { generationRunPhaseSchema } from "./run-phase";
 import { nonEmptyTrimmedStringSchema, runLocalIdSchema } from "./schema-primitives";
 
 export const selectedImageOriginalSchema = z
   .object({
     id: runLocalIdSchema,
-    newsLinkedImageId: runLocalIdSchema,
+    candidateId: runLocalIdSchema,
+    origin: imageOriginalCandidateOriginSchema,
     url: z.string().url(),
     altText: nonEmptyTrimmedStringSchema.optional(),
     preparedAt: z.string().datetime(),
@@ -150,8 +155,11 @@ const imageGenerationParentRunSchema = z
     id: runLocalIdSchema,
     failedImageSets: z.array(failedImageSetSchema).max(2).optional(),
     imageGenerationState: imageGenerationAttemptStateSchema.optional(),
+    imageOriginalCandidates: z
+      .array(imageOriginalCandidateSchema)
+      .max(imageOriginalCandidateTarget)
+      .optional(),
     imageSets: z.array(imageSetSchema).max(2).optional(),
-    newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
     phase: generationRunPhaseSchema.optional(),
     selectedImageOriginals: z.array(selectedImageOriginalSchema).max(2).optional(),
   })

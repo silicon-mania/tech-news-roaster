@@ -3,8 +3,8 @@ import {
   type FailedImageSet,
   type ImageGenerationInput,
   type ImageModelProvenance,
+  type ImageOriginalCandidate,
   type ImageSet,
-  type NewsLinkedImage,
   parseFailedImageSet,
   parseImageGenerationInput,
   parseImageSet,
@@ -18,7 +18,10 @@ const generatedVariationTarget = 2;
 
 type ImageModelEnvironment = Readonly<Record<string, string | undefined>>;
 
-export type ParentGenerationRunForImages = Pick<SavedGenerationRun, "id" | "newsLinkedImages">;
+export type ParentGenerationRunForImages = Pick<
+  SavedGenerationRun,
+  "id" | "imageOriginalCandidates"
+>;
 
 export type PreparedSelectedImageOriginal = {
   dataUrl: string;
@@ -27,7 +30,7 @@ export type PreparedSelectedImageOriginal = {
 };
 
 export type SelectedImageOriginalPreparer = (input: {
-  newsLinkedImage: NewsLinkedImage;
+  candidate: ImageOriginalCandidate;
   now: () => Date;
 }) => Promise<PreparedSelectedImageOriginal>;
 
@@ -157,20 +160,20 @@ export async function* streamImageSetsForRun(
     throw new Error("Image generation input does not match the parent run.");
   }
 
-  const selectedImages = resolveSelectedNewsLinkedImages({
-    newsLinkedImages: parentRun.newsLinkedImages,
+  const selectedCandidates = resolveSelectedImageOriginalCandidates({
+    imageOriginalCandidates: parentRun.imageOriginalCandidates,
     selectedImageIds: parsedInput.selectedImageIds,
   });
   const now = options.now ?? (() => new Date());
   const prepare = options.prepareSelectedImageOriginal ?? prepareSelectedImageOriginal;
   const provider = options.provider ?? createDefaultImageVariationProvider();
 
-  for (const newsLinkedImage of selectedImages) {
+  for (const candidate of selectedCandidates) {
     let preparedOriginal: PreparedSelectedImageOriginal | undefined;
 
     try {
       preparedOriginal = await prepare({
-        newsLinkedImage,
+        candidate,
         now,
       });
 
@@ -184,8 +187,8 @@ export async function* streamImageSetsForRun(
         type: "image-set-completed",
         imageModelProvenance: provider.imageModelProvenance,
         imageSet: buildImageSet({
+          candidate,
           imageModelProvenance: provider.imageModelProvenance,
-          newsLinkedImage,
           now,
           selectedImageOriginal: preparedOriginal.selectedImageOriginal,
           variations,
@@ -196,8 +199,8 @@ export async function* streamImageSetsForRun(
       yield {
         type: "image-set-failed",
         failedImageSet: buildFailedImageSet({
+          candidate,
           message: normalizeFailureMessage(error),
-          newsLinkedImage,
           now,
           selectedImageOriginal: preparedOriginal?.selectedImageOriginal,
         }),
@@ -209,13 +212,13 @@ export async function* streamImageSetsForRun(
 }
 
 export async function prepareSelectedImageOriginal({
-  newsLinkedImage,
+  candidate,
   now,
 }: {
-  newsLinkedImage: NewsLinkedImage;
+  candidate: ImageOriginalCandidate;
   now: () => Date;
 }): Promise<PreparedSelectedImageOriginal> {
-  const response = await fetch(newsLinkedImage.url);
+  const response = await fetch(candidate.url);
 
   if (!response.ok) {
     throw new Error(`Selected image original could not be fetched (${response.status}).`);
@@ -229,13 +232,14 @@ export async function prepareSelectedImageOriginal({
 
   const mediaType = response.headers.get("content-type") ?? "application/octet-stream";
   const selectedImageOriginal = parseSelectedImageOriginal({
-    altText: newsLinkedImage.altText,
-    id: `selected-original-${newsLinkedImage.id}`,
-    newsLinkedImageId: newsLinkedImage.id,
+    altText: candidate.altText,
+    candidateId: candidate.id,
+    id: `selected-original-${candidate.id}`,
+    origin: candidate.origin,
     preparedAt: now().toISOString(),
-    sourceUrl: newsLinkedImage.sourceUrl,
-    title: newsLinkedImage.title,
-    url: newsLinkedImage.url,
+    sourceUrl: candidate.sourceUrl,
+    title: candidate.title,
+    url: candidate.url,
   });
 
   return {
@@ -274,7 +278,7 @@ function createLocalImageVariationProvider(
       return Array.from({ length: variationCount }, (_, index) => ({
         altText: `Generated visual variation ${index + 1}.`,
         url: `https://picsum.photos/seed/${encodeURIComponent(
-          `${original.selectedImageOriginal.newsLinkedImageId}-${index + 1}`,
+          `${original.selectedImageOriginal.candidateId}-${index + 1}`,
         )}/1024/768`,
       }));
     },
@@ -384,35 +388,37 @@ function buildImageVariationPrompt({
     .join("\n");
 }
 
-function resolveSelectedNewsLinkedImages({
-  newsLinkedImages,
+function resolveSelectedImageOriginalCandidates({
+  imageOriginalCandidates,
   selectedImageIds,
 }: {
-  newsLinkedImages: ParentGenerationRunForImages["newsLinkedImages"];
+  imageOriginalCandidates: ParentGenerationRunForImages["imageOriginalCandidates"];
   selectedImageIds: ImageGenerationInput["selectedImageIds"];
 }) {
-  const newsLinkedImageById = new Map((newsLinkedImages ?? []).map((image) => [image.id, image]));
+  const candidateById = new Map(
+    (imageOriginalCandidates ?? []).map((candidate) => [candidate.id, candidate]),
+  );
 
   return selectedImageIds.map((selectedImageId) => {
-    const newsLinkedImage = newsLinkedImageById.get(selectedImageId);
+    const candidate = candidateById.get(selectedImageId);
 
-    if (!newsLinkedImage) {
+    if (!candidate) {
       throw new Error(`Selected image ID ${selectedImageId} is not available on the parent run.`);
     }
 
-    return newsLinkedImage;
+    return candidate;
   });
 }
 
 function buildImageSet({
+  candidate,
   imageModelProvenance,
-  newsLinkedImage,
   now,
   selectedImageOriginal,
   variations,
 }: {
+  candidate: ImageOriginalCandidate;
   imageModelProvenance: ImageModelProvenance;
-  newsLinkedImage: NewsLinkedImage;
   now: () => Date;
   selectedImageOriginal: SelectedImageOriginal;
   variations: GeneratedImageVariation[];
@@ -421,7 +427,7 @@ function buildImageSet({
     throw new Error("Image provider must return exactly two variations.");
   }
 
-  const imageSetId = `image-set-${newsLinkedImage.id}`;
+  const imageSetId = `image-set-${candidate.id}`;
 
   return parseImageSet({
     completedAt: now().toISOString(),
@@ -455,21 +461,21 @@ function buildImageSet({
 }
 
 function buildFailedImageSet({
+  candidate,
   message,
-  newsLinkedImage,
   now,
   selectedImageOriginal,
 }: {
+  candidate: ImageOriginalCandidate;
   message: string;
-  newsLinkedImage: NewsLinkedImage;
   now: () => Date;
   selectedImageOriginal?: SelectedImageOriginal;
 }) {
   return parseFailedImageSet({
     failedAt: now().toISOString(),
-    id: `failed-image-set-${newsLinkedImage.id}`,
+    id: `failed-image-set-${candidate.id}`,
     message,
-    selectedImageId: newsLinkedImage.id,
+    selectedImageId: candidate.id,
     selectedImageOriginal,
   });
 }

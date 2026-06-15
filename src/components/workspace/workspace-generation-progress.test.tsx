@@ -11,6 +11,7 @@ import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import {
   buildCompletedV3Run,
   buildGenerationEvents,
+  buildImageOriginalCandidates,
   buildJokeContextSnapshot,
   buildNewsLinkedImages,
   createMemorySavedRunStore,
@@ -201,6 +202,7 @@ describe("Workspace generation progress", () => {
           drafts: completedV3Run.drafts,
           generationResultStates: completedV3Run.generationResultStates,
           imageGenerationState: completedV3Run.imageGenerationState,
+          imageOriginalCandidates: completedV3Run.imageOriginalCandidates,
           jokeContextSnapshot: completedV3Run.jokeContextSnapshot,
           label: completedV3Run.label,
           newsLinkedImages: completedV3Run.newsLinkedImages,
@@ -262,6 +264,7 @@ describe("Workspace generation progress", () => {
         buildEnrichmentCompletedEvent({
           sourceTweet: tweetContext.sourceTweet,
           newsLinkedImages,
+          imageOriginalCandidates: buildImageOriginalCandidates(),
         }),
       );
     });

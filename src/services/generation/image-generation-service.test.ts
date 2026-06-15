@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import type { NewsLinkedImage } from "@/services/generation";
+import type { ImageOriginalCandidate } from "@/services/generation";
 import {
   generateImageSetsForRun,
   type PreparedSelectedImageOriginal,
@@ -7,7 +7,7 @@ import {
 } from "./image-generation-service";
 
 describe("image generation service", () => {
-  test("resolves selected images, prepares originals, and calls one image model sequentially", async () => {
+  test("resolves selected candidates, prepares originals, and calls one image model sequentially", async () => {
     const calls: string[] = [];
     const provider = {
       imageModelProvenance: {
@@ -19,16 +19,16 @@ describe("image generation service", () => {
         userImagePrompt: string;
         variationCount: 2;
       }) {
-        calls.push(`provider:${input.original.selectedImageOriginal.newsLinkedImageId}`);
+        calls.push(`provider:${input.original.selectedImageOriginal.candidateId}`);
 
         return [
           {
             altText: "Generated visual variation 1.",
-            url: `https://example.com/${input.original.selectedImageOriginal.newsLinkedImageId}-variation-1.jpg`,
+            url: `https://example.com/${input.original.selectedImageOriginal.candidateId}-variation-1.jpg`,
           },
           {
             altText: "Generated visual variation 2.",
-            url: `https://example.com/${input.original.selectedImageOriginal.newsLinkedImageId}-variation-2.jpg`,
+            url: `https://example.com/${input.original.selectedImageOriginal.candidateId}-variation-2.jpg`,
           },
         ];
       },
@@ -38,49 +38,53 @@ describe("image generation service", () => {
       {
         input: {
           parentRunId: "run-1",
-          selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
+          selectedImageIds: ["candidate-1", "candidate-2"],
           userImagePrompt: "Make it feel like a product launch image.",
         },
         parentRun: {
           id: "run-1",
-          newsLinkedImages: buildNewsLinkedImages(),
+          imageOriginalCandidates: buildImageOriginalCandidates(),
         },
       },
       {
         now: () => new Date("2026-06-05T10:20:00.000Z"),
-        prepareSelectedImageOriginal: async ({ newsLinkedImage }) => {
-          calls.push(`prepare:${newsLinkedImage.id}`);
+        prepareSelectedImageOriginal: async ({ candidate }) => {
+          calls.push(`prepare:${candidate.id}`);
 
-          return buildPreparedOriginal(newsLinkedImage);
+          return buildPreparedOriginal(candidate);
         },
         provider,
       },
     );
 
     expect(calls).toEqual([
-      "prepare:news-linked-image-1",
-      "provider:news-linked-image-1",
-      "prepare:news-linked-image-2",
-      "provider:news-linked-image-2",
+      "prepare:candidate-1",
+      "provider:candidate-1",
+      "prepare:candidate-2",
+      "provider:candidate-2",
     ]);
     expect(result.imageModelProvenance).toEqual({
       model: "image-model-v1",
       provider: "test-provider",
     });
     expect(result.failedImageSets).toEqual([]);
+    // The selected original keeps a pointer back to its candidate and origin, so a
+    // Source Tweet image flows through exactly like a News-Linked one.
     expect(result.selectedImageOriginals).toEqual([
       expect.objectContaining({
-        id: "selected-original-news-linked-image-1",
-        newsLinkedImageId: "news-linked-image-1",
+        id: "selected-original-candidate-1",
+        candidateId: "candidate-1",
+        origin: "source-tweet-media",
       }),
       expect.objectContaining({
-        id: "selected-original-news-linked-image-2",
-        newsLinkedImageId: "news-linked-image-2",
+        id: "selected-original-candidate-2",
+        candidateId: "candidate-2",
+        origin: "news-linked-image",
       }),
     ]);
     expect(result.imageSets).toEqual([
       expect.objectContaining({
-        id: "image-set-news-linked-image-1",
+        id: "image-set-candidate-1",
         imageModelProvenance: {
           model: "image-model-v1",
           provider: "test-provider",
@@ -101,7 +105,7 @@ describe("image generation service", () => {
         ],
       }),
       expect.objectContaining({
-        id: "image-set-news-linked-image-2",
+        id: "image-set-candidate-2",
       }),
     ]);
   });
@@ -120,12 +124,12 @@ describe("image generation service", () => {
         {
           input: {
             parentRunId: "run-1",
-            selectedImageIds: ["news-linked-image-1", "missing-image"],
+            selectedImageIds: ["candidate-1", "missing-image"],
             userImagePrompt: "Use the selected original.",
           },
           parentRun: {
             id: "run-1",
-            newsLinkedImages: buildNewsLinkedImages(),
+            imageOriginalCandidates: buildImageOriginalCandidates(),
           },
         },
         {
@@ -138,7 +142,7 @@ describe("image generation service", () => {
     expect(provider.generateVariations).not.toHaveBeenCalled();
   });
 
-  test("uses AI Gateway chat completions for selected-image variations", async () => {
+  test("uses AI Gateway chat completions for selected-candidate variations", async () => {
     const previousApiKey = process.env.AI_GATEWAY_API_KEY;
     const previousBaseUrl = process.env.AI_GATEWAY_BASE_URL;
     const previousImageModel = process.env.AI_GATEWAY_IMAGE_MODEL;
@@ -173,18 +177,17 @@ describe("image generation service", () => {
         {
           input: {
             parentRunId: "run-1",
-            selectedImageIds: ["news-linked-image-1"],
+            selectedImageIds: ["candidate-1"],
             userImagePrompt: "Make it feel like a launch visual.",
           },
           parentRun: {
             id: "run-1",
-            newsLinkedImages: buildNewsLinkedImages(),
+            imageOriginalCandidates: buildImageOriginalCandidates(),
           },
         },
         {
           now: () => new Date("2026-06-05T10:20:00.000Z"),
-          prepareSelectedImageOriginal: async ({ newsLinkedImage }) =>
-            buildPreparedOriginal(newsLinkedImage),
+          prepareSelectedImageOriginal: async ({ candidate }) => buildPreparedOriginal(candidate),
         },
       );
 
@@ -212,7 +215,7 @@ describe("image generation service", () => {
                 }),
                 expect.objectContaining({
                   image_url: {
-                    url: "data:image/jpeg;base64,news-linked-image-1",
+                    url: "data:image/jpeg;base64,candidate-1",
                   },
                   type: "image_url",
                 }),
@@ -258,18 +261,17 @@ describe("image generation service", () => {
       {
         input: {
           parentRunId: "run-1",
-          selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
+          selectedImageIds: ["candidate-1", "candidate-2"],
           userImagePrompt: "Generate launch imagery.",
         },
         parentRun: {
           id: "run-1",
-          newsLinkedImages: buildNewsLinkedImages(),
+          imageOriginalCandidates: buildImageOriginalCandidates(),
         },
       },
       {
         now: () => new Date("2026-06-05T10:20:00.000Z"),
-        prepareSelectedImageOriginal: async ({ newsLinkedImage }) =>
-          buildPreparedOriginal(newsLinkedImage),
+        prepareSelectedImageOriginal: async ({ candidate }) => buildPreparedOriginal(candidate),
         provider,
       },
     );
@@ -280,9 +282,9 @@ describe("image generation service", () => {
     expect(result.failedImageSets).toEqual([
       expect.objectContaining({
         message: "The configured image model failed.",
-        selectedImageId: "news-linked-image-2",
+        selectedImageId: "candidate-2",
         selectedImageOriginal: expect.objectContaining({
-          newsLinkedImageId: "news-linked-image-2",
+          candidateId: "candidate-2",
         }),
       }),
     ]);
@@ -303,22 +305,23 @@ describe("image generation service", () => {
 
     try {
       const prepared = await prepareSelectedImageOriginal({
-        newsLinkedImage: buildNewsLinkedImages()[0],
+        candidate: buildImageOriginalCandidates()[1],
         now: () => new Date("2026-06-05T10:20:00.000Z"),
       });
 
-      expect(fetch).toHaveBeenCalledWith("https://example.com/news-linked-image-1.jpg");
+      expect(fetch).toHaveBeenCalledWith("https://example.com/candidate-2.jpg");
       expect(prepared).toEqual({
         dataUrl: "data:image/png;base64,AQID",
         mediaType: "image/png",
         selectedImageOriginal: {
-          altText: "Product launch screenshot.",
-          id: "selected-original-news-linked-image-1",
-          newsLinkedImageId: "news-linked-image-1",
+          altText: "Executive demo image.",
+          candidateId: "candidate-2",
+          id: "selected-original-candidate-2",
+          origin: "news-linked-image",
           preparedAt: "2026-06-05T10:20:00.000Z",
           sourceUrl: "https://example.com/report",
-          title: "Launch visual 1",
-          url: "https://example.com/news-linked-image-1.jpg",
+          title: "Launch visual 2",
+          url: "https://example.com/candidate-2.jpg",
         },
       });
     } finally {
@@ -336,37 +339,39 @@ function restoreEnvValue(name: string, value: string | undefined) {
   process.env[name] = value;
 }
 
-function buildNewsLinkedImages(): NewsLinkedImage[] {
+function buildImageOriginalCandidates(): ImageOriginalCandidate[] {
   return [
     {
-      altText: "Product launch screenshot.",
-      id: "news-linked-image-1",
-      sourceUrl: "https://example.com/report",
-      title: "Launch visual 1",
-      url: "https://example.com/news-linked-image-1.jpg",
+      altText: "Source tweet launch screenshot.",
+      id: "candidate-1",
+      origin: "source-tweet-media",
+      previewUrl: "https://example.com/candidate-1-preview.jpg",
+      url: "https://example.com/candidate-1.jpg",
     },
     {
       altText: "Executive demo image.",
-      id: "news-linked-image-2",
+      id: "candidate-2",
+      origin: "news-linked-image",
       sourceUrl: "https://example.com/report",
       title: "Launch visual 2",
-      url: "https://example.com/news-linked-image-2.jpg",
+      url: "https://example.com/candidate-2.jpg",
     },
   ];
 }
 
-function buildPreparedOriginal(newsLinkedImage: NewsLinkedImage): PreparedSelectedImageOriginal {
+function buildPreparedOriginal(candidate: ImageOriginalCandidate): PreparedSelectedImageOriginal {
   return {
-    dataUrl: `data:image/jpeg;base64,${newsLinkedImage.id}`,
+    dataUrl: `data:image/jpeg;base64,${candidate.id}`,
     mediaType: "image/jpeg",
     selectedImageOriginal: {
-      altText: newsLinkedImage.altText,
-      id: `selected-original-${newsLinkedImage.id}`,
-      newsLinkedImageId: newsLinkedImage.id,
+      altText: candidate.altText,
+      candidateId: candidate.id,
+      id: `selected-original-${candidate.id}`,
+      origin: candidate.origin,
       preparedAt: "2026-06-05T10:20:00.000Z",
-      sourceUrl: newsLinkedImage.sourceUrl,
-      title: newsLinkedImage.title,
-      url: newsLinkedImage.url,
+      sourceUrl: candidate.sourceUrl,
+      title: candidate.title,
+      url: candidate.url,
     },
   };
 }

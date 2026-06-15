@@ -1,6 +1,7 @@
 export * from "./generation-fixtures";
 export * from "./generation-run";
 export * from "./image-generation";
+export * from "./image-original-candidate";
 export * from "./joke-context";
 export * from "./news-linked-image";
 export * from "./providers";

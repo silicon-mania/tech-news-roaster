@@ -1,4 +1,5 @@
 import {
+  assembleImageOriginalCandidates,
   buildCompletedGenerationRunEvents,
   buildEnrichmentCompletedEvent,
   buildGenerationFailureEvent,
@@ -176,6 +177,18 @@ async function buildGenerationRunEvents({
       .catch((error: unknown) => ({ error, status: "rejected" as const })),
   ]);
 
+  // The Source Tweet's own usable media leads the candidates; News-Linked Images
+  // only top up the remaining slots (and only when discovery succeeded).
+  const imageOriginalCandidates = assembleImageOriginalCandidates({
+    newsLinkedImages:
+      newsLinkedImageDiscoveryResult.status === "available"
+        ? newsLinkedImageDiscoveryResult.newsLinkedImages
+        : [],
+    sourceTweetMedia: tweetContext.sourceTweet.mediaReferences,
+  });
+  const carriedImageOriginalCandidates =
+    imageOriginalCandidates.length > 0 ? imageOriginalCandidates : undefined;
+
   const hasVisualJokeBranch =
     generationResult.status === "fulfilled" &&
     generationResult.run.generationResultStates?.visualJokeGeneration.status !== "not-started";
@@ -197,6 +210,7 @@ async function buildGenerationRunEvents({
   if (newsLinkedImageDiscoveryResult.status === "available") {
     events.push(
       buildEnrichmentCompletedEvent({
+        imageOriginalCandidates,
         newsLinkedImages: newsLinkedImageDiscoveryResult.newsLinkedImages,
         sourceTweet: tweetContext.sourceTweet,
       }),
@@ -231,6 +245,7 @@ async function buildGenerationRunEvents({
       const completedRun = parseCompletedGenerationRunPayload({
         drafts: [],
         generationResultStates: terminalGenerationResultStates,
+        imageOriginalCandidates: carriedImageOriginalCandidates,
         jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
         label: runLabel,
         newsLinkedImages: newsLinkedImageDiscoveryResult.newsLinkedImages,
@@ -256,6 +271,7 @@ async function buildGenerationRunEvents({
       textGenerationCompletedAt,
       textGenerationStartedAt,
     }),
+    imageOriginalCandidates: carriedImageOriginalCandidates,
     jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
     label: generationResult.run.label,
     newsLinkedImages:

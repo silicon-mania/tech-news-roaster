@@ -6,6 +6,7 @@ import {
   buildCompletedRun,
   buildFailedImageSet,
   buildImageGenerationStreamResponse,
+  buildImageOriginalCandidates,
   buildImageSet,
   buildJokeContextSnapshot,
   buildNewsLinkedImages,
@@ -197,11 +198,6 @@ describe("Workspace image generation", () => {
       }),
     );
     await user.click(
-      within(imageGenerationArea).getByRole("button", {
-        name: /select platform visual/i,
-      }),
-    );
-    await user.click(
       screen.getByRole("button", {
         name: /open image direction/i,
       }),
@@ -238,7 +234,7 @@ describe("Workspace image generation", () => {
     expect(JSON.parse(String(imageGenerationStreamFetcher.mock.calls[0]?.[1]?.body))).toEqual({
       input: {
         parentRunId: "saved-run",
-        selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
+        selectedImageIds: ["news-linked-image-1"],
         userImagePrompt: "Make it feel like a serious product launch image.",
       },
       parentRun: {
@@ -246,7 +242,7 @@ describe("Workspace image generation", () => {
         imageGenerationState: {
           status: "not-started",
         },
-        newsLinkedImages,
+        imageOriginalCandidates: buildImageOriginalCandidates(),
         phase: "waiting-for-image-selection",
       },
     });

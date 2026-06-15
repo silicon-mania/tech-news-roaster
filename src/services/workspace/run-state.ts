@@ -87,8 +87,8 @@ export function buildImageGenerationParentRun(run: GenerationRun) {
     failedImageSets: run.failedImageSets,
     id: run.id,
     imageGenerationState: run.imageGenerationState,
+    imageOriginalCandidates: run.imageOriginalCandidates,
     imageSets: run.imageSets,
-    newsLinkedImages: run.newsLinkedImages,
     phase: run.phase,
     selectedImageOriginals: run.selectedImageOriginals,
   });

@@ -75,30 +75,38 @@ describe("Workspace creative result areas", () => {
         name: /select launch visual/i,
       }),
     );
+
+    expect(
+      within(imageGenerationArea).getByRole("button", {
+        name: /select launch visual/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(imageGenerationButton).toBeEnabled();
+
+    // Selecting another candidate replaces the choice — exactly one stays selected.
     await user.click(
       within(imageGenerationArea).getByRole("button", {
         name: /select platform visual/i,
       }),
     );
-    await user.click(
-      within(imageGenerationArea).getByRole("button", {
-        name: /select strategy visual/i,
-      }),
-    );
 
-    expect(imageGenerationArea).toHaveTextContent("Choose up to two images.");
     expect(
       within(imageGenerationArea).getByRole("button", {
-        name: /select strategy visual/i,
+        name: /select launch visual/i,
       }),
     ).toHaveAttribute("aria-pressed", "false");
-    expect(imageGenerationButton).toBeEnabled();
+    expect(
+      within(imageGenerationArea).getByRole("button", {
+        name: /select platform visual/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(within(imageGenerationArea).getAllByRole("button", { pressed: true })).toHaveLength(1);
 
     await user.click(imageGenerationButton);
 
     expect(startImageGeneration).toHaveBeenCalledWith({
       parentRunId: "saved-run",
-      selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
+      selectedImageIds: ["news-linked-image-2"],
       userImagePrompt: "Make it feel like a serious product launch, not a meme.",
     });
     expect(JSON.stringify(startImageGeneration.mock.calls[0]?.[0])).not.toMatch(
@@ -108,11 +116,13 @@ describe("Workspace creative result areas", () => {
     expect(savedRunStore.save).toHaveBeenCalledWith(
       expect.objectContaining({
         imageGenerationState: expect.objectContaining({
-          selectedImageIds: ["news-linked-image-1", "news-linked-image-2"],
+          selectedImageIds: ["news-linked-image-2"],
           status: "running",
           userImagePrompt: "Make it feel like a serious product launch, not a meme.",
         }),
-        newsLinkedImages: newsLinkedImages.slice(0, 2),
+        imageOriginalCandidates: [
+          expect.objectContaining({ id: "news-linked-image-2", origin: "news-linked-image" }),
+        ],
         phase: "image-generation-running",
       }),
     );

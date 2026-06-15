@@ -8,6 +8,10 @@ import {
   selectedGeneratedImageSchema,
   selectedImageOriginalSchema,
 } from "./image-generation";
+import {
+  imageOriginalCandidateSchema,
+  imageOriginalCandidateTarget,
+} from "./image-original-candidate";
 import { jokeContextSnapshotSchema } from "./joke-context";
 import { newsLinkedImageSchema } from "./news-linked-image";
 import { draftTarget } from "./providers";
@@ -136,6 +140,10 @@ export const completedGenerationRunPayloadSchema = z
     drafts: z.array(quoteTweetDraftSchema).max(draftTarget),
     imageGenerationState: imageGenerationAttemptStateSchema.optional(),
     imageModelProvenance: imageModelProvenanceSchema.optional(),
+    imageOriginalCandidates: z
+      .array(imageOriginalCandidateSchema)
+      .max(imageOriginalCandidateTarget)
+      .optional(),
     imageSets: z.array(imageSetSchema).max(2).optional(),
     failedImageSets: z.array(failedImageSetSchema).max(2).optional(),
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
@@ -174,6 +182,10 @@ const savedGenerationRunSchema = z
     generationResultStates: generationResultStatesSchema.optional(),
     imageGenerationState: imageGenerationAttemptStateSchema.optional(),
     imageModelProvenance: imageModelProvenanceSchema.optional(),
+    imageOriginalCandidates: z
+      .array(imageOriginalCandidateSchema)
+      .max(imageOriginalCandidateTarget)
+      .optional(),
     imageSets: z.array(imageSetSchema).max(2).optional(),
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
     phase: generationRunPhaseSchema.optional(),

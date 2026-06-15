@@ -87,66 +87,56 @@ export function ImageGenerationArea({
   onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
 }) {
-  const images = run.newsLinkedImages ?? [];
+  const candidates = run.imageOriginalCandidates ?? [];
   const imageSets = run.imageSets ?? [];
   const failedImageSets = run.failedImageSets ?? [];
   const imageGenerationState = run.imageGenerationState;
   const imageGenerationStatus = imageGenerationState?.status;
   const expectedImageSetCount =
     imageGenerationState?.status === "running" ? imageGenerationState.selectedImageIds.length : 0;
-  const canSelectSourceImages =
-    images.length > 0 && (!imageGenerationStatus || imageGenerationStatus === "not-started");
-  const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
+  const canSelectCandidate =
+    candidates.length > 0 && (!imageGenerationStatus || imageGenerationStatus === "not-started");
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [userImagePrompt, setUserImagePrompt] = useState("");
-  const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
   const { openPanelId, togglePanel } = useDirectionPanel();
   const panelId = "image-direction";
   const isDirectionOpen = openPanelId === panelId;
   const trimmedUserImagePrompt = userImagePrompt.trim();
-  const canStartImageGeneration = selectedImageIds.length > 0 && trimmedUserImagePrompt.length > 0;
+  const canStartImageGeneration = selectedCandidateId !== null && trimmedUserImagePrompt.length > 0;
   // Once generation has started the prompt is locked in; surface it read-only.
   const usedImagePrompt =
     imageGenerationState && imageGenerationState.status !== "not-started"
       ? imageGenerationState.userImagePrompt
       : null;
-  const hasImageDirection = canSelectSourceImages || Boolean(usedImagePrompt);
+  const hasImageDirection = canSelectCandidate || Boolean(usedImagePrompt);
 
   useEffect(() => {
-    const availableImageIds = new Set(images.map((image) => image.id));
+    const availableCandidateIds = new Set(candidates.map((candidate) => candidate.id));
 
-    setSelectedImageIds((currentImageIds) =>
-      currentImageIds.filter((imageId) => availableImageIds.has(imageId)),
+    setSelectedCandidateId((currentCandidateId) =>
+      currentCandidateId && availableCandidateIds.has(currentCandidateId)
+        ? currentCandidateId
+        : null,
     );
-  }, [images]);
+  }, [candidates]);
 
-  function toggleImageSelection(imageId: string) {
-    setSelectedImageIds((currentImageIds) => {
-      if (currentImageIds.includes(imageId)) {
-        setSelectionMessage(null);
-        return currentImageIds.filter((currentImageId) => currentImageId !== imageId);
-      }
-
-      if (currentImageIds.length >= 2) {
-        setSelectionMessage("Choose up to two images.");
-        return currentImageIds;
-      }
-
-      setSelectionMessage(null);
-      return [...currentImageIds, imageId];
-    });
+  function selectCandidate(candidateId: string) {
+    setSelectedCandidateId((currentCandidateId) =>
+      currentCandidateId === candidateId ? null : candidateId,
+    );
   }
 
   function submitImageGeneration(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!canStartImageGeneration) {
+    if (!canStartImageGeneration || selectedCandidateId === null) {
       return;
     }
 
     onStartImageGeneration(
       parseImageGenerationInput({
         parentRunId,
-        selectedImageIds,
+        selectedImageIds: [selectedCandidateId],
         userImagePrompt: trimmedUserImagePrompt,
       }),
     );
@@ -179,48 +169,45 @@ export function ImageGenerationArea({
             }
           />
         ) : null}
-        {canSelectSourceImages ? (
+        {canSelectCandidate ? (
           <>
             <div className="overflow-x-auto pb-2">
               <ul className="flex w-max gap-2 pr-2">
-                {images.map((image, index) => (
-                  <li
-                    className="w-[min(70vw,18rem)] shrink-0 lg:w-[min(18vw,300px)]"
-                    key={image.id}>
-                    <button
-                      type="button"
-                      aria-label={`Select ${getImageTitle(image, index)} for image generation`}
-                      aria-pressed={selectedImageIds.includes(image.id)}
-                      onClick={() => toggleImageSelection(image.id)}
-                      className={`group grid w-full gap-1.5 rounded-md text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
-                        selectedImageIds.includes(image.id)
-                          ? "bg-primary/10 ring-1 ring-primary/60"
-                          : "bg-card/50"
-                      }`}>
-                      <span className="relative aspect-[4/3] overflow-hidden rounded-md bg-secondary">
-                        <Image
-                          alt={image.altText ?? image.title ?? `News-linked image ${index + 1}`}
-                          className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-                          height={240}
-                          loading={index === 0 ? "eager" : "lazy"}
-                          src={getDisplayImageUrl(image, index)}
-                          unoptimized
-                          width={320}
-                        />
-                      </span>
-                      <span className="px-0.5 text-muted-foreground text-xs">
-                        {getImageTitle(image, index)}
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                {candidates.map((candidate, index) => {
+                  const isSelected = selectedCandidateId === candidate.id;
+
+                  return (
+                    <li
+                      className="w-[min(70vw,18rem)] shrink-0 lg:w-[min(18vw,300px)]"
+                      key={candidate.id}>
+                      <button
+                        type="button"
+                        aria-label={`Select ${getImageTitle(candidate, index)} as the image original`}
+                        aria-pressed={isSelected}
+                        onClick={() => selectCandidate(candidate.id)}
+                        className={`group grid w-full gap-1.5 rounded-md text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+                          isSelected ? "bg-primary/10 ring-1 ring-primary/60" : "bg-card/50"
+                        }`}>
+                        <span className="relative aspect-[4/3] overflow-hidden rounded-md bg-secondary">
+                          <Image
+                            alt={candidate.altText ?? getImageTitle(candidate, index)}
+                            className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                            height={240}
+                            loading={index === 0 ? "eager" : "lazy"}
+                            src={getDisplayImageUrl(candidate, index)}
+                            unoptimized
+                            width={320}
+                          />
+                        </span>
+                        <span className="px-0.5 text-muted-foreground text-xs">
+                          {getImageTitle(candidate, index)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
-            {selectionMessage ? (
-              <p className="text-muted-foreground text-xs" role="status">
-                {selectionMessage}
-              </p>
-            ) : null}
             <form className="grid gap-2" onSubmit={submitImageGeneration}>
               <Button
                 className="justify-self-start"
@@ -234,7 +221,7 @@ export function ImageGenerationArea({
       </aside>
       {hasImageDirection ? (
         <DirectionPanel id={panelId} isOpen={isDirectionOpen} title="Image direction">
-          {canSelectSourceImages ? (
+          {canSelectCandidate ? (
             <div className="grid gap-2">
               <label
                 className="font-medium text-foreground/80 text-xs"

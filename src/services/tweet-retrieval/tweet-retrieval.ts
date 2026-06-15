@@ -76,7 +76,7 @@ type TwitterApiIoOptions = {
 };
 
 type RawRecord = Record<string, unknown>;
-type SourceTweetMediaReference = z.infer<typeof sourceTweetMediaReferenceSchema>;
+export type SourceTweetMediaReference = z.infer<typeof sourceTweetMediaReferenceSchema>;
 
 export class TweetRetrievalError extends Error {
   readonly userMessage = retrievalFailureMessage;

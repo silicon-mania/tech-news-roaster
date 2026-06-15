@@ -10,7 +10,8 @@ export function buildImageSet() {
     },
     selectedImageOriginal: {
       id: "selected-original-1",
-      newsLinkedImageId: "news-linked-image-1",
+      candidateId: "news-linked-image-candidate-news-linked-image-1",
+      origin: "news-linked-image",
       url: "https://example.com/news-linked-image.jpg",
       altText: "Product launch screenshot.",
       preparedAt: "2026-06-05T10:20:00.000Z",

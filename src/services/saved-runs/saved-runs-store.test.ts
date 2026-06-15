@@ -188,7 +188,8 @@ function buildSavedDraft({
 function buildImageSet(id: string): NonNullable<GenerationRun["imageSets"]>[number] {
   const selectedImageOriginal = {
     id: `${id}-selected-original`,
-    newsLinkedImageId: `${id}-news-image`,
+    candidateId: `${id}-candidate`,
+    origin: "news-linked-image" as const,
     preparedAt: timestamp(1),
     title: `${id} selected original`,
     url: `https://example.com/${id}-selected-original.png`,

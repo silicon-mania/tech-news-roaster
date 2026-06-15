@@ -344,7 +344,7 @@ export function Workspace({
   function startImageGeneration(input: ImageGenerationInput) {
     const run = runs.find((candidateRun) => candidateRun.id === input.parentRunId);
 
-    if (!run?.newsLinkedImages) {
+    if (!run?.imageOriginalCandidates) {
       return;
     }
 
@@ -356,13 +356,13 @@ export function Workspace({
       userImagePrompt: input.userImagePrompt,
     };
     const selectedImageIds = new Set(input.selectedImageIds);
-    const selectedNewsLinkedImages = run.newsLinkedImages.filter((image) =>
-      selectedImageIds.has(image.id),
+    const selectedImageOriginalCandidates = run.imageOriginalCandidates.filter((candidate) =>
+      selectedImageIds.has(candidate.id),
     );
     const startedRun: GenerationRun = {
       ...run,
       imageGenerationState: startedImageGenerationState,
-      newsLinkedImages: selectedNewsLinkedImages,
+      imageOriginalCandidates: selectedImageOriginalCandidates,
       phase: "image-generation-running",
     };
 
@@ -378,6 +378,7 @@ export function Workspace({
 
     enrichedRunState.current.set(input.parentRunId, {
       imageGenerationState: startedImageGenerationState,
+      imageOriginalCandidates: startedRun.imageOriginalCandidates,
       newsLinkedImages: startedRun.newsLinkedImages,
     });
     scheduleRunAutosave(startedRun);

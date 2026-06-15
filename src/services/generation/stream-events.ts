@@ -9,6 +9,11 @@ import {
   imageGenerationTerminalStateSchema,
   imageSetSchema,
 } from "./image-generation";
+import type { ImageOriginalCandidate } from "./image-original-candidate";
+import {
+  imageOriginalCandidateSchema,
+  imageOriginalCandidateTarget,
+} from "./image-original-candidate";
 import type { NewsLinkedImage } from "./news-linked-image";
 import { newsLinkedImageSchema } from "./news-linked-image";
 import { draftTarget } from "./providers";
@@ -41,6 +46,10 @@ const enrichmentCompletedEventSchema = z
     type: z.literal("enrichment-completed"),
     sourceTweet: retrievedSourceTweetSchema,
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5),
+    imageOriginalCandidates: z
+      .array(imageOriginalCandidateSchema)
+      .min(1)
+      .max(imageOriginalCandidateTarget),
   })
   .strict();
 
@@ -109,9 +118,11 @@ export function parseImageGenerationStreamEvent(event: unknown): ImageGeneration
 }
 
 export function buildEnrichmentCompletedEvent({
+  imageOriginalCandidates,
   newsLinkedImages,
   sourceTweet,
 }: {
+  imageOriginalCandidates: ImageOriginalCandidate[];
   newsLinkedImages: NewsLinkedImage[];
   sourceTweet: z.infer<typeof retrievedSourceTweetSchema>;
 }): GenerationStreamEvent {
@@ -119,6 +130,7 @@ export function buildEnrichmentCompletedEvent({
     type: "enrichment-completed",
     sourceTweet,
     newsLinkedImages,
+    imageOriginalCandidates,
   });
 }
 

@@ -21,7 +21,7 @@ export const genericRunningRunLabel = "New generation run";
 
 export type EnrichedRunState = Pick<
   GenerationRun,
-  "generationResultStates" | "imageGenerationState" | "newsLinkedImages"
+  "generationResultStates" | "imageGenerationState" | "imageOriginalCandidates" | "newsLinkedImages"
 >;
 
 export function useGenerationRunStream({
@@ -64,12 +64,14 @@ export function useGenerationRunStream({
       const newsLinkedImages =
         extractNewsLinkedImagesFromGenerationResultStates(event.generationResultStates) ??
         enrichedRunState.current.get(runId)?.newsLinkedImages;
+      const imageOriginalCandidates = enrichedRunState.current.get(runId)?.imageOriginalCandidates;
 
       enrichedRunState.current.set(runId, {
         generationResultStates: event.generationResultStates,
         imageGenerationState: {
           status: "not-started",
         },
+        imageOriginalCandidates,
         newsLinkedImages,
       });
 
@@ -82,6 +84,7 @@ export function useGenerationRunStream({
           return {
             ...run,
             generationResultStates: event.generationResultStates,
+            imageOriginalCandidates,
             label: run.label === genericRunningRunLabel ? event.label : run.label,
             newsLinkedImages,
             phase: deriveRunPhaseFromGenerationResultStates(event.generationResultStates),
@@ -103,6 +106,7 @@ export function useGenerationRunStream({
         imageGenerationState: {
           status: "not-started",
         },
+        imageOriginalCandidates: event.imageOriginalCandidates,
         newsLinkedImages: event.newsLinkedImages,
       });
 
@@ -118,6 +122,7 @@ export function useGenerationRunStream({
             imageGenerationState: {
               status: "not-started",
             },
+            imageOriginalCandidates: event.imageOriginalCandidates,
             newsLinkedImages: event.newsLinkedImages,
             phase: "text-generation-running",
             sourceTweet: event.sourceTweet,
@@ -162,10 +167,13 @@ export function useGenerationRunStream({
 
       const enrichedRun = enrichedRunState.current.get(runId);
       const newsLinkedImages = event.run.newsLinkedImages ?? enrichedRun?.newsLinkedImages;
+      const imageOriginalCandidates =
+        event.run.imageOriginalCandidates ?? enrichedRun?.imageOriginalCandidates;
+      const hasImageOriginalCandidates = (imageOriginalCandidates?.length ?? 0) > 0;
       const imageGenerationState =
         event.run.imageGenerationState ??
         enrichedRun?.imageGenerationState ??
-        (newsLinkedImages
+        (hasImageOriginalCandidates
           ? {
               status: "not-started" as const,
             }
@@ -184,6 +192,7 @@ export function useGenerationRunStream({
         generationResultStates: event.run.generationResultStates,
         imageGenerationState,
         imageModelProvenance: event.run.imageModelProvenance,
+        imageOriginalCandidates,
         imageSets: event.run.imageSets,
         jokeContextSnapshot: event.run.jokeContextSnapshot,
         newsLinkedImages,
@@ -191,7 +200,7 @@ export function useGenerationRunStream({
           event.run.phase ??
           (imageGenerationState?.status === "running"
             ? "image-generation-running"
-            : newsLinkedImages
+            : hasImageOriginalCandidates
               ? "waiting-for-image-selection"
               : deriveRunPhaseFromGenerationResultStates(event.run.generationResultStates)),
         savedAt: new Date().toISOString(),

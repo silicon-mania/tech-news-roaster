@@ -9,6 +9,7 @@ import {
   type GenerationStreamEvent,
   type ImageGenerationInput,
   type ImageGenerationStreamEvent,
+  type ImageOriginalCandidate,
   type ImageSet,
   type NewsLinkedImage,
   parseFailedImageSet,
@@ -153,6 +154,18 @@ function stubDesktopMediaQuery(matches: boolean) {
 
 export function buildCompletedRun(overrides: Partial<GenerationRun> = {}): GenerationRun {
   const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/1234567890");
+  // When a run carries News-Linked Images, mirror the server and offer them as
+  // Image Original Candidates so the selection grid has something to render.
+  const imageOriginalCandidates =
+    overrides.imageOriginalCandidates ??
+    overrides.newsLinkedImages?.map((newsLinkedImage) => ({
+      altText: newsLinkedImage.altText,
+      id: newsLinkedImage.id,
+      origin: "news-linked-image" as const,
+      sourceUrl: newsLinkedImage.sourceUrl,
+      title: newsLinkedImage.title,
+      url: newsLinkedImage.url,
+    }));
 
   return {
     id: "saved-run",
@@ -163,6 +176,7 @@ export function buildCompletedRun(overrides: Partial<GenerationRun> = {}): Gener
     draftCount: 3,
     draftTarget: 3,
     sourceTweet: tweetContext.sourceTweet,
+    imageOriginalCandidates,
     drafts: [
       buildSavedDraft({
         id: "draft-openai",
@@ -231,6 +245,7 @@ export function buildCompletedV3Run(overrides: Partial<GenerationRun> = {}): Gen
     generationResultStates,
     imageGenerationState,
     imageModelProvenance: imageSet.imageModelProvenance,
+    imageOriginalCandidates: buildImageOriginalCandidates(),
     imageSets: [imageSet],
     jokeContextSnapshot,
     newsLinkedImages,
@@ -370,6 +385,17 @@ export function buildNewsLinkedImages(): NewsLinkedImage[] {
   ];
 }
 
+export function buildImageOriginalCandidates(): ImageOriginalCandidate[] {
+  return buildNewsLinkedImages().map((newsLinkedImage) => ({
+    altText: newsLinkedImage.altText,
+    id: newsLinkedImage.id,
+    origin: "news-linked-image",
+    sourceUrl: newsLinkedImage.sourceUrl,
+    title: newsLinkedImage.title,
+    url: newsLinkedImage.url,
+  }));
+}
+
 export function buildJokeContextSnapshot(sourceTweetId: string) {
   return parseJokeContextSnapshot({
     capturedAt: "2026-06-06T10:10:00.000Z",
@@ -487,8 +513,9 @@ export function buildImageSet(newsLinkedImage: NewsLinkedImage): ImageSet {
     },
     selectedImageOriginal: {
       altText: newsLinkedImage.altText,
+      candidateId: newsLinkedImage.id,
       id: `selected-original-${newsLinkedImage.id}`,
-      newsLinkedImageId: newsLinkedImage.id,
+      origin: "news-linked-image",
       preparedAt: "2026-06-05T10:20:00.000Z",
       sourceUrl: newsLinkedImage.sourceUrl,
       title: newsLinkedImage.title,

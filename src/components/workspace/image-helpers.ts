@@ -1,7 +1,13 @@
-import type { ImageModelProvenance, ImageSet, NewsLinkedImage } from "@/services/generation";
+import type { ImageModelProvenance, ImageOriginalCandidate, ImageSet } from "@/services/generation";
 
-export function getImageTitle(image: NewsLinkedImage, index: number) {
-  return image.title ?? `News-linked image ${index + 1}`;
+export function getImageTitle(candidate: ImageOriginalCandidate, index: number) {
+  if (candidate.title) {
+    return candidate.title;
+  }
+
+  return candidate.origin === "source-tweet-media"
+    ? `Source tweet image ${index + 1}`
+    : `News-linked image ${index + 1}`;
 }
 
 export function formatImageModelProvenance(provenance: ImageModelProvenance) {
@@ -22,12 +28,17 @@ export function buildFinalQuoteTweetImageDownloadName(runLabel: string) {
   return slug || "final-quote-tweet-image";
 }
 
-export function getDisplayImageUrl(image: NewsLinkedImage, index: number) {
-  if (image.url.startsWith("https://example.com/")) {
+export function getDisplayImageUrl(candidate: ImageOriginalCandidate, index: number) {
+  // Prefer the lighter preview for the selection thumbnail when the candidate carries one.
+  const displayUrl = candidate.previewUrl ?? candidate.url;
+
+  // Local fixtures use example.com hosts that have no real bytes; swap them for a
+  // deterministic placeholder so the selection grid renders in offline dev runs.
+  if (/^https:\/\/([a-z0-9-]+\.)*example\.com\//.test(displayUrl)) {
     return `https://picsum.photos/seed/${encodeURIComponent(
-      image.id || `image-${index + 1}`,
+      candidate.id || `image-${index + 1}`,
     )}/320/240`;
   }
 
-  return image.url;
+  return displayUrl;
 }

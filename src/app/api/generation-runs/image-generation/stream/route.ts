@@ -154,15 +154,17 @@ function validateImageGenerationStart({ input, parentRun }: ImageGenerationStrea
     return "Image generation input does not match the parent run.";
   }
 
-  if (!parentRun.newsLinkedImages || parentRun.newsLinkedImages.length === 0) {
-    return "Image Generation is not available until enrichment provides images.";
+  if (!parentRun.imageOriginalCandidates || parentRun.imageOriginalCandidates.length === 0) {
+    return "Image Generation is not available until image original candidates are ready.";
   }
 
   if (hasImageGenerationStarted(parentRun)) {
     return "Image Generation has already started for this run.";
   }
 
-  const availableImageIds = new Set(parentRun.newsLinkedImages.map((image) => image.id));
+  const availableImageIds = new Set(
+    parentRun.imageOriginalCandidates.map((candidate) => candidate.id),
+  );
   const unavailableImageId = input.selectedImageIds.find(
     (selectedImageId) => !availableImageIds.has(selectedImageId),
   );

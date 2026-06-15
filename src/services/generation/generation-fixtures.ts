@@ -64,11 +64,23 @@ export function buildStubbedGenerationEvents({
     },
   ];
 
+  const imageOriginalCandidates = enrichmentContext?.newsLinkedImages
+    ?.slice(0, 4)
+    .map((newsLinkedImage) => ({
+      altText: newsLinkedImage.altText,
+      id: newsLinkedImage.id,
+      origin: "news-linked-image" as const,
+      sourceUrl: newsLinkedImage.sourceUrl,
+      title: newsLinkedImage.title,
+      url: newsLinkedImage.url,
+    }));
+
   return buildCompletedGenerationRunEvents({
     run: {
       label: runLabel,
       sourceTweet,
       drafts,
+      imageOriginalCandidates,
       newsLinkedImages: enrichmentContext?.newsLinkedImages,
     },
   });
