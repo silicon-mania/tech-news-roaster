@@ -56,8 +56,12 @@ describe("runtime status route", () => {
         AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
         AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
+        OPERATOR_ALLOWLISTED_EMAIL: "operator@example.test",
         OUTSIDE_X_ENRICHMENT_API_KEY: "enrichment-secret",
         OUTSIDE_X_ENRICHMENT_ENDPOINT: "https://enrichment.example.test/enrich",
+        SUPABASE_ANON_KEY: "anon-secret",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role-secret",
+        SUPABASE_URL: "https://project.supabase.test",
         TWITTERAPI_IO_API_KEY: "twitter-secret",
       },
       fetcher: buildModelCatalogFetcher(
@@ -119,11 +123,22 @@ describe("runtime status route", () => {
         },
         mode: "configured",
       },
+      persistence: {
+        credentials: {
+          operatorAllowlistedEmail: true,
+          supabaseAnonKey: true,
+          supabaseServiceRoleKey: true,
+          supabaseUrl: true,
+        },
+        mode: "live",
+      },
       productionReady: true,
     });
     expect(serializedStatus).not.toContain("gateway-secret");
     expect(serializedStatus).not.toContain("enrichment-secret");
     expect(serializedStatus).not.toContain("twitter-secret");
+    expect(serializedStatus).not.toContain("anon-secret");
+    expect(serializedStatus).not.toContain("service-role-secret");
   });
 
   test("reports outside-X enrichment endpoint and bearer token configuration", async () => {
@@ -154,6 +169,10 @@ describe("runtime status route", () => {
         AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
         AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
+        OPERATOR_ALLOWLISTED_EMAIL: "operator@example.test",
+        SUPABASE_ANON_KEY: "anon-secret",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role-secret",
+        SUPABASE_URL: "https://project.supabase.test",
         TWITTERAPI_IO_API_KEY: "twitter-secret",
       },
       fetcher: buildModelCatalogFetcher([
@@ -170,6 +189,58 @@ describe("runtime status route", () => {
         credentials: {
           apiKey: false,
         },
+        mode: "off",
+      },
+      productionReady: false,
+    });
+  });
+
+  test("reports the Supabase persistence boundary as off when its credentials are missing", async () => {
+    const response = await runtimeStatus({
+      env: {
+        OPERATOR_ALLOWLISTED_EMAIL: "operator@example.test",
+        SUPABASE_URL: "https://project.supabase.test",
+      },
+      fetcher: buildModelCatalogFetcher([]),
+    });
+
+    await expect(response.json()).resolves.toMatchObject({
+      persistence: {
+        credentials: {
+          operatorAllowlistedEmail: true,
+          supabaseAnonKey: false,
+          supabaseServiceRoleKey: false,
+          supabaseUrl: true,
+        },
+        mode: "off",
+      },
+    });
+  });
+
+  test("marks production not ready when the Supabase boundary is incomplete", async () => {
+    const response = await runtimeStatus({
+      env: {
+        AI_GATEWAY_ANTHROPIC_MODEL: "anthropic/launch",
+        AI_GATEWAY_API_KEY: "gateway-secret",
+        AI_GATEWAY_GOOGLE_MODEL: "google/launch",
+        AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
+        AI_GATEWAY_OPENAI_MODEL: "openai/launch",
+        AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
+        OUTSIDE_X_ENRICHMENT_API_KEY: "enrichment-secret",
+        OUTSIDE_X_ENRICHMENT_ENDPOINT: "https://enrichment.example.test/enrich",
+        TWITTERAPI_IO_API_KEY: "twitter-secret",
+      },
+      fetcher: buildModelCatalogFetcher([
+        "anthropic/launch",
+        "google/image-launch",
+        "google/launch",
+        "openai/launch",
+        "openai/visual-jokes-launch",
+      ]),
+    });
+
+    await expect(response.json()).resolves.toMatchObject({
+      persistence: {
         mode: "off",
       },
       productionReady: false,

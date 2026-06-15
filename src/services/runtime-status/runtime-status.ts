@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readOperatorAllowlistedEmail } from "@/services/auth";
 import { type GenerationProviderId, generationProviderIds } from "@/services/generation";
 import {
   readConfiguredAiGatewayImageModel,
@@ -38,6 +39,15 @@ export type RuntimeStatus = {
     };
     mode: "live" | "local";
   };
+  persistence: {
+    credentials: {
+      operatorAllowlistedEmail: boolean;
+      supabaseAnonKey: boolean;
+      supabaseServiceRoleKey: boolean;
+      supabaseUrl: boolean;
+    };
+    mode: "live" | "off";
+  };
   productionCredentials: {
     aiGatewayApiKey: boolean;
     twitterApiIoApiKey: boolean;
@@ -74,6 +84,12 @@ export async function readRuntimeStatus({
   const outsideXEnrichmentEndpoint = hasEnvValue(env.OUTSIDE_X_ENRICHMENT_ENDPOINT);
   const aiGatewayApiKey =
     hasEnvValue(env.AI_GATEWAY_API_KEY) || hasEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
+  const supabaseUrl = hasEnvValue(env.SUPABASE_URL);
+  const supabaseAnonKey = hasEnvValue(env.SUPABASE_ANON_KEY);
+  const supabaseServiceRoleKey = hasEnvValue(env.SUPABASE_SERVICE_ROLE_KEY);
+  const operatorAllowlistedEmail = Boolean(readOperatorAllowlistedEmail(env));
+  const persistenceReady =
+    supabaseUrl && supabaseAnonKey && supabaseServiceRoleKey && operatorAllowlistedEmail;
   const configuredModelIds = readConfiguredAiGatewayModels(env);
   const configuredImageModelId = readConfiguredAiGatewayImageModel(env);
   const configuredVisualJokeModelId = readConfiguredAiGatewayVisualJokeModel(env);
@@ -120,6 +136,15 @@ export async function readRuntimeStatus({
       },
       mode: aiGatewayApiKey ? "live" : "local",
     },
+    persistence: {
+      credentials: {
+        operatorAllowlistedEmail,
+        supabaseAnonKey,
+        supabaseServiceRoleKey,
+        supabaseUrl,
+      },
+      mode: persistenceReady ? "live" : "off",
+    },
     productionCredentials: {
       aiGatewayApiKey,
       twitterApiIoApiKey,
@@ -131,7 +156,8 @@ export async function readRuntimeStatus({
       outsideXEnrichmentApiKey &&
       allConfiguredModelsAvailable &&
       imageModel.available &&
-      visualJokeModel.available,
+      visualJokeModel.available &&
+      persistenceReady,
     retrieval: {
       credentials: {
         twitterApiIoApiKey,

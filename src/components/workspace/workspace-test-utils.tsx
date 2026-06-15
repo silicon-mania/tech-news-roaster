@@ -324,6 +324,15 @@ export function buildRuntimeStatus(overrides: Partial<RuntimeStatus> = {}): Runt
       },
       mode: "local",
     },
+    persistence: {
+      credentials: {
+        operatorAllowlistedEmail: false,
+        supabaseAnonKey: false,
+        supabaseServiceRoleKey: false,
+        supabaseUrl: false,
+      },
+      mode: "off",
+    },
     productionCredentials: {
       aiGatewayApiKey: false,
       twitterApiIoApiKey: false,
