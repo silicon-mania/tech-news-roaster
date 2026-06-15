@@ -304,6 +304,8 @@ fast, and deterministic.
   provider passes through native X search operators (`list:`, `min_retweets:`, `min_faves:`). If it
   does, X can pre-filter server-side and the sweep is far cheaper; if not, the sweep pulls list
   timelines and filters in-house. This empirical check gates the cheapest implementation.
+  **Resolved (2026-06-15, issue 007):** all three operators pass through; the sweep pre-filters
+  server-side and issue 014 builds the adapter on that branch. See the spike section in ADR-0020.
 - **Cost driver.** Four image generations per run is the dominant per-run cost; the per-sweep cap is
   the budget backstop, and four variations are generated even in automated runs specifically so the
   operator can later switch variation without regenerating.
