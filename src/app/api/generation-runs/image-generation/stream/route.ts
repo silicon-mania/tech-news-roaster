@@ -17,8 +17,7 @@ import {
   type SelectedImageOriginalPreparer,
   streamImageSetForRun as streamImageSetForRunService,
 } from "@/services/generation/image-generation-service";
-import { resolveImageBytesStore } from "@/services/saved-runs/image-bytes-store";
-import { persistImageSetBytes } from "@/services/saved-runs/persist-image-set-bytes";
+import { persistImageSetToOwnerStorage } from "@/services/saved-runs/persist-image-set-to-owner-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -46,30 +45,6 @@ type ImageGenerationStreamDependencies = {
   streamImageSetForRun?: typeof streamImageSetForRunService;
 };
 
-/**
- * The default persistence step: bytes land in the signed-in operator's object
- * storage and every option URL becomes a `/api/runs/.../images/...` route, so
- * the streamed (and later saved) Image Set never carries raw bytes or a storage
- * key. Throws when Supabase is configured but no operator is signed in.
- */
-export async function persistImageSetToObjectStorage({
-  imageSet,
-  origin,
-  runId,
-}: {
-  imageSet: ImageSet;
-  origin: string;
-  runId: string;
-}): Promise<ImageSet> {
-  const resolution = await resolveImageBytesStore();
-
-  if ("unauthorized" in resolution) {
-    throw new Error("Operator authentication required.");
-  }
-
-  return persistImageSetBytes({ imageSet, origin, runId, store: resolution.store });
-}
-
 export async function POST(request: Request) {
   return streamImageGenerationRun(request);
 }
@@ -93,7 +68,7 @@ export async function streamImageGenerationRun(
 
   const encoder = new TextEncoder();
   const streamImageSetForRun = dependencies.streamImageSetForRun ?? streamImageSetForRunService;
-  const persistImageSet = dependencies.persistImageSet ?? persistImageSetToObjectStorage;
+  const persistImageSet = dependencies.persistImageSet ?? persistImageSetToOwnerStorage;
   const now = dependencies.now ?? (() => new Date());
   const origin = new URL(request.url).origin;
   const stream = new ReadableStream({

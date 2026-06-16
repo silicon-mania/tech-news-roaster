@@ -187,6 +187,12 @@ export const completedGenerationRunPayloadSchema = z
 
 const runOriginSchema = z.enum(["manual", "automated"]);
 
+// Which image prompt fed image generation. Manual runs steer with the operator's
+// User Image Prompt ("user"); automated runs have no operator, so they fall back
+// to the system-owned Default Image Prompt ("default"). Absent on runs that
+// predate the field.
+const imagePromptSourceSchema = z.enum(["user", "default"]);
+
 const savedGenerationRunSchema = z
   .object({
     id: runLocalIdSchema,
@@ -195,6 +201,9 @@ const savedGenerationRunSchema = z
     // The run's provenance. Manual runs (and every run that predates server-side
     // persistence) default to "manual"; automated discovery runs land later.
     origin: runOriginSchema.optional(),
+    // Whether image generation used the operator's User Image Prompt or the
+    // system-owned Default Image Prompt. Automated runs always carry "default".
+    imagePromptSource: imagePromptSourceSchema.optional(),
     // The News Coverage Cluster this run was started from, if any. Set on
     // automated runs so a cluster links to the single run it produced; absent on
     // manual runs and runs that predate automated discovery.
