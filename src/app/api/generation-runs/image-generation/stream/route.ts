@@ -14,6 +14,8 @@ import {
   type SelectedImageOriginalPreparer,
   streamImageSetForRun as streamImageSetForRunService,
 } from "@/services/generation/image-generation-service";
+import { resolveImageBytesStore } from "@/services/saved-runs/image-bytes-store";
+import { persistImageSetBytes } from "@/services/saved-runs/persist-image-set-bytes";
 
 export const dynamic = "force-dynamic";
 
@@ -22,12 +24,48 @@ type ImageGenerationStreamRequest = {
   parentRun: ImageGenerationParentRun;
 };
 
+/**
+ * Persists an Image Set's bytes to owner-scoped object storage and returns the
+ * Image Set with its option URLs rewritten to server routes. Injected so tests
+ * exercise the route without a storage backend or the network.
+ */
+export type PersistImageSet = (params: {
+  imageSet: ImageSet;
+  origin: string;
+  runId: string;
+}) => Promise<ImageSet>;
+
 type ImageGenerationStreamDependencies = {
   now?: () => Date;
+  persistImageSet?: PersistImageSet;
   prepareSelectedImageOriginal?: SelectedImageOriginalPreparer;
   provider?: ImageVariationProvider;
   streamImageSetForRun?: typeof streamImageSetForRunService;
 };
+
+/**
+ * The default persistence step: bytes land in the signed-in operator's object
+ * storage and every option URL becomes a `/api/runs/.../images/...` route, so
+ * the streamed (and later saved) Image Set never carries raw bytes or a storage
+ * key. Throws when Supabase is configured but no operator is signed in.
+ */
+export async function persistImageSetToObjectStorage({
+  imageSet,
+  origin,
+  runId,
+}: {
+  imageSet: ImageSet;
+  origin: string;
+  runId: string;
+}): Promise<ImageSet> {
+  const resolution = await resolveImageBytesStore();
+
+  if ("unauthorized" in resolution) {
+    throw new Error("Operator authentication required.");
+  }
+
+  return persistImageSetBytes({ imageSet, origin, runId, store: resolution.store });
+}
 
 export async function POST(request: Request) {
   return streamImageGenerationRun(request);
@@ -52,7 +90,9 @@ export async function streamImageGenerationRun(
 
   const encoder = new TextEncoder();
   const streamImageSetForRun = dependencies.streamImageSetForRun ?? streamImageSetForRunService;
+  const persistImageSet = dependencies.persistImageSet ?? persistImageSetToObjectStorage;
   const now = dependencies.now ?? (() => new Date());
+  const origin = new URL(request.url).origin;
   const stream = new ReadableStream({
     async start(controller) {
       let imageSet: ImageSet | undefined;
@@ -71,10 +111,17 @@ export async function streamImageGenerationRun(
           },
         )) {
           if (serviceEvent.type === "image-set-completed") {
-            imageSet = serviceEvent.imageSet;
+            // Persist the bytes and rewrite the option URLs before emitting, so
+            // both this event and the terminal state carry only server routes —
+            // the saved run never holds raw bytes (ADR-0019).
+            imageSet = await persistImageSet({
+              imageSet: serviceEvent.imageSet,
+              origin,
+              runId: parsedRequest.parentRun.id,
+            });
             enqueueImageGenerationEvent(controller, encoder, {
               type: "image-set-completed",
-              imageSet: serviceEvent.imageSet,
+              imageSet,
             });
           } else {
             failedImageSet = serviceEvent.failedImageSet;

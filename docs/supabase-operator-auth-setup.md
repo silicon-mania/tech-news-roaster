@@ -23,7 +23,11 @@ must never reach the client bundle.
    close to where the app is deployed.
 2. A new project automatically includes managed **Postgres**, **Storage**
    (object storage), and **Auth**. No tables or buckets are needed for this
-   issue — run data moves in issue `011` and image bytes in issue `012`.
+   issue itself — run data moves in issue `011` and image bytes in issue `012`.
+   Those two ship SQL migrations under `supabase/migrations/` (the
+   `generation_runs` table and the private `generated-images` storage bucket);
+   apply them with the Supabase CLI (`supabase db push`) or by pasting each file
+   into the **SQL Editor** once the project exists.
 3. Wait for the project to finish provisioning.
 
 ## 2. Configure email-OTP authentication

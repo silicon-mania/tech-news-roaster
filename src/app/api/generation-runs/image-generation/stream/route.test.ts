@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { describe, expect, test, vi } from "vitest";
 import {
   type ImageGenerationInput,
@@ -9,7 +10,18 @@ import type {
   ImageVariationProvider,
   PreparedSelectedImageOriginal,
 } from "@/services/generation/image-generation-service";
-import { streamImageGenerationRun } from "./route";
+import {
+  createInMemoryImageBytesStore,
+  imageStoragePath,
+} from "@/services/saved-runs/image-bytes-store";
+import { persistImageSetBytes } from "@/services/saved-runs/persist-image-set-bytes";
+import { type PersistImageSet, streamImageGenerationRun } from "./route";
+
+// The success-path tests below assert event shapes, not persistence, so they
+// keep the streamed Image Set verbatim. Byte persistence + URL rewriting has its
+// own dedicated test (and unit tests under saved-runs) so it never touches the
+// network here.
+const passthroughPersist: PersistImageSet = async ({ imageSet }) => imageSet;
 
 describe("image generation stream route", () => {
   test("streams a completed image set from an active text-generation run", async () => {
@@ -27,6 +39,7 @@ describe("image generation stream route", () => {
       }),
       {
         now: () => new Date("2026-06-05T10:20:00.000Z"),
+        persistImageSet: passthroughPersist,
         prepareSelectedImageOriginal: async ({ candidate }) => {
           calls.push(`prepare:${candidate.id}`);
 
@@ -87,6 +100,7 @@ describe("image generation stream route", () => {
       }),
       {
         now: () => new Date("2026-06-05T10:20:00.000Z"),
+        persistImageSet: passthroughPersist,
         prepareSelectedImageOriginal: async ({ candidate }) => buildPreparedOriginal(candidate),
         provider: buildProvider(),
       },
@@ -98,6 +112,53 @@ describe("image generation stream route", () => {
       "image-set-completed",
       "image-generation-completed",
     ]);
+  });
+
+  test("persists the image set bytes and rewrites option URLs to server routes", async () => {
+    const store = createInMemoryImageBytesStore("operator-1", new Map());
+    const fetchBytes = vi.fn(async (url: string) => ({
+      bytes: Buffer.from(`bytes:${url}`),
+      contentType: "image/jpeg",
+    }));
+    const response = await streamImageGenerationRun(
+      buildRequest({
+        input: buildInput(),
+        parentRun: buildParentRun({
+          imageGenerationState: {
+            status: "not-started",
+          },
+        }),
+      }),
+      {
+        now: () => new Date("2026-06-05T10:20:00.000Z"),
+        persistImageSet: ({ imageSet, origin, runId }) =>
+          persistImageSetBytes({ fetchBytes, imageSet, origin, runId, store }),
+        prepareSelectedImageOriginal: async ({ candidate }) => buildPreparedOriginal(candidate),
+        provider: buildProvider(),
+      },
+    );
+    const events = await readImageGenerationStreamEvents(response);
+    const completed = events.find((event) => event.type === "image-set-completed");
+
+    if (completed?.type !== "image-set-completed") {
+      throw new Error("Expected an image-set-completed event.");
+    }
+
+    // Every option (original + four variations) is now reached through this run's
+    // image route, and its bytes were written to owner-scoped storage.
+    expect(completed.imageSet.options).toHaveLength(5);
+
+    for (const option of completed.imageSet.options) {
+      expect(option.url).toBe(
+        `https://tech-news-roaster.test/api/runs/saved-run/images/${option.id}`,
+      );
+      expect(await store.get(imageStoragePath("saved-run", option.id))).not.toBeNull();
+    }
+
+    // The Selected Image Original is repointed at the stored original, so the
+    // Final Quote Tweet Image recomposes from stored bytes on reopen.
+    expect(completed.imageSet.selectedImageOriginal.url).toBe(completed.imageSet.options[0].url);
+    expect(fetchBytes).toHaveBeenCalledTimes(5);
   });
 
   test("uses only the User Image Prompt to steer image generation", async () => {
@@ -119,6 +180,7 @@ describe("image generation stream route", () => {
       }),
       {
         now: () => new Date("2026-06-05T10:20:00.000Z"),
+        persistImageSet: passthroughPersist,
         prepareSelectedImageOriginal: async ({ candidate }) => buildPreparedOriginal(candidate),
         provider: buildProvider({
           generateVariations,
