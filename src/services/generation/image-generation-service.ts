@@ -8,9 +8,9 @@ import {
   parseFailedImageSet,
   parseImageGenerationInput,
   parseImageSet,
-  parseSelectedImageOriginal,
   type SavedGenerationRun,
   type SelectedImageOriginal,
+  selectedImageOriginalFromCandidate,
 } from "@/services/generation";
 import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 import { readConfiguredAiGatewayImageModel, readEnvValue } from "./ai-gateway-models";
@@ -248,16 +248,7 @@ export async function prepareSelectedImageOriginal({
   }
 
   const mediaType = response.headers.get("content-type") ?? "application/octet-stream";
-  const selectedImageOriginal = parseSelectedImageOriginal({
-    altText: candidate.altText,
-    candidateId: candidate.id,
-    id: `selected-original-${candidate.id}`,
-    origin: candidate.origin,
-    preparedAt: now().toISOString(),
-    sourceUrl: candidate.sourceUrl,
-    title: candidate.title,
-    url: candidate.url,
-  });
+  const selectedImageOriginal = selectedImageOriginalFromCandidate(candidate, now().toISOString());
 
   return {
     dataUrl: `data:${mediaType};base64,${bytes.toString("base64")}`,

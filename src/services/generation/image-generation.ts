@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  type ImageOriginalCandidate,
   imageOriginalCandidateOriginSchema,
   imageOriginalCandidateSchema,
   imageOriginalCandidateTarget,
@@ -180,8 +181,33 @@ export function parseImageGenerationParentRun(parentRun: unknown): ImageGenerati
   return imageGenerationParentRunSchema.parse(parentRun);
 }
 
-export function parseSelectedImageOriginal(original: unknown): SelectedImageOriginal {
+function parseSelectedImageOriginal(original: unknown): SelectedImageOriginal {
   return selectedImageOriginalSchema.parse(original);
+}
+
+/**
+ * Pure candidate → Selected Image Original mapping. The selection metadata (id,
+ * candidateId, origin, url, alt/source/title, preparedAt) is fully determined by
+ * the candidate plus the moment it was prepared — no bytes, no fetch. Shared by
+ * the manual image-generation path (which additionally fetches the bytes that
+ * feed generation) and by Automated Selection, which picks the first candidate
+ * with no operator. Keeping one builder guarantees both paths shape the field
+ * identically.
+ */
+export function selectedImageOriginalFromCandidate(
+  candidate: ImageOriginalCandidate,
+  preparedAt: string,
+): SelectedImageOriginal {
+  return parseSelectedImageOriginal({
+    altText: candidate.altText,
+    candidateId: candidate.id,
+    id: `selected-original-${candidate.id}`,
+    origin: candidate.origin,
+    preparedAt,
+    sourceUrl: candidate.sourceUrl,
+    title: candidate.title,
+    url: candidate.url,
+  });
 }
 
 export function parseImageSet(imageSet: unknown): ImageSet {

@@ -1,3 +1,4 @@
+export * from "./automated-selection";
 export * from "./error-detail";
 export * from "./generation-fixtures";
 export * from "./generation-run";
