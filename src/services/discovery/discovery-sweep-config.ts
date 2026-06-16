@@ -1,9 +1,11 @@
 /**
- * Documented defaults for the Discovery Sweep (issue 020). Like the virality and
- * clustering defaults these are deliberately permissive starting values, not tuned
- * thresholds: exact tuning — the per-sweep cap and the coarse pre-filter floors —
- * is deferred to issue 021 (see docs/adr/0020-automated-discovery-via-api-list-polling.md).
- * The sweep itself hard-codes no schedule or interval; those are 021's concern too.
+ * Configuration for the Discovery Sweep (issue 020). The coarse pre-filter floors
+ * (`minFaves`/`minReposts`) remain deliberately permissive starting values; the
+ * per-sweep cap was settled in issue 021 against the serverless cost/duration
+ * envelope (see below and docs/deployment-v3.md). All three stay operator-tunable
+ * against live behavior — see the "Tuning the discovery configuration" guide in
+ * docs/deployment-v3.md. The sweep itself still hard-codes no schedule or interval;
+ * those live in the cron config and the sweep route (issue 021).
  */
 
 export type DiscoverySweepConfig = {
@@ -14,6 +16,12 @@ export type DiscoverySweepConfig = {
    * start runs; the rest are logged (never silently truncated) and left for a later
    * sweep to reconsider while they remain in the trailing window. Four image
    * generations per run is the dominant cost, which is what this number bounds.
+   *
+   * It also bounds wall-clock: the sweep route composes kept runs sequentially, so
+   * a sweep's duration ≈ cap × per-run time, and a Vercel-Cron-triggered sweep must
+   * finish inside the route's serverless duration limit. The launch value (3) was
+   * chosen in issue 021 to fit comfortably; raise it once real volume and the
+   * deployment's duration headroom are known (docs/deployment-v3.md).
    */
   maxRunsPerSweep: number;
   /**
@@ -33,7 +41,7 @@ export type DiscoverySweepConfig = {
 };
 
 export const defaultDiscoverySweepConfig: DiscoverySweepConfig = {
-  maxRunsPerSweep: 10,
+  maxRunsPerSweep: 3,
   minFaves: 25,
   minReposts: 5,
 };

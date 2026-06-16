@@ -41,6 +41,14 @@ AI_GATEWAY_VISUAL_JOKE_MODEL=openai/gpt-5.4-mini
 OUTSIDE_X_ENRICHMENT_ENDPOINT=https://<your-production-domain>/enrich
 OUTSIDE_X_ENRICHMENT_API_KEY=<shared enrichment bearer token>
 SERPER_API_KEY=<serper key, if using this repo's /enrich route>
+DISCOVERY_SOURCE_LIST_IDS=<comma-separated operator-owned X List ids>
+CRON_SECRET=<long random secret protecting the sweep route>
+```
+
+Optional (automated discovery):
+
+```bash
+DISCOVERY_SWEEP_LOOKBACK_HOURS=3
 ```
 
 Optional:
@@ -86,3 +94,95 @@ Notes:
    - Image Generation results
 5. Reopen the saved run from the drawer and confirm it does not regenerate.
 6. Select or clear a visual joke, reopen the run again, and confirm the selection persisted.
+
+## 5. Automated Discovery Sweep scheduling (v4)
+
+The sweep runs unattended as a **Vercel Cron job** that hits the secured
+`/api/discovery-sweep` route. The schedule lives in `vercel.json`:
+
+```json
+{
+  "crons": [{ "path": "/api/discovery-sweep", "schedule": "0 */2 * * *" }]
+}
+```
+
+- **Interval Y is every 2 hours** (`0 */2 * * *`). Detection latency is ~Y by design.
+  To change the cadence, edit this schedule *and* (if you lengthen it) raise
+  `DISCOVERY_SWEEP_LOOKBACK_HOURS` so consecutive trailing windows still overlap.
+- **Plan requirement.** A 2-hour cadence needs a Vercel **Pro** plan or above; Hobby
+  cron jobs run at most once per day. Confirm the plan before relying on the schedule.
+- **Duration.** The route sets `maxDuration = 800`. A sweep composes its kept runs
+  sequentially, so wall-clock ≈ per-sweep cap × per-run time; the launch cap (3) is
+  sized to finish inside one invocation. Vercel clamps `maxDuration` to the plan /
+  Fluid-compute maximum, so confirm the deployment allows enough seconds for
+  `cap × per-run time`. If you raise the cap and sweeps risk timing out, move to a
+  worker/queue rather than letting runs be cut off.
+- **Authentication.** Set a long random `CRON_SECRET` (e.g. `openssl rand -hex 32`).
+  Vercel Cron automatically sends it as `Authorization: Bearer <CRON_SECRET>`. The
+  route refuses any request without the matching bearer; with no secret set it refuses
+  outright in production.
+- **Discovery Source.** Set `DISCOVERY_SOURCE_LIST_IDS` to your operator-owned X List
+  ids (comma-separated). With none set the route returns 503 and sweeps nothing.
+- **Readiness gate.** A sweep that finds the Runtime Readiness Gate not ready starts
+  nothing that cycle and returns `{ "status": "not-ready" }` (HTTP 200). Confirm
+  `/api/runtime-status` reports `retrieval.mode: live`, `persistence.mode: live`, and
+  both the image model and visual-joke model as `available: true` before relying on
+  unattended sweeps.
+
+## 6. Real Discovery Sweep smoke (v4)
+
+Operator-driven and occasional, with production keys — separate from the fast,
+deterministic fixture suite, which remains the regression guard.
+
+1. Confirm `/api/runtime-status` reports the discovery boundaries ready (section 5).
+2. Trigger one sweep by hand against your real Lists (substitute your domain + secret):
+
+   ```bash
+   curl -i https://<your-production-domain>/api/discovery-sweep \
+     -H "Authorization: Bearer $CRON_SECRET"
+   ```
+
+3. Confirm the response is `200` with a summary like
+   `{ "status": "completed", "startedRuns": N, "droppedByCap": M, "joinedExistingClusters": K, "runIds": [...] }`.
+   `startedRuns` should match the count of distinct viral news events in the trailing
+   window (one run per News Coverage Cluster), bounded by the per-sweep cap.
+4. Open the unified runs list and confirm the started runs appear as **automated**,
+   marked **unseen**.
+5. Trigger the sweep again immediately. Confirm a tweet that joins an already-run
+   cluster starts **no second run** (`startedRuns` for the same news is 0;
+   `joinedExistingClusters` accounts for it) — the seen-tweet + cluster dedup guarantee.
+6. Check the cron logs: any cluster dropped by the per-sweep cap is logged
+   (`[discovery-sweep] cap-drop: ...`), never silently discarded.
+
+## 7. Real Automated Run smoke (v4)
+
+1. Open one of the runs the sweep started (section 6).
+2. Confirm it reached a composed **Final Quote Tweet Image** end to end with no input
+   from you, and that Automated Selection picked the first draft, the Recommended
+   Visual Joke, the first image original candidate, and the first variation.
+3. Confirm the image set has exactly **four variations** and the selected original is
+   locked.
+4. Confirm **prepare-not-publish**: nothing was posted to X — the run only prepared the
+   Final Quote Tweet Image and Selected Draft.
+5. Override the Selected Visual Joke (or re-pick a variation) and confirm the Final
+   Quote Tweet Image **recomposes instantly with no regeneration**.
+
+## 8. Tuning the discovery configuration (v4)
+
+These knobs ship as documented launch defaults; tune them against your live feed.
+Each lives in code (change, redeploy) except the interval, which lives in `vercel.json`.
+
+| Knob | Where | Default | Tune when |
+| --- | --- | --- | --- |
+| Virality bar | `src/services/discovery/virality-config.ts` (`viralityBar`) | `2` | Too few runs → lower it; too much non-news noise surfacing → raise it. |
+| Baseline refresh cadence | `virality-config.ts` (`baselineRefreshHours`) | `168` (weekly) | Authors' "normal" drifts fast → shorten; want to cut sampler API cost → lengthen. |
+| Per-sweep cap | `src/services/discovery/discovery-sweep-config.ts` (`maxRunsPerSweep`) | `3` | Cap-drop logs show real news being deferred *and* budget + duration allow → raise. |
+| Coarse pre-filter floors | `discovery-sweep-config.ts` (`minFaves` / `minReposts`) | `25` / `5` | Small-account breakouts missed → lower; sweeps too noisy/expensive → raise. |
+| Clustering threshold | `src/services/discovery/clustering-config.ts` (`similarityThreshold`) | `0.3` | One event makes several runs → lower it; unrelated tweets merged into one run → raise it. |
+| Clustering window | `clustering-config.ts` (`clusterWindowMs`) | `6h` | Late coverage re-opens old events → narrow it; the same event keeps starting fresh runs → widen it. |
+| Default Image Prompt | `src/services/generation/default-image-prompt.ts` | (working wording) | Generated variations read off-brand or add unwanted text → adjust the wording. |
+| Interval Y | `vercel.json` cron `schedule` (+ `DISCOVERY_SWEEP_LOOKBACK_HOURS`) | every 2h / 3h lookback | Want lower latency → run more often; want lower cost → run less often. |
+
+After any change, redeploy and re-run the real Discovery Sweep smoke (section 6) to
+confirm the new values behave as intended. The fixture suite (`npm test`) stays the
+fast guard against regressions while you tune.
