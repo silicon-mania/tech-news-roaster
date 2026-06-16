@@ -59,7 +59,7 @@ export type ComposeAutomatedRunInput = {
  * option URLs rewritten to server routes. Injected so tests exercise the
  * composition without a storage backend or the network.
  */
-export type PersistImageSet = (params: {
+type PersistImageSet = (params: {
   imageSet: ImageSet;
   origin: string;
   runId: string;
@@ -262,7 +262,8 @@ export async function composeAutomatedRun(
   // 4. Image Original Candidates: Source Tweet media first, topped up by
   //    News-Linked Images only when the tweet supplies fewer than four.
   const imageOriginalCandidates = assembleImageOriginalCandidates({
-    newsLinkedImages: discoveryResult.status === "available" ? discoveryResult.newsLinkedImages : [],
+    newsLinkedImages:
+      discoveryResult.status === "available" ? discoveryResult.newsLinkedImages : [],
     sourceTweetMedia: sourceTweet.mediaReferences,
   });
 

@@ -1,5 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
-import { findSelectedVariation, findSelectedVisualJoke } from "@/components/workspace/quote-tweet-selection";
+import {
+  findSelectedVariation,
+  findSelectedVisualJoke,
+} from "@/components/workspace/quote-tweet-selection";
 import {
   defaultImagePrompt,
   type ImageSet,
@@ -18,10 +21,7 @@ import {
 import { JokeContextGatheringError } from "@/services/joke-context-gathering";
 import { createInMemoryRunRepository } from "@/services/saved-runs/in-memory-run-repository";
 import { buildFixtureTweetContext, TweetRetrievalError } from "@/services/tweet-retrieval";
-import {
-  composeAutomatedRun,
-  type ComposeAutomatedRunDependencies,
-} from "./compose-automated-run";
+import { type ComposeAutomatedRunDependencies, composeAutomatedRun } from "./compose-automated-run";
 
 const fixedNow = () => new Date("2026-06-16T12:00:00.000Z");
 const sourceTweetUrl = "https://x.com/siliconmania/status/1234";

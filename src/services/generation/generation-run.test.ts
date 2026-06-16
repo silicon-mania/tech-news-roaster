@@ -139,6 +139,7 @@ describe("generation run contracts", () => {
         usersDirection: "",
         status: "completed" as const,
         origin: "automated" as const,
+        imagePromptSource: "default" as const,
         newsCoverageClusterId: "cluster-openai-workspace",
         draftCount: 3,
         draftTarget: 3 as const,
@@ -148,6 +149,7 @@ describe("generation run contracts", () => {
       }),
     ).toMatchObject({
       origin: "automated",
+      imagePromptSource: "default",
       newsCoverageClusterId: "cluster-openai-workspace",
     });
   });
