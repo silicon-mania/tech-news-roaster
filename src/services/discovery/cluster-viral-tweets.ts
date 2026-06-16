@@ -15,7 +15,7 @@ export type ExistingClusterRef = {
 };
 
 /** A brand-new News Coverage Cluster formed this sweep — the unit that starts one run. */
-type FormedCluster = {
+export type FormedCluster = {
   sourceTweet: ClusterableTweet;
   memberTweetIds: string[];
   sourceText: string;
