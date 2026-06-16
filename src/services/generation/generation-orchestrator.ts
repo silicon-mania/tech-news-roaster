@@ -10,6 +10,7 @@ import {
   type QuoteTweetDraft,
 } from "@/services/generation";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
+import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
 import {
   defaultVisualJokeDirection,
@@ -57,6 +58,12 @@ type GenerationOrchestratorOptions = {
   providers?: GenerationProvider[];
   visualJokeProvider?: VisualJokeCandidateProvider;
 };
+
+// Each Text Generation provider call (and the Provider Fallback call, which
+// reuses the same provider) is bounded by this timeout so one hung provider
+// fails fast and is treated as a failed provider — Provider Fallback still
+// produces a complete three-draft set. Tunable via AI_GATEWAY_TEXT_TIMEOUT_MS.
+const defaultTextGenerationTimeoutMs = 60_000;
 
 const gatewayResponseSchema = z.object({
   choices: z
@@ -402,28 +409,34 @@ function createGatewayGenerationProvider({
       }
 
       const gatewayBaseUrl = process.env.AI_GATEWAY_BASE_URL ?? "https://ai-gateway.vercel.sh/v1";
-      const response = await fetch(`${gatewayBaseUrl.replace(/\/$/, "")}/chat/completions`, {
-        body: JSON.stringify({
-          messages: [
-            {
-              content:
-                "You write sharp English quote-tweet candidates for tech-news commentary. Return only JSON.",
-              role: "system",
-            },
-            {
-              content: buildProviderPrompt(input),
-              role: "user",
-            },
-          ],
-          model,
-          temperature: 0.8,
-        }),
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
+      const response = await fetchWithTimeout(
+        `${gatewayBaseUrl.replace(/\/$/, "")}/chat/completions`,
+        {
+          body: JSON.stringify({
+            messages: [
+              {
+                content:
+                  "You write sharp English quote-tweet candidates for tech-news commentary. Return only JSON.",
+                role: "system",
+              },
+              {
+                content: buildProviderPrompt(input),
+                role: "user",
+              },
+            ],
+            model,
+            temperature: 0.8,
+          }),
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+          operationLabel: `${displayName} generation`,
+          timeoutMs: readTextGenerationTimeoutMs(),
+          upstreamLabel: "the AI Gateway",
         },
-        method: "POST",
-      });
+      );
 
       if (!response.ok) {
         throw new Error(
@@ -632,4 +645,8 @@ function readAiGatewayApiKey() {
     readEnvValue(process.env.AI_GATEWAY_API_KEY) ??
     readEnvValue(process.env.VERCEL_AI_GATEWAY_API_KEY)
   );
+}
+
+function readTextGenerationTimeoutMs() {
+  return readTimeoutMs(process.env.AI_GATEWAY_TEXT_TIMEOUT_MS, defaultTextGenerationTimeoutMs);
 }

@@ -243,6 +243,64 @@ describe("tweet retrieval", () => {
     ).rejects.toThrow(TweetRetrievalError);
   });
 
+  test("fails fast when the source tweet request exceeds the configured timeout", async () => {
+    vi.stubEnv("TWITTERAPI_IO_TIMEOUT_MS", "50");
+    // Never resolves on its own; only the hard timeout can end the call.
+    globalThis.fetch = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject((init.signal as AbortSignal).reason),
+          );
+        }),
+    );
+
+    await expect(
+      retrieveTweetContext({
+        sourceTweetUrl: "https://x.com/v0/status/2062195681947971840",
+      }),
+    ).rejects.toThrow(/timed out after \d+s waiting for twitterapi\.io/);
+  });
+
+  test("degrades to an empty reply list when reply pagination exceeds the configured timeout", async () => {
+    vi.stubEnv("TWITTERAPI_IO_TIMEOUT_MS", "50");
+    globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/twitter/tweet/replies/v2")) {
+        // Reply pagination goes silent — bounded by the timeout, then degrades.
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject((init.signal as AbortSignal).reason),
+          );
+        });
+      }
+
+      return Promise.resolve(
+        Response.json({
+          tweets: [
+            {
+              id: "2062195681947971840",
+              url: "https://x.com/v0/status/2062195681947971840",
+              text: "Real source tweet text from TwitterAPI.io.",
+              createdAt: "Sun Jun 07 12:00:00 +0000 2026",
+              author: { userName: "v0", name: "v0" },
+            },
+          ],
+          status: "success",
+          message: "",
+        }),
+      );
+    });
+
+    const context = await retrieveTweetContext({
+      sourceTweetUrl: "https://x.com/v0/status/2062195681947971840",
+    });
+
+    expect(context.sourceTweet.id).toBe("2062195681947971840");
+    expect(context.replies).toEqual([]);
+  });
+
   test("fixture tweet retrieval includes provider-agnostic media references", () => {
     const context = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
 

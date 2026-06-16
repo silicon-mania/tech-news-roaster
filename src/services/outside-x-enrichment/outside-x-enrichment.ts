@@ -1,8 +1,14 @@
 import { z } from "zod";
 import { newsLinkedImageSchema } from "@/services/generation";
 import type { RetrievedSourceTweet, RetrievedTweetContext } from "@/services/tweet-retrieval";
+import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 
 const maxReplySignals = 6;
+// The outside-X enrichment request is bounded by this timeout so a hung endpoint
+// fails fast and degrades News-Linked Image Discovery like any failure today (the
+// run still completes from the surviving branches). Tunable via
+// OUTSIDE_X_ENRICHMENT_TIMEOUT_MS.
+const defaultOutsideXEnrichmentTimeoutMs = 30_000;
 
 const replySignalSchema = z
   .object({
@@ -95,7 +101,7 @@ export async function retrieveOutsideXEnrichment({
     throw new Error("Outside-X enrichment API key is not configured.");
   }
 
-  const response = await fetch(endpoint, {
+  const response = await fetchWithTimeout(endpoint, {
     body: JSON.stringify({
       sourceTweet,
       replySignals,
@@ -106,6 +112,12 @@ export async function retrieveOutsideXEnrichment({
       "Content-Type": "application/json",
     },
     method: "POST",
+    operationLabel: "Outside-X enrichment",
+    timeoutMs: readTimeoutMs(
+      process.env.OUTSIDE_X_ENRICHMENT_TIMEOUT_MS,
+      defaultOutsideXEnrichmentTimeoutMs,
+    ),
+    upstreamLabel: "the enrichment endpoint",
   });
 
   if (!response.ok) {

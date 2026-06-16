@@ -185,6 +185,44 @@ describe("visual joke service", () => {
     }
   });
 
+  test("fails fast when the gateway call exceeds the configured timeout", async () => {
+    const previousApiKey = process.env.AI_GATEWAY_API_KEY;
+    const previousVercelKey = process.env.VERCEL_AI_GATEWAY_API_KEY;
+    const previousTimeout = process.env.AI_GATEWAY_VISUAL_JOKE_TIMEOUT_MS;
+    const previousFetch = globalThis.fetch;
+    // Never resolves on its own; only the hard timeout can end the call.
+    const fetcher = vi.fn<typeof fetch>(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject((init.signal as AbortSignal).reason),
+          );
+        }),
+    );
+
+    process.env.AI_GATEWAY_API_KEY = "gateway-secret";
+    process.env.AI_GATEWAY_VISUAL_JOKE_TIMEOUT_MS = "50";
+    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    globalThis.fetch = fetcher;
+
+    try {
+      // The thrown timeout is what the orchestrator already degrades on, so a
+      // timed-out Visual Joke generation degrades the run like any failure today.
+      await expect(
+        generateVisualJokeSet({
+          jokeContextSnapshot: buildJokeContextSnapshot(),
+          visualJokeDirection: defaultVisualJokeDirection,
+        }),
+      ).rejects.toThrow(/timed out after \d+s waiting for the AI Gateway/);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    } finally {
+      restoreEnvValue("AI_GATEWAY_API_KEY", previousApiKey);
+      restoreEnvValue("VERCEL_AI_GATEWAY_API_KEY", previousVercelKey);
+      restoreEnvValue("AI_GATEWAY_VISUAL_JOKE_TIMEOUT_MS", previousTimeout);
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   test("does not retry or fall back when the configured provider fails", async () => {
     const provider = {
       model: "test-model",

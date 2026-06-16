@@ -12,6 +12,7 @@ import {
   type SavedGenerationRun,
   type SelectedImageOriginal,
 } from "@/services/generation";
+import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 import { readConfiguredAiGatewayImageModel, readEnvValue } from "./ai-gateway-models";
 import { describeErrorDetail, summarizeErrorMessage } from "./error-detail";
 
@@ -326,7 +327,7 @@ function createAiGatewayImageVariationProvider({
       const gatewayBaseUrl = (baseUrl ?? "https://ai-gateway.vercel.sh/v1").replace(/\/$/, "");
       const variations = await Promise.all(
         Array.from({ length: variationCount }, async (_, index) => {
-          const response = await fetchGatewayCompletion(`${gatewayBaseUrl}/chat/completions`, {
+          const response = await fetchWithTimeout(`${gatewayBaseUrl}/chat/completions`, {
             body: JSON.stringify({
               messages: [
                 {
@@ -357,7 +358,9 @@ function createAiGatewayImageVariationProvider({
               "Content-Type": "application/json",
             },
             method: "POST",
+            operationLabel: "Image generation",
             timeoutMs,
+            upstreamLabel: "the AI Gateway",
           });
 
           if (!response.ok) {
@@ -525,32 +528,5 @@ function readAiGatewayApiKey(env: ImageModelEnvironment) {
 }
 
 function readImageGenerationTimeoutMs(env: ImageModelEnvironment): number {
-  const raw = readEnvValue(env.AI_GATEWAY_IMAGE_TIMEOUT_MS);
-  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultImageGenerationTimeoutMs;
-}
-
-/**
- * Fetch with a hard timeout via `AbortSignal.timeout`, translating an abort into
- * a clear, debuggable message. Without it a hung AI Gateway stalls on undici's
- * default header timeout (~300s) and the operator only sees a bare "Failed to
- * fetch" once the client stream finally drops.
- */
-async function fetchGatewayCompletion(
-  url: string,
-  { timeoutMs, ...init }: RequestInit & { timeoutMs: number },
-): Promise<Response> {
-  try {
-    return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
-  } catch (error) {
-    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-      throw new Error(
-        `Image generation timed out after ${Math.round(timeoutMs / 1000)}s waiting for the AI Gateway.`,
-        { cause: error },
-      );
-    }
-
-    throw error;
-  }
+  return readTimeoutMs(env.AI_GATEWAY_IMAGE_TIMEOUT_MS, defaultImageGenerationTimeoutMs);
 }

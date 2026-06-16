@@ -102,6 +102,45 @@ describe("outside-X enrichment", () => {
     }
   });
 
+  test("fails fast when the enrichment request exceeds the configured timeout", async () => {
+    const previousEndpoint = process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
+    const previousApiKey = process.env.OUTSIDE_X_ENRICHMENT_API_KEY;
+    const previousTimeout = process.env.OUTSIDE_X_ENRICHMENT_TIMEOUT_MS;
+    const previousFetch = globalThis.fetch;
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
+    // Never resolves on its own; only the hard timeout can end the call. A
+    // timed-out request degrades News-Linked Image Discovery like any failure.
+    const fetcher = vi.fn<typeof fetch>(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject((init.signal as AbortSignal).reason),
+          );
+        }),
+    );
+
+    process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT = "https://outside-x.example/enrich";
+    process.env.OUTSIDE_X_ENRICHMENT_API_KEY = "outside-x-secret";
+    process.env.OUTSIDE_X_ENRICHMENT_TIMEOUT_MS = "50";
+    globalThis.fetch = fetcher;
+
+    try {
+      await expect(
+        retrieveOutsideXEnrichment({
+          sourceTweet: tweetContext.sourceTweet,
+          replySignals: buildReplySignals(tweetContext),
+          usersDirection: "",
+        }),
+      ).rejects.toThrow(/timed out after \d+s waiting for the enrichment endpoint/);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    } finally {
+      restoreEnvValue("OUTSIDE_X_ENRICHMENT_ENDPOINT", previousEndpoint);
+      restoreEnvValue("OUTSIDE_X_ENRICHMENT_API_KEY", previousApiKey);
+      restoreEnvValue("OUTSIDE_X_ENRICHMENT_TIMEOUT_MS", previousTimeout);
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   test("requires a bearer token when the endpoint is configured", async () => {
     const previousEndpoint = process.env.OUTSIDE_X_ENRICHMENT_ENDPOINT;
     const previousApiKey = process.env.OUTSIDE_X_ENRICHMENT_API_KEY;

@@ -7,6 +7,7 @@ import {
   type VisualJokeMetadata,
   type VisualJokeSet,
 } from "@/services/generation";
+import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 import { readConfiguredAiGatewayVisualJokeModel, readEnvValue } from "./ai-gateway-models";
 
 const minimumReturnedJokeCount = 5;
@@ -14,6 +15,11 @@ const targetReturnedJokeCount = 8;
 const maximumTitleWordCount = 12;
 const maximumGatewayErrorLength = 500;
 const defaultAiGatewayBaseUrl = "https://ai-gateway.vercel.sh/v1";
+// A hung Visual Joke generation call is bounded by this timeout so it fails fast
+// and degrades the run like any other Visual Joke failure today (the run still
+// completes from the surviving branches). Tunable via
+// AI_GATEWAY_VISUAL_JOKE_TIMEOUT_MS.
+const defaultVisualJokeTimeoutMs = 60_000;
 
 const visualJokePatterns = [
   "truthful misdirection",
@@ -147,6 +153,7 @@ function createDefaultVisualJokeCandidateProvider(
     apiKey,
     baseUrl: readEnvValue(env.AI_GATEWAY_BASE_URL),
     model,
+    timeoutMs: readVisualJokeTimeoutMs(env),
   });
 }
 
@@ -166,10 +173,12 @@ function createAiGatewayVisualJokeCandidateProvider({
   apiKey,
   baseUrl,
   model,
+  timeoutMs,
 }: {
   apiKey: string | undefined;
   baseUrl: string | undefined;
   model: string;
+  timeoutMs: number;
 }): VisualJokeCandidateProvider {
   return {
     model,
@@ -179,7 +188,7 @@ function createAiGatewayVisualJokeCandidateProvider({
         throw new VisualJokeGenerationError("AI Gateway credentials are not configured.");
       }
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${(baseUrl ?? defaultAiGatewayBaseUrl).replace(/\/$/, "")}/chat/completions`,
         {
           body: JSON.stringify({
@@ -206,6 +215,9 @@ function createAiGatewayVisualJokeCandidateProvider({
             "Content-Type": "application/json",
           },
           method: "POST",
+          operationLabel: "Visual joke generation",
+          timeoutMs,
+          upstreamLabel: "the AI Gateway",
         },
       );
 
@@ -733,4 +745,8 @@ async function readGatewayError(response: Response) {
 
 function readAiGatewayApiKey(env: VisualJokeModelEnvironment) {
   return readEnvValue(env.AI_GATEWAY_API_KEY) ?? readEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
+}
+
+function readVisualJokeTimeoutMs(env: VisualJokeModelEnvironment) {
+  return readTimeoutMs(env.AI_GATEWAY_VISUAL_JOKE_TIMEOUT_MS, defaultVisualJokeTimeoutMs);
 }

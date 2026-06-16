@@ -290,6 +290,85 @@ describe("generation orchestrator", () => {
     expect(run.drafts.filter((draft) => draft.provider === "openai")).toHaveLength(2);
   });
 
+  test("counts a timed-out text provider as a failed provider and still completes via fallback", async () => {
+    const previousEnv = {
+      AI_GATEWAY_ANTHROPIC_MODEL: process.env.AI_GATEWAY_ANTHROPIC_MODEL,
+      AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
+      AI_GATEWAY_GOOGLE_MODEL: process.env.AI_GATEWAY_GOOGLE_MODEL,
+      AI_GATEWAY_OPENAI_MODEL: process.env.AI_GATEWAY_OPENAI_MODEL,
+      AI_GATEWAY_TEXT_TIMEOUT_MS: process.env.AI_GATEWAY_TEXT_TIMEOUT_MS,
+      VERCEL_AI_GATEWAY_API_KEY: process.env.VERCEL_AI_GATEWAY_API_KEY,
+    };
+    const previousFetch = globalThis.fetch;
+    const fetcher = vi.fn<typeof fetch>((_input, init) => {
+      const body = JSON.parse(String(init?.body)) as { model?: string };
+
+      // The Anthropic provider goes silent; only the hard timeout ends its call.
+      if (body.model === "anthropic/model") {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject((init.signal as AbortSignal).reason),
+          );
+        });
+      }
+
+      return Promise.resolve(
+        Response.json({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  angle: "configured model",
+                  text: "Quote-tweet draft: surviving provider covers the slot.",
+                  visibleRationale: "Surviving provider keeps the set complete.",
+                }),
+              },
+            },
+          ],
+        }),
+      );
+    });
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
+
+    process.env.AI_GATEWAY_API_KEY = "gateway-secret";
+    process.env.AI_GATEWAY_OPENAI_MODEL = "openai/model";
+    process.env.AI_GATEWAY_ANTHROPIC_MODEL = "anthropic/model";
+    process.env.AI_GATEWAY_GOOGLE_MODEL = "google/model";
+    process.env.AI_GATEWAY_TEXT_TIMEOUT_MS = "50";
+    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+    globalThis.fetch = fetcher;
+
+    try {
+      const run = await orchestrateThreeProviderGeneration(
+        {
+          jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
+          sourceTweet: tweetContext.sourceTweet,
+          sourceTweetUrl: tweetContext.sourceTweet.url,
+          usersDirection: "",
+        },
+        {
+          visualJokeProvider: buildVisualJokeProvider(),
+        },
+      );
+
+      expect(run.drafts).toHaveLength(3);
+      expect(run.drafts[1]).toMatchObject({
+        fallbackForProvider: "anthropic",
+        provider: "openai",
+      });
+      expect(run.fallbackDisclosure).toContain("Anthropic");
+      expect(run.generationResultStates?.textGeneration.status).toBe("completed");
+    } finally {
+      restoreEnvValue("AI_GATEWAY_API_KEY", previousEnv.AI_GATEWAY_API_KEY);
+      restoreEnvValue("AI_GATEWAY_OPENAI_MODEL", previousEnv.AI_GATEWAY_OPENAI_MODEL);
+      restoreEnvValue("AI_GATEWAY_ANTHROPIC_MODEL", previousEnv.AI_GATEWAY_ANTHROPIC_MODEL);
+      restoreEnvValue("AI_GATEWAY_GOOGLE_MODEL", previousEnv.AI_GATEWAY_GOOGLE_MODEL);
+      restoreEnvValue("AI_GATEWAY_TEXT_TIMEOUT_MS", previousEnv.AI_GATEWAY_TEXT_TIMEOUT_MS);
+      restoreEnvValue("VERCEL_AI_GATEWAY_API_KEY", previousEnv.VERCEL_AI_GATEWAY_API_KEY);
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   test("keeps the run successful when text generation fails but visual jokes succeed", async () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
     const run = await orchestrateThreeProviderGeneration(

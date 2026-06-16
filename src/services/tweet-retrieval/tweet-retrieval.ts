@@ -1,9 +1,16 @@
 import { z } from "zod";
+import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 
 const retrievalFailureMessage = "Source tweet could not be retrieved.";
 export const twitterApiBaseUrl = "https://api.twitterapi.io";
 const maxReplyPages = 2;
 const maxReplies = 40;
+// Each twitterapi.io request (the Source Tweet fetch and the reply-pagination
+// calls) is bounded by this timeout so a hung upstream surfaces the existing
+// retrieval-failure path quickly instead of hanging. The source-tweet call fails
+// the run fast; reply pages degrade to an empty list. Tunable via
+// TWITTERAPI_IO_TIMEOUT_MS.
+const defaultTweetRetrievalTimeoutMs = 15_000;
 
 const tweetAuthorSchema = z
   .object({
@@ -267,11 +274,15 @@ async function retrieveReplies(tweetId: string, apiKey: string, fetcher: typeof 
 }
 
 async function fetchJson(url: string, apiKey: string, fetcher: typeof fetch) {
-  const response = await fetcher(url, {
+  const response = await fetchWithTimeout(url, {
+    fetchImpl: fetcher,
     headers: {
       "x-api-key": apiKey,
       Accept: "application/json",
     },
+    operationLabel: "Tweet retrieval",
+    timeoutMs: readTimeoutMs(process.env.TWITTERAPI_IO_TIMEOUT_MS, defaultTweetRetrievalTimeoutMs),
+    upstreamLabel: "twitterapi.io",
   });
 
   if (!response.ok) {
