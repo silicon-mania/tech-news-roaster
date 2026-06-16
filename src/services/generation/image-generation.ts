@@ -90,6 +90,9 @@ export const failedImageSetSchema = z
     message: nonEmptyTrimmedStringSchema,
     selectedImageId: runLocalIdSchema,
     selectedImageOriginal: selectedImageOriginalSchema.optional(),
+    // Flat, human-readable failure detail for the Quiet Failure Details surface —
+    // the error/cause chain (e.g. an AI Gateway timeout) plus the failing step.
+    debugLog: z.array(z.string()).optional(),
   })
   .strict();
 

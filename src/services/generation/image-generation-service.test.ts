@@ -256,6 +256,13 @@ describe("image generation service", () => {
         }),
       }),
     );
+    // The Quiet Failure Details get the failing step + error chain for debugging.
+    expect(result.failedImageSet?.debugLog).toEqual(
+      expect.arrayContaining([
+        "Error: Error: The configured image model failed.",
+        "Step: generate-variations",
+      ]),
+    );
   });
 
   test("fetches and prepares selected image originals server-side", async () => {

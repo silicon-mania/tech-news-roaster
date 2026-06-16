@@ -31,3 +31,14 @@ Resolved 2026-06-15 by an operator-driven probe (`scripts/probe-x-search-operato
 **The pre-filter is a coarse recall floor, not the virality bar.** `min_faves:`/`min_retweets:` are global numeric thresholds, whereas author-relative virality scoring (issue 015) still runs in-house on the survivors. So F and R must be set conservatively low — high enough to shed the dead, near-zero-engagement tail cheaply, low enough not to drop a small account's genuine breakout (recall over precision). The exact F/R, like the other discovery numbers, stay deferred config.
 
 **Rate limits.** Observed during the spike: free/zero-balance keys are throttled to ~1 request / 5s (HTTP 429); QPS scales with account balance. The adapter must pace requests and back off on 429, honoring the `x-rate-limit-reset` header (a Unix-second timestamp) and falling back to exponential backoff when it is absent.
+
+## Author-relative virality scoring (015)
+
+The survivors of the coarse pre-filter are scored in-house, as a pure data-in/data-out function (`src/services/discovery`). A tweet's **velocity** is its weighted engagement over its age in hours; that velocity is divided by the author's **Author Baseline** velocity to get an **author-relative score**, and a tweet **qualifies** when that score clears the virality bar. Normalizing by the author's own normal is what lets a small founder's breakout and a megaccount's routine post be judged fairly against themselves rather than one global threshold.
+
+- **Reposts weighted strongest.** Engagement weights default to reposts 3, quotes 2, likes 1, replies 0.5; views are excluded (reach, not engagement). A repost is an unqualified rebroadcast of the claim to a new audience — the clearest signal that news is spreading.
+- **Age is floored** at 1h so a brand-new tweet does not divide by ~0 and read as infinitely viral.
+- **The Author Baseline is the median** velocity over a sample (default 20) of the author's recent tweets — median, not mean, so the author's own occasional outlier does not inflate their normal. Baselines are computed **lazily** (only for authors whose tweets surface), persisted per operator+author in Supabase (`author_baselines`, migration `0003`), and **refreshed** once older than the cadence (default weekly). An author with no usable sample yet gets a low **provisional** baseline that always refreshes next encounter, so unknown authors lean toward qualifying. Refresh is best-effort: a sampler failure keeps the stale baseline rather than dropping the author.
+- **The bar favors recall over precision** (default: velocity ≥ 2× the author's baseline). Better to run on a tweet that later fizzles than to miss real news.
+
+All of these numbers — engagement weights, the virality bar, and the baseline refresh cadence — ship as documented defaults in `virality-config.ts` and stay **deferred config**, tuned with the rest of the discovery numbers in issue 021.

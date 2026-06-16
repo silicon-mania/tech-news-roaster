@@ -13,8 +13,14 @@ import {
   type SelectedImageOriginal,
 } from "@/services/generation";
 import { readConfiguredAiGatewayImageModel, readEnvValue } from "./ai-gateway-models";
+import { describeErrorDetail, summarizeErrorMessage } from "./error-detail";
 
 const generatedVariationTarget = 4;
+// The AI Gateway image request is wrapped in this timeout so a hung gateway (no
+// response headers — undici's UND_ERR_HEADERS_TIMEOUT, ~300s) fails fast with a
+// clear message instead of silently stalling until the client stream drops and
+// the operator only sees a bare "Failed to fetch". Tunable via env.
+const defaultImageGenerationTimeoutMs = 120_000;
 
 type ImageModelEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -164,6 +170,9 @@ export async function* streamImageSetForRun(
   const provider = options.provider ?? createDefaultImageVariationProvider();
 
   let preparedOriginal: PreparedSelectedImageOriginal | undefined;
+  // Which step we are in, so a failure names where it broke (fetching the
+  // selected original vs. calling the image model).
+  let step = "prepare-selected-original";
 
   try {
     preparedOriginal = await prepare({
@@ -171,6 +180,7 @@ export async function* streamImageSetForRun(
       now,
     });
 
+    step = "generate-variations";
     const variations = await provider.generateVariations({
       original: preparedOriginal,
       userImagePrompt: parsedInput.userImagePrompt,
@@ -190,11 +200,24 @@ export async function* streamImageSetForRun(
       selectedImageOriginal: preparedOriginal.selectedImageOriginal,
     };
   } catch (error) {
+    const message = normalizeFailureMessage(error);
+    const debugLog = [
+      ...describeErrorDetail(error),
+      `Step: ${step}`,
+      `Selected image: ${candidate.id} (${candidate.origin})`,
+      `Original URL: ${candidate.url}`,
+      `Image model: ${provider.imageModelProvenance.provider}/${provider.imageModelProvenance.model}`,
+      `User Image Prompt length: ${parsedInput.userImagePrompt.length}`,
+    ];
+
+    console.error("[image-generation] image set failed", { debugLog, message, step });
+
     yield {
       type: "image-set-failed",
       failedImageSet: buildFailedImageSet({
         candidate,
-        message: normalizeFailureMessage(error),
+        debugLog,
+        message,
         now,
         selectedImageOriginal: preparedOriginal?.selectedImageOriginal,
       }),
@@ -256,6 +279,7 @@ function createDefaultImageVariationProvider(
     apiKey,
     baseUrl: readEnvValue(env.AI_GATEWAY_BASE_URL),
     model,
+    timeoutMs: readImageGenerationTimeoutMs(env),
   });
 }
 
@@ -282,10 +306,12 @@ function createAiGatewayImageVariationProvider({
   apiKey,
   baseUrl,
   model,
+  timeoutMs,
 }: {
   apiKey: string | undefined;
   baseUrl: string | undefined;
   model: string;
+  timeoutMs: number;
 }): ImageVariationProvider {
   return {
     imageModelProvenance: {
@@ -300,7 +326,7 @@ function createAiGatewayImageVariationProvider({
       const gatewayBaseUrl = (baseUrl ?? "https://ai-gateway.vercel.sh/v1").replace(/\/$/, "");
       const variations = await Promise.all(
         Array.from({ length: variationCount }, async (_, index) => {
-          const response = await fetch(`${gatewayBaseUrl}/chat/completions`, {
+          const response = await fetchGatewayCompletion(`${gatewayBaseUrl}/chat/completions`, {
             body: JSON.stringify({
               messages: [
                 {
@@ -331,6 +357,7 @@ function createAiGatewayImageVariationProvider({
               "Content-Type": "application/json",
             },
             method: "POST",
+            timeoutMs,
           });
 
           if (!response.ok) {
@@ -444,16 +471,19 @@ function buildImageSet({
 
 function buildFailedImageSet({
   candidate,
+  debugLog,
   message,
   now,
   selectedImageOriginal,
 }: {
   candidate: ImageOriginalCandidate;
+  debugLog?: string[];
   message: string;
   now: () => Date;
   selectedImageOriginal?: SelectedImageOriginal;
 }) {
   return parseFailedImageSet({
+    debugLog,
     failedAt: now().toISOString(),
     id: `failed-image-set-${candidate.id}`,
     message,
@@ -463,11 +493,7 @@ function buildFailedImageSet({
 }
 
 function normalizeFailureMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return "Image generation failed for the selected original.";
+  return summarizeErrorMessage(error, "Image generation failed for the selected original.");
 }
 
 async function readGatewayError(response: Response) {
@@ -496,4 +522,35 @@ function readString(value: unknown) {
 
 function readAiGatewayApiKey(env: ImageModelEnvironment) {
   return readEnvValue(env.AI_GATEWAY_API_KEY) ?? readEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
+}
+
+function readImageGenerationTimeoutMs(env: ImageModelEnvironment): number {
+  const raw = readEnvValue(env.AI_GATEWAY_IMAGE_TIMEOUT_MS);
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultImageGenerationTimeoutMs;
+}
+
+/**
+ * Fetch with a hard timeout via `AbortSignal.timeout`, translating an abort into
+ * a clear, debuggable message. Without it a hung AI Gateway stalls on undici's
+ * default header timeout (~300s) and the operator only sees a bare "Failed to
+ * fetch" once the client stream finally drops.
+ */
+async function fetchGatewayCompletion(
+  url: string,
+  { timeoutMs, ...init }: RequestInit & { timeoutMs: number },
+): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (error) {
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      throw new Error(
+        `Image generation timed out after ${Math.round(timeoutMs / 1000)}s waiting for the AI Gateway.`,
+        { cause: error },
+      );
+    }
+
+    throw error;
+  }
 }

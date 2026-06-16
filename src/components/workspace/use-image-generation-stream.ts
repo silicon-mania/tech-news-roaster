@@ -2,7 +2,11 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import type { ImageGenerationInput } from "@/services/generation";
-import { parseImageGenerationStreamEvent } from "@/services/generation";
+import {
+  describeErrorDetail,
+  parseImageGenerationStreamEvent,
+  summarizeErrorMessage,
+} from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { buildImageGenerationParentRun, getImageGenerationStartedAt } from "@/services/workspace";
 
@@ -67,10 +71,14 @@ export function useImageGenerationStream({
         }
       }
     } catch (error) {
-      const message =
-        error instanceof Error && error.message.trim() ? error.message : "Image generation failed.";
+      const message = summarizeErrorMessage(error, "Image generation failed.");
+      const debugLog = [
+        ...describeErrorDetail(error),
+        "Step: client image-generation stream (POST /api/generation-runs/image-generation/stream)",
+        "The stream ended before the server reported a result — check the server logs for the underlying error (e.g. an AI Gateway timeout).",
+      ];
 
-      markImageGenerationFailed(input, message);
+      markImageGenerationFailed(input, message, debugLog);
     }
   }
 
@@ -157,7 +165,11 @@ export function useImageGenerationStream({
     );
   }
 
-  function markImageGenerationFailed(input: ImageGenerationInput, message: string) {
+  function markImageGenerationFailed(
+    input: ImageGenerationInput,
+    message: string,
+    debugLog?: string[],
+  ) {
     const failedAt = new Date().toISOString();
 
     setRuns((currentRuns) =>
@@ -170,6 +182,7 @@ export function useImageGenerationStream({
           ...run,
           failedImageSet: {
             id: `failed-image-set-${input.selectedImageId}`,
+            debugLog,
             failedAt,
             message,
             selectedImageId: input.selectedImageId,

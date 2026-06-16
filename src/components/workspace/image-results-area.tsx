@@ -200,6 +200,7 @@ export function ImageResultsArea({
         <TextRevealModal title="Quiet Failure Details" onClose={() => setIsFailureOpen(false)}>
           <FailureDetails
             failure={{
+              debugLog: failedImageSet.debugLog,
               message: failedImageSet.message,
               failedAt: failedImageSet.failedAt,
             }}

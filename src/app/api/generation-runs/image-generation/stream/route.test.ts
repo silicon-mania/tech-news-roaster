@@ -277,6 +277,58 @@ describe("image generation stream route", () => {
     expect(events[1]).not.toHaveProperty(["state", "imageSet"]);
   });
 
+  test("reports a debuggable failed image set when persistence throws, not a broken stream", async () => {
+    const response = await streamImageGenerationRun(
+      buildRequest({
+        input: buildInput(),
+        parentRun: buildParentRun({
+          imageGenerationState: {
+            status: "not-started",
+          },
+        }),
+      }),
+      {
+        now: () => new Date("2026-06-05T10:20:00.000Z"),
+        // The byte-persistence step lives outside the service's own try/catch;
+        // before this fix a throw here aborted the SSE stream and the client only
+        // saw a generic "Failed to fetch".
+        persistImageSet: async () => {
+          throw new Error("Operator authentication required.");
+        },
+        prepareSelectedImageOriginal: async ({ candidate }) => buildPreparedOriginal(candidate),
+        provider: buildProvider(),
+      },
+    );
+    const events = await readImageGenerationStreamEvents(response);
+
+    expect(response.status).toBe(200);
+    expect(events.map((event) => event.type)).toEqual([
+      "image-set-failed",
+      "image-generation-completed",
+    ]);
+
+    const failed = events[0];
+
+    if (failed.type !== "image-set-failed") {
+      throw new Error("Expected an image-set-failed event.");
+    }
+
+    expect(failed.failedImageSet).toMatchObject({
+      message: "Operator authentication required.",
+      selectedImageId: "candidate-1",
+    });
+    // The real reason reaches the Quiet Failure Details instead of being lost.
+    expect(failed.failedImageSet.debugLog).toEqual(
+      expect.arrayContaining([expect.stringContaining("Operator authentication required.")]),
+    );
+    expect(events[1]).toMatchObject({
+      type: "image-generation-completed",
+      state: {
+        status: "failed",
+      },
+    });
+  });
+
   test.each([
     {
       name: "missing prompt",

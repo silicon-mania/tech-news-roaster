@@ -1,13 +1,16 @@
 import { ZodError } from "zod";
 import {
+  describeErrorDetail,
   type FailedImageSet,
   type ImageGenerationInput,
   type ImageGenerationParentRun,
   type ImageGenerationStreamEvent,
   type ImageSet,
+  parseFailedImageSet,
   parseImageGenerationInput,
   parseImageGenerationParentRun,
   parseImageGenerationStreamEvent,
+  summarizeErrorMessage,
 } from "@/services/generation";
 import {
   type ImageVariationProvider,
@@ -143,7 +146,34 @@ export async function streamImageGenerationRun(
         });
         controller.close();
       } catch (error) {
-        controller.error(error);
+        // A throw here (byte persistence failing, an unexpected error) would
+        // otherwise abort the SSE stream, leaving the client to surface a bare
+        // "Failed to fetch". Instead, report a real, debuggable failure through
+        // the stream and close cleanly — so the Quiet Failure Details show why.
+        console.error("[image-generation] stream failed before completion", error);
+
+        if (!imageSet && !failedImageSet) {
+          failedImageSet = buildStreamFailureImageSet({
+            error,
+            now,
+            selectedImageId: parsedRequest.input.selectedImageId,
+          });
+          enqueueImageGenerationEvent(controller, encoder, {
+            type: "image-set-failed",
+            failedImageSet,
+          });
+        }
+
+        enqueueImageGenerationEvent(controller, encoder, {
+          type: "image-generation-completed",
+          state: {
+            completedAt: now().toISOString(),
+            failedImageSet,
+            imageSet,
+            status: imageSet ? "completed" : "failed",
+          },
+        });
+        controller.close();
       }
     },
   });
@@ -154,6 +184,28 @@ export async function streamImageGenerationRun(
       Connection: "keep-alive",
       "Content-Type": "text/event-stream; charset=utf-8",
     },
+  });
+}
+
+function buildStreamFailureImageSet({
+  error,
+  now,
+  selectedImageId,
+}: {
+  error: unknown;
+  now: () => Date;
+  selectedImageId: string;
+}): FailedImageSet {
+  return parseFailedImageSet({
+    debugLog: [
+      ...describeErrorDetail(error),
+      "Step: image-generation-stream (persistence / streaming)",
+      `Selected image: ${selectedImageId}`,
+    ],
+    failedAt: now().toISOString(),
+    id: `failed-image-set-${selectedImageId}`,
+    message: summarizeErrorMessage(error, "Image generation failed before it could complete."),
+    selectedImageId,
   });
 }
 
