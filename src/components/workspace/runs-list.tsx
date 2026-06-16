@@ -28,6 +28,10 @@ export function RunsList({ activeRunId, runs, onDeleteRun, onSelectRun }: RunsLi
         <ul className="grid gap-1.5">
           {runs.map((run) => {
             const phaseLabel = getRunPhaseLabel(run);
+            // A persisted run the operator hasn't opened yet. In-flight runs have
+            // no savedAt, so they never read as "unseen"; opening a run persists
+            // seenAt and clears the marker (ADR-0019).
+            const isUnseen = Boolean(run.savedAt) && !run.seenAt;
 
             return (
               <li key={run.id} className="group relative">
@@ -37,8 +41,19 @@ export function RunsList({ activeRunId, runs, onDeleteRun, onSelectRun }: RunsLi
                   aria-current={run.id === activeRunId ? "true" : undefined}
                   className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md bg-transparent p-3 text-left transition hover:bg-secondary/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 aria-current:bg-primary/10 aria-current:ring-1 aria-current:ring-primary/35 sm:pr-10">
                   <span className="grid min-w-0 gap-1">
-                    <span className="truncate font-medium text-foreground text-sm leading-5">
-                      {run.label}
+                    <span className="flex min-w-0 items-center gap-2">
+                      {isUnseen ? (
+                        <>
+                          <span
+                            aria-hidden="true"
+                            className="size-1.5 shrink-0 rounded-full bg-primary"
+                          />
+                          <span className="sr-only">Unseen</span>
+                        </>
+                      ) : null}
+                      <span className="truncate font-medium text-foreground text-sm leading-5">
+                        {run.label}
+                      </span>
                     </span>
                     <span className="truncate text-muted-foreground text-xs">
                       {formatRelativeDate(run.savedAt)}

@@ -91,6 +91,37 @@ describe("generation run contracts", () => {
     ).toThrow();
   });
 
+  test("accepts a Selected Draft id that names one of the run's drafts and rejects a stray one", () => {
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
+    const drafts = buildStubbedGenerationEvents({
+      replySignals: buildReplySignals(tweetContext),
+      sourceTweet: tweetContext.sourceTweet,
+      sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+      usersDirection: "",
+    }).flatMap((event) => (event.type === "progress" ? [event.draft] : []));
+    const baseSavedRun = {
+      id: "run-1",
+      label: "Drafts for 2468",
+      sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+      usersDirection: "",
+      status: "completed" as const,
+      draftCount: 3,
+      draftTarget: 3 as const,
+      sourceTweet: tweetContext.sourceTweet,
+      savedAt: "2026-06-05T10:30:00.000Z",
+      drafts,
+    };
+
+    expect(
+      parseSavedGenerationRun({ ...baseSavedRun, selectedDraftId: drafts[1].id }),
+    ).toMatchObject({
+      selectedDraftId: drafts[1].id,
+    });
+    expect(() =>
+      parseSavedGenerationRun({ ...baseSavedRun, selectedDraftId: "draft-that-does-not-exist" }),
+    ).toThrow();
+  });
+
   test("allows completed runs with failed text generation when another creative branch succeeds", () => {
     const jokeContextSnapshot = parseJokeContextSnapshot(buildJokeContextSnapshot());
     const visualJokeSet = parseVisualJokeSet(buildVisualJokeSet());

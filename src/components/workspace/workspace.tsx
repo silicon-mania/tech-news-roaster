@@ -148,6 +148,32 @@ export function Workspace({
     setOpenDirectionPanelId(null);
   }, [activeRunId]);
 
+  const activeRunStatus = activeRun?.status;
+  const activeRunSeenAt = activeRun?.seenAt;
+
+  // Opening a run marks it seen. This fires for the run restored on load, a run
+  // reopened from the sidebar, and a freshly completed run the operator is
+  // already viewing — any run that becomes the active, settled (non-running) run
+  // while still unseen. The seenAt is persisted so the unseen marker clears
+  // across reloads and devices (ADR-0019); in-flight runs are left untouched.
+  useEffect(() => {
+    if (
+      !activeRunId ||
+      activeRunStatus === undefined ||
+      activeRunStatus === "running" ||
+      activeRunSeenAt
+    ) {
+      return;
+    }
+
+    const seenAt = new Date().toISOString();
+
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => (run.id === activeRunId && !run.seenAt ? { ...run, seenAt } : run)),
+    );
+    void savedRunStore.markSeen(activeRunId).catch(() => undefined);
+  }, [activeRunId, activeRunSeenAt, activeRunStatus, savedRunStore]);
+
   function submitSourceTweet(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -266,6 +292,26 @@ export function Workspace({
       }),
     );
     scheduleRunAutosave(editedRun);
+  }
+
+  function updateSelectedDraft(draftId: string | null) {
+    if (activeRun?.status !== "completed") {
+      return;
+    }
+
+    if (draftId && !activeRun.drafts.some((draft) => draft.id === draftId)) {
+      return;
+    }
+
+    const updatedRun: GenerationRun = {
+      ...activeRun,
+      selectedDraftId: draftId ?? undefined,
+    };
+
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => (run.id === updatedRun.id ? updatedRun : run)),
+    );
+    scheduleRunAutosave(updatedRun);
   }
 
   function updateSelectedVisualJoke(runId: string, visualJokeId: string | null) {
@@ -443,6 +489,7 @@ export function Workspace({
             <ActiveRunPanel
               activeRun={activeRun}
               onDraftTextChange={updateDraftText}
+              onSelectedDraftChange={updateSelectedDraft}
               onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
               onSelectedVisualJokeChange={updateSelectedVisualJoke}
               onStartImageGeneration={startImageGeneration}

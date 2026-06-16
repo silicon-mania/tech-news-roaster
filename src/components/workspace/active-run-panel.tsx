@@ -20,6 +20,7 @@ import { VisualJokeSkeleton } from "./visual-joke-skeleton";
 type ActiveRunPanelProps = {
   activeRun: GenerationRun | null;
   onDraftTextChange: (draftId: string, text: string) => void;
+  onSelectedDraftChange: (draftId: string | null) => void;
   onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onSelectedVisualJokeChange: (runId: string, visualJokeId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
@@ -28,6 +29,7 @@ type ActiveRunPanelProps = {
 export function ActiveRunPanel({
   activeRun,
   onDraftTextChange,
+  onSelectedDraftChange,
   onSelectedGeneratedImageChange,
   onSelectedVisualJokeChange,
   onStartImageGeneration,
@@ -102,7 +104,9 @@ export function ActiveRunPanel({
     <DraftComparison
       drafts={activeRun.drafts}
       fallbackDisclosure={activeRun.fallbackDisclosure}
+      selectedDraftId={activeRun.selectedDraftId ?? null}
       onDraftTextChange={onDraftTextChange}
+      onSelectedDraftChange={onSelectedDraftChange}
     />
   ) : textGenerationFailure ? (
     <CreativeFailureArea

@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Lightbulb } from "lucide-react";
+import { Circle, CircleDot, Copy, Lightbulb } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -13,7 +13,9 @@ import { copyTextToClipboard } from "@/utils/copy-text-to-clipboard";
 type DraftComparisonProps = {
   drafts: QuoteTweetDraft[];
   fallbackDisclosure?: string;
+  selectedDraftId: string | null;
   onDraftTextChange: (draftId: string, text: string) => void;
+  onSelectedDraftChange: (draftId: string | null) => void;
 };
 
 const draftCardClassName = "rounded-lg bg-secondary/55 transition duration-300";
@@ -21,7 +23,9 @@ const draftCardClassName = "rounded-lg bg-secondary/55 transition duration-300";
 export function DraftComparison({
   drafts,
   fallbackDisclosure,
+  selectedDraftId,
   onDraftTextChange,
+  onSelectedDraftChange,
 }: DraftComparisonProps) {
   const [expandedDraftId, setExpandedDraftId] = useState(drafts.at(0)?.id);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
@@ -65,16 +69,41 @@ export function DraftComparison({
         {drafts.map((draft, index) => {
           const isExpanded = draft.id === expandedDraftId;
           const hasExpandedDraft = expandedDraftId != null;
+          const isSelected = draft.id === selectedDraftId;
+          const selectedRingClassName = isSelected ? " ring-1 ring-primary/45" : "";
           const provider = getDraftProvider(draft.provider, draft.modelProvenance);
 
           return isExpanded ? (
             <article
               aria-label={`Expanded draft ${index + 1}`}
               key={draft.id}
-              className={`grid gap-5 px-1 py-1 sm:px-2 ${draftCardClassName}`}>
+              className={`grid gap-5 px-1 py-1 sm:px-2 ${draftCardClassName}${selectedRingClassName}`}>
               <div className="flex flex-wrap items-center justify-between gap-3 px-2 pt-2">
                 <ProviderProvenance modelProvenance={draft.modelProvenance} provider={provider} />
                 <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    aria-label={
+                      isSelected
+                        ? `Clear draft ${index + 1} selection`
+                        : `Select draft ${index + 1}`
+                    }
+                    aria-pressed={isSelected}
+                    className={`font-normal text-xs ${
+                      isSelected ? "text-primary hover:text-primary" : "text-muted-foreground"
+                    }`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelectedDraftChange(isSelected ? null : draft.id);
+                    }}
+                    type="button"
+                    variant="ghost">
+                    {isSelected ? (
+                      <CircleDot aria-hidden className="size-3.5" strokeWidth={1.75} />
+                    ) : (
+                      <Circle aria-hidden className="size-3.5" strokeWidth={1.75} />
+                    )}
+                    {isSelected ? "Selected" : "Select"}
+                  </Button>
                   <Tooltip>
                     <TooltipTrigger
                       render={
@@ -143,7 +172,9 @@ export function DraftComparison({
             <article
               aria-label={`Collapsed draft ${index + 1}`}
               key={draft.id}
-              className={`${draftCardClassName}${hasExpandedDraft ? " opacity-60" : ""}`}>
+              className={`${draftCardClassName}${selectedRingClassName}${
+                hasExpandedDraft ? " opacity-60" : ""
+              }`}>
               <button
                 type="button"
                 aria-label={`Expand draft ${index + 1}`}

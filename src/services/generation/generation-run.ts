@@ -72,6 +72,26 @@ function addSelectedVisualJokeIssues(
   }
 }
 
+function addSelectedDraftIssues(
+  run: {
+    selectedDraftId?: string;
+    drafts: z.infer<typeof quoteTweetDraftSchema>[];
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (!run.selectedDraftId) {
+    return;
+  }
+
+  if (!run.drafts.some((draft) => draft.id === run.selectedDraftId)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Selected Draft must belong to the run's drafts.",
+      path: ["selectedDraftId"],
+    });
+  }
+}
+
 function addCompletedRunOutputIssues({
   draftsLength,
   generationResultStates,
@@ -196,6 +216,11 @@ const savedGenerationRunSchema = z
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
     phase: generationRunPhaseSchema.optional(),
     savedAt: z.string().datetime().optional(),
+    // The operator's explicit, overridable pick of which draft is the chosen
+    // quote tweet text. Distinct from the two Final Quote Tweet Image inputs
+    // (Selected Generated Image + Selected Visual Joke); it never feeds the
+    // composite. Absent until the operator picks one.
+    selectedDraftId: nonEmptyTrimmedStringSchema.optional(),
     selectedVisualJoke: selectedVisualJokeSchema.nullable().optional(),
     selectedGeneratedImage: selectedGeneratedImageSchema.nullable().optional(),
     selectedImageOriginal: selectedImageOriginalSchema.optional(),
@@ -222,6 +247,7 @@ const savedGenerationRunSchema = z
     }
 
     addSelectedVisualJokeIssues(run, ctx);
+    addSelectedDraftIssues(run, ctx);
   });
 
 export type CompletedGenerationRunPayload = z.infer<typeof completedGenerationRunPayloadSchema>;
