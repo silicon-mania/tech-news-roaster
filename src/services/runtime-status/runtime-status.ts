@@ -167,6 +167,27 @@ export async function readRuntimeStatus({
   };
 }
 
+/**
+ * Whether the Runtime Readiness Gate clears the boundaries an automated Discovery
+ * Sweep requires before it starts anything: live followed-accounts retrieval, live
+ * Supabase persistence, and both image-side models — the image model and the Visual
+ * Joke model — present in the AI Gateway catalog. A sweep that finds this `false`
+ * starts nothing that cycle (PRD user story 20), so automation never produces broken
+ * half-runs.
+ *
+ * Text-generation model availability is deliberately *not* gated here: Provider
+ * Fallback lets an Automated Run complete on a subset of the three text providers,
+ * so requiring all three would reject runs that would otherwise succeed.
+ */
+export function isDiscoverySweepReady(status: RuntimeStatus): boolean {
+  return (
+    status.retrieval.mode === "live" &&
+    status.persistence.mode === "live" &&
+    status.generation.aiGateway.imageModel.available &&
+    status.generation.aiGateway.visualJokeModel.available
+  );
+}
+
 async function readAiGatewayModelCatalog({
   baseUrl,
   fetcher,

@@ -10,6 +10,7 @@ export * from "./author-tweet-sampler";
 export * from "./cluster-similarity";
 export * from "./cluster-viral-tweets";
 export * from "./clustering-config";
+export * from "./discovery-sweep-config";
 export * from "./filter-newsworthy-clusters";
 export * from "./in-memory-author-baseline-repository";
 export * from "./in-memory-news-coverage-cluster-repository";
