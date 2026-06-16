@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const retrievalFailureMessage = "Source tweet could not be retrieved.";
-const twitterApiBaseUrl = "https://api.twitterapi.io";
+export const twitterApiBaseUrl = "https://api.twitterapi.io";
 const maxReplyPages = 2;
 const maxReplies = 40;
 
@@ -285,7 +285,7 @@ function extractFirstTweetRecord(payload: unknown) {
   return extractTweetRecords(payload).at(0) ?? null;
 }
 
-function extractTweetRecords(payload: unknown): RawRecord[] {
+export function extractTweetRecords(payload: unknown): RawRecord[] {
   if (!isRecord(payload)) {
     return [];
   }
@@ -317,7 +317,7 @@ function extractTweetRecords(payload: unknown): RawRecord[] {
   return [];
 }
 
-function normalizeSourceTweet(record: RawRecord, fallbackUrl: string): RetrievedSourceTweet {
+export function normalizeSourceTweet(record: RawRecord, fallbackUrl: string): RetrievedSourceTweet {
   return retrievedSourceTweetSchema.parse({
     ...normalizeTweetBase(record),
     url: readString(record, ["url", "tweetUrl"]) ?? fallbackUrl,
