@@ -122,6 +122,36 @@ describe("generation run contracts", () => {
     ).toThrow();
   });
 
+  test("links an automated run to the News Coverage Cluster it was started from", () => {
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
+    const drafts = buildStubbedGenerationEvents({
+      replySignals: buildReplySignals(tweetContext),
+      sourceTweet: tweetContext.sourceTweet,
+      sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+      usersDirection: "",
+    }).flatMap((event) => (event.type === "progress" ? [event.draft] : []));
+
+    expect(
+      parseSavedGenerationRun({
+        id: "run-1",
+        label: "Drafts for 2468",
+        sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+        usersDirection: "",
+        status: "completed" as const,
+        origin: "automated" as const,
+        newsCoverageClusterId: "cluster-openai-workspace",
+        draftCount: 3,
+        draftTarget: 3 as const,
+        sourceTweet: tweetContext.sourceTweet,
+        savedAt: "2026-06-05T10:30:00.000Z",
+        drafts,
+      }),
+    ).toMatchObject({
+      origin: "automated",
+      newsCoverageClusterId: "cluster-openai-workspace",
+    });
+  });
+
   test("allows completed runs with failed text generation when another creative branch succeeds", () => {
     const jokeContextSnapshot = parseJokeContextSnapshot(buildJokeContextSnapshot());
     const visualJokeSet = parseVisualJokeSet(buildVisualJokeSet());

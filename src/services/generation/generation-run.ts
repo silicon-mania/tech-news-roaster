@@ -195,6 +195,10 @@ const savedGenerationRunSchema = z
     // The run's provenance. Manual runs (and every run that predates server-side
     // persistence) default to "manual"; automated discovery runs land later.
     origin: runOriginSchema.optional(),
+    // The News Coverage Cluster this run was started from, if any. Set on
+    // automated runs so a cluster links to the single run it produced; absent on
+    // manual runs and runs that predate automated discovery.
+    newsCoverageClusterId: nonEmptyTrimmedStringSchema.optional(),
     seenAt: z.string().datetime().optional(),
     sourceTweetUrl: z.string().url(),
     usersDirection: z.string(),
