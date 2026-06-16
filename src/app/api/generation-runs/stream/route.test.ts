@@ -1,5 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
-import { parseGenerationStreamEvent, parseJokeContextSnapshot } from "@/services/generation";
+import {
+  type GenerationStreamEvent,
+  parseGenerationStreamEvent,
+  parseJokeContextSnapshot,
+} from "@/services/generation";
 import { JokeContextGatheringError } from "@/services/joke-context-gathering";
 import { buildFixtureTweetContext, type RetrievedTweetContext } from "@/services/tweet-retrieval";
 import { GET, streamGenerationRun } from "./route";
@@ -534,13 +538,17 @@ describe("generation stream route", () => {
       },
     );
 
+    // Draining the stream runs the now-progressive pipeline through to discovery;
+    // the route no longer pre-computes every phase before returning the Response.
+    const responseText = await response.text();
+
     expect(discoveryRequests).toEqual([
       {
         sourceTweet: thinContext.sourceTweet,
         replySignals: [],
       },
     ]);
-    expect(await response.text()).toContain(thinContext.sourceTweet.text);
+    expect(responseText).toContain(thinContext.sourceTweet.text);
   });
 
   test("streams fallback disclosure and complete draft metadata", async () => {
@@ -618,7 +626,104 @@ describe("generation stream route", () => {
       },
     });
   });
+
+  test("streams intermediate events before the terminal completed event", async () => {
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/1234");
+    let orchestrationSettled = false;
+    let releaseOrchestration!: () => void;
+    const orchestrationGate = new Promise<void>((resolve) => {
+      releaseOrchestration = resolve;
+    });
+    const response = await streamGenerationRun(
+      new Request(
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F1234",
+      ),
+      {
+        discoverNewsLinkedImages: async () => ({
+          discoveredAt: "2026-06-05T10:20:00.000Z",
+          newsLinkedImages: [],
+        }),
+        gatherJokeContext: async () => buildJokeContextSnapshot("1234"),
+        orchestrateGeneration: async (input) => {
+          await orchestrationGate;
+          orchestrationSettled = true;
+
+          return buildCompletedRun(input.sourceTweet, "1234");
+        },
+        retrieveTweetContext: async () => tweetContext,
+      },
+    );
+    const sse = createSseEventReader(response);
+
+    // The creative-branches "running" run-state must reach the client while text
+    // orchestration is still pending — proof the route streams as phases resolve
+    // rather than computing every event and flushing them at stream close.
+    await sse.readUntil((events) =>
+      events.some(
+        (event) =>
+          event.type === "run-state" &&
+          event.generationResultStates.textGeneration.status === "running",
+      ),
+    );
+
+    expect(orchestrationSettled).toBe(false);
+    expect(sse.events.some((event) => event.type === "completed")).toBe(false);
+
+    releaseOrchestration();
+    await sse.readToEnd();
+
+    expect(orchestrationSettled).toBe(true);
+    expect(sse.events.at(-1)).toMatchObject({ type: "completed" });
+  });
 });
+
+function createSseEventReader(response: Response) {
+  const body = response.body;
+
+  if (!body) {
+    throw new Error("Expected a readable SSE stream body.");
+  }
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  const events: GenerationStreamEvent[] = [];
+  let buffer = "";
+
+  function drainBufferedEvents() {
+    const segments = buffer.split("\n\n");
+    buffer = segments.pop() ?? "";
+
+    for (const segment of segments) {
+      const dataLine = segment.split("\n").find((line) => line.startsWith("data: "));
+
+      if (!dataLine) {
+        continue;
+      }
+
+      events.push(parseGenerationStreamEvent(JSON.parse(dataLine.replace("data: ", ""))));
+    }
+  }
+
+  async function pump(shouldStop: () => boolean) {
+    while (!shouldStop()) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      drainBufferedEvents();
+    }
+  }
+
+  return {
+    events,
+    readToEnd: () => pump(() => false),
+    readUntil: (predicate: (events: GenerationStreamEvent[]) => boolean) =>
+      pump(() => predicate(events)),
+  };
+}
 
 async function readStreamEvents(response: Response) {
   const rawEvents = await response.text();

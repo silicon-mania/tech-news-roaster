@@ -7,6 +7,7 @@ import {
   type CompletedGenerationRunPayload,
   draftTarget,
   type GenerationResultStates,
+  type GenerationStreamEvent,
   type JokeContextSnapshot,
   type NewsLinkedImage,
   parseCompletedGenerationRunPayload,
@@ -56,24 +57,32 @@ export async function streamGenerationRun(
   const gather = dependencies.gatherJokeContext ?? gatherJokeContext;
   const retrieve = dependencies.retrieveTweetContext ?? retrieveTweetContext;
   const orchestrate = dependencies.orchestrateGeneration ?? orchestrateThreeProviderGeneration;
-  const events = await buildGenerationRunEvents({
-    discover,
-    gather,
-    orchestrate,
-    retrieve,
-    sourceTweetUrl,
-    usersDirection,
-  });
-
   const stream = new ReadableStream({
-    start(controller) {
-      for (const event of events) {
-        const validatedEvent = parseGenerationStreamEvent(event);
-
-        controller.enqueue(
-          encoder.encode(
-            `event: ${validatedEvent.type}\ndata: ${JSON.stringify(validatedEvent)}\n\n`,
-          ),
+    async start(controller) {
+      try {
+        // Each phase is enqueued the moment it resolves — context gathering, then
+        // the creative branches, then enrichment, then drafts — so the workspace
+        // advances as the run proceeds instead of staying frozen until a single
+        // end-of-run flush. Mirrors the Image Generation stream.
+        for await (const event of streamGenerationRunEvents({
+          discover,
+          gather,
+          orchestrate,
+          retrieve,
+          sourceTweetUrl,
+          usersDirection,
+        })) {
+          enqueueGenerationEvent(controller, encoder, event);
+        }
+      } catch (error) {
+        // A throw outside the known failure paths would otherwise abort the SSE
+        // stream, leaving the client with a bare "Failed to fetch". Report a real
+        // terminal failure through the stream and close cleanly instead.
+        console.error("[generation] stream failed before completion", error);
+        enqueueGenerationEvent(
+          controller,
+          encoder,
+          buildGenerationFailureEvent("Generation failed before it could complete."),
         );
       }
 
@@ -90,7 +99,19 @@ export async function streamGenerationRun(
   });
 }
 
-async function buildGenerationRunEvents({
+function enqueueGenerationEvent(
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+  event: GenerationStreamEvent,
+) {
+  const validatedEvent = parseGenerationStreamEvent(event);
+
+  controller.enqueue(
+    encoder.encode(`event: ${validatedEvent.type}\ndata: ${JSON.stringify(validatedEvent)}\n\n`),
+  );
+}
+
+async function* streamGenerationRunEvents({
   discover,
   gather,
   orchestrate,
@@ -104,7 +125,7 @@ async function buildGenerationRunEvents({
   retrieve: TweetRetrievalService;
   sourceTweetUrl: string;
   usersDirection: string;
-}) {
+}): AsyncGenerator<GenerationStreamEvent> {
   let tweetContext: Awaited<ReturnType<TweetRetrievalService>>;
 
   try {
@@ -115,18 +136,19 @@ async function buildGenerationRunEvents({
         ? error.userMessage
         : "Source tweet could not be retrieved.";
 
-    return [buildGenerationFailureEvent(message)];
+    yield buildGenerationFailureEvent(message);
+    return;
   }
 
   const runLabel = buildGenerationRunLabel(sourceTweetUrl);
   const contextGatheringStartedAt = new Date().toISOString();
-  const events = [
-    buildGenerationRunStateEvent({
-      generationResultStates: buildContextGatheringRunningStates(contextGatheringStartedAt),
-      label: runLabel,
-      sourceTweet: tweetContext.sourceTweet,
-    }),
-  ];
+
+  yield buildGenerationRunStateEvent({
+    generationResultStates: buildContextGatheringRunningStates(contextGatheringStartedAt),
+    label: runLabel,
+    sourceTweet: tweetContext.sourceTweet,
+  });
+
   const replySignals = buildReplySignals(tweetContext);
   const jokeContextResult = await retrieveJokeContextSnapshot({
     gather,
@@ -135,26 +157,20 @@ async function buildGenerationRunEvents({
   });
 
   if (jokeContextResult.status === "failed") {
-    events.push(
-      buildGenerationRunStateEvent({
-        generationResultStates: buildContextGatheringFailedStates(jokeContextResult),
-        label: runLabel,
-        sourceTweet: tweetContext.sourceTweet,
-      }),
-    );
-
-    return [...events, buildGenerationFailureEvent(jokeContextResult.message)];
-  }
-
-  const contextCompletedStates = buildContextGatheringCompletedStates(jokeContextResult);
-
-  events.push(
-    buildGenerationRunStateEvent({
-      generationResultStates: contextCompletedStates,
+    yield buildGenerationRunStateEvent({
+      generationResultStates: buildContextGatheringFailedStates(jokeContextResult),
       label: runLabel,
       sourceTweet: tweetContext.sourceTweet,
-    }),
-  );
+    });
+    yield buildGenerationFailureEvent(jokeContextResult.message);
+    return;
+  }
+
+  yield buildGenerationRunStateEvent({
+    generationResultStates: buildContextGatheringCompletedStates(jokeContextResult),
+    label: runLabel,
+    sourceTweet: tweetContext.sourceTweet,
+  });
 
   const newsLinkedImageDiscoveryStartedAt = new Date().toISOString();
   const textGenerationStartedAt = new Date().toISOString();
@@ -169,14 +185,27 @@ async function buildGenerationRunEvents({
     sourceTweet: tweetContext.sourceTweet,
     sourceTweetUrl,
     usersDirection,
-  });
-  const [newsLinkedImageDiscoveryResult, generationResult] = await Promise.all([
-    newsLinkedImageDiscoveryPromise,
-    completedRunPromise
-      .then((run) => ({ run, status: "fulfilled" as const }))
-      .catch((error: unknown) => ({ error, status: "rejected" as const })),
-  ]);
+  })
+    .then((run) => ({ run, status: "fulfilled" as const }))
+    .catch((error: unknown) => ({ error, status: "rejected" as const }));
 
+  // Both creative branches and discovery are now in flight. Emit the "running"
+  // state before awaiting them so the workspace shows the live creative skeletons
+  // during the run's longest phase instead of freezing. The orchestrator always
+  // attempts the Visual Joke Set alongside Text Generation, so all three branches
+  // are reported running.
+  yield buildGenerationRunStateEvent({
+    generationResultStates: buildCreativeBranchesRunningStates({
+      jokeContextResult,
+      newsLinkedImageDiscoveryStartedAt,
+      textGenerationStartedAt,
+      visualJokeStartedAt: textGenerationStartedAt,
+    }),
+    label: runLabel,
+    sourceTweet: tweetContext.sourceTweet,
+  });
+
+  const newsLinkedImageDiscoveryResult = await newsLinkedImageDiscoveryPromise;
   // The Source Tweet's own usable media leads the candidates; News-Linked Images
   // only top up the remaining slots (and only when discovery succeeded).
   const imageOriginalCandidates = assembleImageOriginalCandidates({
@@ -189,33 +218,15 @@ async function buildGenerationRunEvents({
   const carriedImageOriginalCandidates =
     imageOriginalCandidates.length > 0 ? imageOriginalCandidates : undefined;
 
-  const hasVisualJokeBranch =
-    generationResult.status === "fulfilled" &&
-    generationResult.run.generationResultStates?.visualJokeGeneration.status !== "not-started";
-  const creativeBranchesRunningStates = buildCreativeBranchesRunningStates({
-    jokeContextResult,
-    newsLinkedImageDiscoveryStartedAt,
-    textGenerationStartedAt,
-    visualJokeStartedAt: hasVisualJokeBranch ? textGenerationStartedAt : undefined,
-  });
-
-  events.push(
-    buildGenerationRunStateEvent({
-      generationResultStates: creativeBranchesRunningStates,
-      label: runLabel,
-      sourceTweet: tweetContext.sourceTweet,
-    }),
-  );
-
   if (newsLinkedImageDiscoveryResult.status === "available") {
-    events.push(
-      buildEnrichmentCompletedEvent({
-        imageOriginalCandidates,
-        newsLinkedImages: newsLinkedImageDiscoveryResult.newsLinkedImages,
-        sourceTweet: tweetContext.sourceTweet,
-      }),
-    );
+    yield buildEnrichmentCompletedEvent({
+      imageOriginalCandidates,
+      newsLinkedImages: newsLinkedImageDiscoveryResult.newsLinkedImages,
+      sourceTweet: tweetContext.sourceTweet,
+    });
   }
+
+  const generationResult = await completedRunPromise;
 
   if (generationResult.status === "rejected") {
     console.error("Generation orchestration failed.", generationResult.error);
@@ -233,13 +244,11 @@ async function buildGenerationRunEvents({
       },
     });
 
-    events.push(
-      buildGenerationRunStateEvent({
-        generationResultStates: terminalGenerationResultStates,
-        label: runLabel,
-        sourceTweet: tweetContext.sourceTweet,
-      }),
-    );
+    yield buildGenerationRunStateEvent({
+      generationResultStates: terminalGenerationResultStates,
+      label: runLabel,
+      sourceTweet: tweetContext.sourceTweet,
+    });
 
     if (newsLinkedImageDiscoveryResult.status === "available") {
       const completedRun = parseCompletedGenerationRunPayload({
@@ -252,13 +261,12 @@ async function buildGenerationRunEvents({
         sourceTweet: tweetContext.sourceTweet,
       });
 
-      return [...events, ...buildCompletedGenerationRunEvents({ run: completedRun })];
+      yield* buildCompletedGenerationRunEvents({ run: completedRun });
+      return;
     }
 
-    return [
-      ...events,
-      buildGenerationFailureEvent("Draft providers could not complete a three-draft run."),
-    ];
+    yield buildGenerationFailureEvent("Draft providers could not complete a three-draft run.");
+    return;
   }
 
   const textGenerationCompletedAt = new Date().toISOString();
@@ -282,16 +290,14 @@ async function buildGenerationRunEvents({
   });
 
   if (completedRun.generationResultStates) {
-    events.push(
-      buildGenerationRunStateEvent({
-        generationResultStates: completedRun.generationResultStates,
-        label: completedRun.label,
-        sourceTweet: completedRun.sourceTweet,
-      }),
-    );
+    yield buildGenerationRunStateEvent({
+      generationResultStates: completedRun.generationResultStates,
+      label: completedRun.label,
+      sourceTweet: completedRun.sourceTweet,
+    });
   }
 
-  return [...events, ...buildCompletedGenerationRunEvents({ run: completedRun })];
+  yield* buildCompletedGenerationRunEvents({ run: completedRun });
 }
 
 async function retrieveJokeContextSnapshot({
