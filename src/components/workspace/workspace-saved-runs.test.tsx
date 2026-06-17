@@ -5,6 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 import {
   buildCompletedGenerationRunEvents,
   buildGenerationFailureEvent,
+  defaultImagePrompt,
 } from "@/services/generation";
 import {
   buildCompletedRun,
@@ -284,12 +285,12 @@ describe("Workspace saved runs", () => {
         name: /open image direction/i,
       }),
     );
-    await user.type(
-      screen.getByRole("textbox", {
-        name: /user image prompt/i,
-      }),
-      "Make the visual feel launch-ready.",
-    );
+    const userImagePromptField = screen.getByRole("textbox", {
+      name: /user image prompt/i,
+    });
+    expect(userImagePromptField).toHaveValue(defaultImagePrompt);
+    await user.clear(userImagePromptField);
+    await user.type(userImagePromptField, "Make the visual feel launch-ready.");
     await user.click(
       screen.getByRole("button", {
         name: /close image direction/i,

@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { ImageGenerationInput } from "@/services/generation";
-import { parseImageGenerationInput } from "@/services/generation";
+import { defaultImagePrompt, parseImageGenerationInput } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { getRunPhaseLabel } from "@/services/workspace";
 import { DirectionPanel } from "./direction-panel";
@@ -92,7 +92,9 @@ export function ImageGenerationArea({
   const canSelectCandidate =
     candidates.length > 0 && (!imageGenerationStatus || imageGenerationStatus === "not-started");
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-  const [userImagePrompt, setUserImagePrompt] = useState("");
+  // Seed the editable prompt with the shared Default Image Prompt so the operator
+  // can tweak it before generating; once a run starts it locks (read-only below).
+  const [userImagePrompt, setUserImagePrompt] = useState(defaultImagePrompt);
   const { openPanelId, togglePanel } = useDirectionPanel();
   const panelId = "image-direction";
   const isDirectionOpen = openPanelId === panelId;

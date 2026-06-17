@@ -24,6 +24,11 @@ const defaultAiGatewayBaseUrl = "https://ai-gateway.vercel.sh/v1";
 // completes from the surviving branches). Tunable via
 // AI_GATEWAY_VISUAL_JOKE_TIMEOUT_MS.
 const defaultVisualJokeTimeoutMs = 60_000;
+// JSON mode makes malformed candidate output rare, but a single unescaped
+// character still fails JSON.parse for the whole batch at once. One repair-retry
+// (a fresh sample) recovers the otherwise-good jokes; beyond that we surface the
+// failure. 2 = the original attempt plus one retry.
+const maximumCandidateGenerationAttempts = 2;
 
 const visualJokePatterns = [
   "truthful misdirection",
@@ -78,16 +83,35 @@ const visualJokeProviderOutputSchema = z
   })
   .strict();
 
-export const defaultVisualJokeDirection = parseVisualJokeDirectionText(`
-Write short visual-joke titles for tech-news quote-tweet images.
-Favor dark, sharp tech satire that targets systems, incentives, product dynamics, platform power, company behavior, market logic, and hype cycles.
-Use the Joke Context Snapshot as hidden grounding.
-Return only publishable candidates that feel like title-length insider punchlines.
-If a public person is mentioned, use their name in the joke title.
-Prefer truthful misdirection, tech-native metaphor, deadpan diagnosis, incentive roast, fake product naming, absurd headline, and earned edge when the context supports it.
-Avoid boring accuracy, unsupported claims, condescension, cheap profanity, and anything that reads like a visible rationale instead of a joke.
-Keep joke titles readable at scroll speed and usually between eight and twelve words.
-`);
+// OpenAI Structured Outputs schema mirroring `visualJokeProviderOutputSchema`.
+// The Vercel AI Gateway's chat/completions endpoint requires the `json_schema`
+// response_format — plain `json_object` is rejected (400) for models like
+// gpt-5.5. `additionalProperties: false` plus every key marked required keeps it
+// strict-compatible; size constraints (e.g. minItems) are intentionally omitted
+// because they are not strict-mode keywords, and `visualJokeProviderOutputSchema`
+// re-validates the shape after the parse anyway.
+const visualJokeCandidatesJsonSchema = {
+  additionalProperties: false,
+  properties: {
+    candidates: {
+      items: {
+        additionalProperties: false,
+        properties: {
+          jokePattern: { enum: [...visualJokePatterns], type: "string" },
+          jokeTarget: { type: "string" },
+          referencedFact: { type: "string" },
+          shortRationale: { type: "string" },
+          text: { type: "string" },
+        },
+        required: ["jokePattern", "jokeTarget", "referencedFact", "shortRationale", "text"],
+        type: "object",
+      },
+      type: "array",
+    },
+  },
+  required: ["candidates"],
+  type: "object",
+};
 
 export type VisualJokeServiceInput = {
   jokeContextSnapshot: JokeContextSnapshot;
@@ -118,9 +142,9 @@ export class VisualJokeGenerationError extends Error {
 
   constructor(
     message = "Visual joke generation could not produce a publishable joke set.",
-    options: { debugLog?: string[] } = {},
+    options: { cause?: unknown; debugLog?: string[] } = {},
   ) {
-    super(message);
+    super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = "VisualJokeGenerationError";
     this.debugLog = options.debugLog;
   }
@@ -221,66 +245,128 @@ function createAiGatewayVisualJokeCandidateProvider({
         });
       }
 
-      const response = await fetchWithTimeout(
-        `${(baseUrl ?? defaultAiGatewayBaseUrl).replace(/\/$/, "")}/chat/completions`,
-        {
-          body: JSON.stringify({
-            messages: [
-              {
-                content:
-                  "You generate sharp, publishable visual-joke titles for tech-news commentary. Return only JSON.",
-                role: "system",
-              },
-              {
-                content: buildGatewayPrompt({
-                  jokeContextSnapshot,
-                  targetCount,
-                  visualJokeDirection,
-                }),
-                role: "user",
-              },
-            ],
-            model,
-            temperature: 0.9,
-          }),
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          method: "POST",
-          operationLabel: "Visual joke generation",
-          timeoutMs,
-          upstreamLabel: "the AI Gateway",
-        },
-      );
+      const buildRequestBody = (useResponseFormat: boolean) =>
+        JSON.stringify({
+          messages: [
+            {
+              content:
+                "You generate sharp, publishable visual-joke titles for tech-news commentary. Return only JSON.",
+              role: "system",
+            },
+            {
+              content: buildGatewayPrompt({
+                jokeContextSnapshot,
+                targetCount,
+                visualJokeDirection,
+              }),
+              role: "user",
+            },
+          ],
+          model,
+          // Structured Outputs: constrain decoding to schema-valid JSON so a stray
+          // unescaped quote in a joke title can't break the parse for the whole batch.
+          ...(useResponseFormat
+            ? {
+                response_format: {
+                  json_schema: {
+                    description: "A set of publishable visual-joke candidates.",
+                    name: "visual_joke_candidates",
+                    schema: visualJokeCandidatesJsonSchema,
+                    strict: true,
+                  },
+                  type: "json_schema",
+                },
+              }
+            : {}),
+          temperature: 0.9,
+        });
 
-      if (!response.ok) {
-        throw new VisualJokeGenerationError(
-          `Visual joke generation failed (${response.status}): ${await readGatewayError(response)}`,
+      // Two independent, bounded fallbacks:
+      //  - response_format negotiation (once): if the configured model rejects the
+      //    parameter, drop it and rely on prompt-only JSON. This doesn't consume the
+      //    parse-retry budget.
+      //  - parse repair-retry: Structured Outputs makes malformed payloads rare, but
+      //    when one slips through a fresh sample almost always parses cleanly.
+      // Any other non-ok gateway response is a different failure and still fails fast.
+      let useResponseFormat = true;
+      let parseAttempts = 0;
+      let lastParseError: unknown;
+
+      while (parseAttempts < maximumCandidateGenerationAttempts) {
+        const response = await fetchWithTimeout(
+          `${(baseUrl ?? defaultAiGatewayBaseUrl).replace(/\/$/, "")}/chat/completions`,
           {
-            debugLog: [
-              "Step: generate-candidates",
-              `Provider: ai-gateway/${model}`,
-              `Gateway status: ${response.status}`,
-            ],
+            body: buildRequestBody(useResponseFormat),
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            method: "POST",
+            operationLabel: "Visual joke generation",
+            timeoutMs,
+            upstreamLabel: "the AI Gateway",
           },
         );
+
+        if (!response.ok) {
+          const gatewayError = await readGatewayError(response);
+
+          if (
+            useResponseFormat &&
+            response.status === 400 &&
+            gatewayError.includes("response_format")
+          ) {
+            useResponseFormat = false;
+            continue;
+          }
+
+          throw new VisualJokeGenerationError(
+            `Visual joke generation failed (${response.status}): ${gatewayError}`,
+            {
+              debugLog: [
+                "Step: generate-candidates",
+                `Provider: ai-gateway/${model}`,
+                `Gateway status: ${response.status}`,
+              ],
+            },
+          );
+        }
+
+        parseAttempts += 1;
+        const payload = gatewayResponseSchema.parse(await response.json());
+
+        try {
+          const parsedOutput = visualJokeProviderOutputSchema.parse(
+            JSON.parse(extractJsonObject(payload.choices[0].message.content)),
+          );
+
+          return parsedOutput.candidates.map((candidate) => ({
+            metadata: {
+              jokePattern: candidate.jokePattern,
+              jokeTarget: candidate.jokeTarget,
+              referencedFact: candidate.referencedFact,
+              shortRationale: candidate.shortRationale,
+            },
+            text: candidate.text,
+          }));
+        } catch (error) {
+          lastParseError = error;
+        }
       }
 
-      const payload = gatewayResponseSchema.parse(await response.json());
-      const parsedOutput = visualJokeProviderOutputSchema.parse(
-        JSON.parse(extractJsonObject(payload.choices[0].message.content)),
-      );
-
-      return parsedOutput.candidates.map((candidate) => ({
-        metadata: {
-          jokePattern: candidate.jokePattern,
-          jokeTarget: candidate.jokeTarget,
-          referencedFact: candidate.referencedFact,
-          shortRationale: candidate.shortRationale,
+      throw new VisualJokeGenerationError(
+        lastParseError instanceof Error
+          ? lastParseError.message
+          : "Visual joke output was not valid JSON.",
+        {
+          cause: lastParseError,
+          debugLog: [
+            "Step: generate-candidates",
+            `Provider: ai-gateway/${model}`,
+            `JSON parsing failed after ${maximumCandidateGenerationAttempts} attempts (structured outputs + one repair-retry).`,
+          ],
         },
-        text: candidate.text,
-      }));
+      );
     },
   };
 }

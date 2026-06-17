@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { parseJokeContextSnapshot } from "@/services/generation";
+import { defaultVisualJokeDirection, parseJokeContextSnapshot } from "@/services/generation";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import {
   createLocalGenerationProviders,
@@ -7,7 +7,6 @@ import {
   orchestrateThreeProviderGeneration,
   type ProviderGenerationInput,
 } from "./generation-orchestrator";
-import { defaultVisualJokeDirection } from "./visual-joke-service";
 
 describe("generation orchestrator", () => {
   test("returns exactly one draft from each connected provider", async () => {

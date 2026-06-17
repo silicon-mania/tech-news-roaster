@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   type CompletedGenerationRunPayload,
+  defaultVisualJokeDirection,
   draftTarget,
   type GenerationProviderId,
   type GenerationResultStates,
@@ -14,7 +15,6 @@ import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
 import { describeErrorDetail, summarizeErrorMessage } from "./error-detail";
 import {
-  defaultVisualJokeDirection,
   generateVisualJokeSet,
   type VisualJokeCandidateProvider,
   VisualJokeGenerationError,

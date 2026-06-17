@@ -2,7 +2,11 @@ import "@testing-library/jest-dom/vitest";
 import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
-import { buildGenerationFailureEvent, buildGenerationRunStateEvent } from "@/services/generation";
+import {
+  buildGenerationFailureEvent,
+  buildGenerationRunStateEvent,
+  defaultImagePrompt,
+} from "@/services/generation";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import {
   buildCompletedRun,
@@ -56,10 +60,15 @@ describe("Workspace creative result areas", () => {
         name: /open image direction/i,
       }),
     );
+    const userImagePromptField = screen.getByRole("textbox", {
+      name: /user image prompt/i,
+    });
+    // The prompt is pre-seeded with the shared Default Image Prompt; the operator
+    // can replace it before generation, and that edited value is what flows through.
+    expect(userImagePromptField).toHaveValue(defaultImagePrompt);
+    await user.clear(userImagePromptField);
     await user.type(
-      screen.getByRole("textbox", {
-        name: /user image prompt/i,
-      }),
+      userImagePromptField,
       "Make it feel like a serious product launch, not a meme.",
     );
     await user.click(
@@ -249,12 +258,12 @@ describe("Workspace creative result areas", () => {
         name: /open image direction/i,
       }),
     );
-    await user.type(
-      screen.getByRole("textbox", {
-        name: /user image prompt/i,
-      }),
-      "Make it feel like a serious product launch image.",
-    );
+    const userImagePromptField = screen.getByRole("textbox", {
+      name: /user image prompt/i,
+    });
+    expect(userImagePromptField).toHaveValue(defaultImagePrompt);
+    await user.clear(userImagePromptField);
+    await user.type(userImagePromptField, "Make it feel like a serious product launch image.");
     await user.click(
       screen.getByRole("button", {
         name: /close image direction/i,

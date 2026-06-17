@@ -1,10 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
-import { parseJokeContextSnapshot } from "@/services/generation";
-import {
-  defaultVisualJokeDirection,
-  generateVisualJokeSet,
-  VisualJokeGenerationError,
-} from "./visual-joke-service";
+import { defaultVisualJokeDirection, parseJokeContextSnapshot } from "@/services/generation";
+import { generateVisualJokeSet, VisualJokeGenerationError } from "./visual-joke-service";
 
 describe("visual joke service", () => {
   test("returns a ranked, pattern-diverse visual joke set with a bold candidate when context supports it", async () => {
@@ -307,6 +303,124 @@ describe("visual joke service", () => {
     expect(result.visualJokeSet.jokes[0]?.recommended).toBe(true);
   });
 
+  test("requests structured outputs and recovers from a single malformed payload with one repair-retry", async () => {
+    const previousApiKey = process.env.AI_GATEWAY_API_KEY;
+    const previousModel = process.env.AI_GATEWAY_VISUAL_JOKE_MODEL;
+    const previousFetch = globalThis.fetch;
+    const fetcher = vi.fn<typeof fetch>();
+    // First sample breaks JSON.parse; the repair-retry returns a clean batch.
+    fetcher.mockResolvedValueOnce(buildMalformedGatewayResponse());
+    fetcher.mockResolvedValueOnce(buildValidGatewayResponse());
+
+    process.env.AI_GATEWAY_API_KEY = "gateway-secret";
+    process.env.AI_GATEWAY_VISUAL_JOKE_MODEL = "openai/visual-joke-model";
+    globalThis.fetch = fetcher;
+
+    try {
+      const result = await generateVisualJokeSet({
+        jokeContextSnapshot: buildJokeContextSnapshot(),
+        visualJokeDirection: defaultVisualJokeDirection,
+      });
+
+      expect(result.visualJokeSet.jokes).toHaveLength(8);
+      expect(fetcher).toHaveBeenCalledTimes(2);
+
+      const body = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as {
+        response_format?: { json_schema?: { name?: string; strict?: boolean }; type?: string };
+      };
+      expect(body.response_format?.type).toBe("json_schema");
+      expect(body.response_format?.json_schema?.name).toBe("visual_joke_candidates");
+      expect(body.response_format?.json_schema?.strict).toBe(true);
+    } finally {
+      restoreEnvValue("AI_GATEWAY_API_KEY", previousApiKey);
+      restoreEnvValue("AI_GATEWAY_VISUAL_JOKE_MODEL", previousModel);
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("drops response_format and retries without it when the gateway rejects the parameter", async () => {
+    const previousApiKey = process.env.AI_GATEWAY_API_KEY;
+    const previousModel = process.env.AI_GATEWAY_VISUAL_JOKE_MODEL;
+    const previousFetch = globalThis.fetch;
+    const fetcher = vi.fn<typeof fetch>();
+    // The model rejects response_format outright (the gpt-5.5 400), then succeeds
+    // once the parameter is dropped — the run degrades instead of failing.
+    fetcher.mockResolvedValueOnce(
+      Response.json(
+        {
+          error: {
+            code: "invalid_request_error",
+            message: "Invalid input",
+            param: "response_format",
+            type: "invalid_request_error",
+          },
+        },
+        { status: 400 },
+      ),
+    );
+    fetcher.mockResolvedValueOnce(buildValidGatewayResponse());
+
+    process.env.AI_GATEWAY_API_KEY = "gateway-secret";
+    process.env.AI_GATEWAY_VISUAL_JOKE_MODEL = "openai/gpt-5.5";
+    globalThis.fetch = fetcher;
+
+    try {
+      const result = await generateVisualJokeSet({
+        jokeContextSnapshot: buildJokeContextSnapshot(),
+        visualJokeDirection: defaultVisualJokeDirection,
+      });
+
+      expect(result.visualJokeSet.jokes).toHaveLength(8);
+      expect(fetcher).toHaveBeenCalledTimes(2);
+
+      const firstBody = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as {
+        response_format?: unknown;
+      };
+      const secondBody = JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body)) as {
+        response_format?: unknown;
+      };
+      expect(firstBody.response_format).toBeDefined();
+      expect(secondBody.response_format).toBeUndefined();
+    } finally {
+      restoreEnvValue("AI_GATEWAY_API_KEY", previousApiKey);
+      restoreEnvValue("AI_GATEWAY_VISUAL_JOKE_MODEL", previousModel);
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  test("fails with a repair-retry debug log after JSON parsing fails on both attempts", async () => {
+    const previousApiKey = process.env.AI_GATEWAY_API_KEY;
+    const previousModel = process.env.AI_GATEWAY_VISUAL_JOKE_MODEL;
+    const previousFetch = globalThis.fetch;
+    const fetcher = vi.fn<typeof fetch>(async () => buildMalformedGatewayResponse());
+
+    process.env.AI_GATEWAY_API_KEY = "gateway-secret";
+    process.env.AI_GATEWAY_VISUAL_JOKE_MODEL = "openai/visual-joke-model";
+    globalThis.fetch = fetcher;
+
+    try {
+      const error = await generateVisualJokeSet({
+        jokeContextSnapshot: buildJokeContextSnapshot(),
+        visualJokeDirection: defaultVisualJokeDirection,
+      }).catch((thrown: unknown) => thrown);
+
+      expect(error).toBeInstanceOf(VisualJokeGenerationError);
+      expect(fetcher).toHaveBeenCalledTimes(2);
+      // The underlying SyntaxError stays reachable via the cause chain.
+      expect((error as VisualJokeGenerationError).cause).toBeInstanceOf(SyntaxError);
+      expect((error as VisualJokeGenerationError).debugLog ?? []).toEqual(
+        expect.arrayContaining([
+          "Provider: ai-gateway/openai/visual-joke-model",
+          expect.stringContaining("JSON parsing failed after 2 attempts"),
+        ]),
+      );
+    } finally {
+      restoreEnvValue("AI_GATEWAY_API_KEY", previousApiKey);
+      restoreEnvValue("AI_GATEWAY_VISUAL_JOKE_MODEL", previousModel);
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   test("does not retry or fall back when the configured provider fails", async () => {
     const provider = {
       model: "test-model",
@@ -371,6 +485,44 @@ function buildJokeContextSnapshot() {
       supportingFacts: ["The rollout is framed as an operator productivity update."],
       unknowns: ["No pricing detail is confirmed in the source tweet."],
     },
+  });
+}
+
+function buildValidGatewayResponse() {
+  return Response.json({
+    choices: [
+      {
+        message: {
+          content: JSON.stringify({
+            candidates: [
+              buildCandidatePayload("OpenAI Ships The Pricing Shortcut", "truthful misdirection"),
+              buildCandidatePayload("Workflow Lock-In With Better Lighting", "dark tech satire"),
+              buildCandidatePayload("Roadmap As A Service", "tech-native metaphor"),
+              buildCandidatePayload("OpenAI Premium Coordination Cloud", "fake product naming"),
+              buildCandidatePayload("The Moat Is The Workflow", "deadpan diagnosis"),
+              buildCandidatePayload("Every Launch Is A Billing Event", "incentive roast"),
+              buildCandidatePayload("Breaking: The Dashboard Needs A Manager", "absurd headline"),
+              buildCandidatePayload("OpenAI Wants Rent On Your Entire Workflow", "earned edge"),
+            ],
+          }),
+        },
+      },
+    ],
+  });
+}
+
+// Reproduces the production failure mode: an unescaped interior quote in a string
+// value. The parser reads `"the "`, then hits `cool`, expecting ',' or '}'.
+function buildMalformedGatewayResponse() {
+  return Response.json({
+    choices: [
+      {
+        message: {
+          content:
+            '{"candidates":[{"jokePattern":"deadpan diagnosis","jokeTarget":"platform leverage","referencedFact":"The rollout is framed as an operator productivity update.","shortRationale":"r","text":"the "cool" glasses"}]}',
+        },
+      },
+    ],
   });
 }
 

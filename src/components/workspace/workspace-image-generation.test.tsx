@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
+import { defaultImagePrompt } from "@/services/generation";
 import {
   buildCompletedRun,
   buildFailedImageSet,
@@ -228,12 +229,14 @@ describe("Workspace image generation", () => {
         name: /open image direction/i,
       }),
     );
-    await user.type(
-      screen.getByRole("textbox", {
-        name: /user image prompt/i,
-      }),
-      "Make it feel like a serious product launch image.",
-    );
+    const userImagePromptField = screen.getByRole("textbox", {
+      name: /user image prompt/i,
+    });
+    // The prompt is pre-seeded with the shared Default Image Prompt; the operator
+    // can replace it before generation, and that edited value is what gets sent.
+    expect(userImagePromptField).toHaveValue(defaultImagePrompt);
+    await user.clear(userImagePromptField);
+    await user.type(userImagePromptField, "Make it feel like a serious product launch image.");
     await user.click(
       screen.getByRole("button", {
         name: /close image direction/i,
@@ -352,12 +355,14 @@ describe("Workspace image generation", () => {
         name: /open image direction/i,
       }),
     );
-    await user.type(
-      screen.getByRole("textbox", {
-        name: /user image prompt/i,
-      }),
-      "Make it feel like a serious product launch image.",
-    );
+    const userImagePromptField = screen.getByRole("textbox", {
+      name: /user image prompt/i,
+    });
+    // The prompt is pre-seeded with the shared Default Image Prompt; the operator
+    // can replace it before generation, and that edited value is what gets sent.
+    expect(userImagePromptField).toHaveValue(defaultImagePrompt);
+    await user.clear(userImagePromptField);
+    await user.type(userImagePromptField, "Make it feel like a serious product launch image.");
     await user.click(
       screen.getByRole("button", {
         name: /close image direction/i,
