@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getOperatorSession } from "@/services/auth/operator-session";
 import {
   assembleImageOriginalCandidates,
   defaultImagePrompt,
@@ -36,7 +37,10 @@ import {
 import { buildReplySignals, type ReplySignal } from "@/services/outside-x-enrichment";
 import { persistImageSetToOwnerStorage } from "@/services/saved-runs/persist-image-set-to-owner-storage";
 import { normalizeRunForPersistence } from "@/services/saved-runs/run-persistence";
-import { resolveRunRepository } from "@/services/saved-runs/run-repository";
+import {
+  type OperatorSessionReader,
+  resolveRunRepository,
+} from "@/services/saved-runs/run-repository";
 import {
   type RetrievedSourceTweet,
   type RetrievedTweetContext,
@@ -73,12 +77,19 @@ export type ComposeAutomatedRunDependencies = {
   generateImageSet?: typeof generateImageSetForRun;
   persistImageSet?: PersistImageSet;
   resolveRepository?: typeof resolveRunRepository;
+  // How the Operator Account is resolved for persistence. Defaults to the session
+  // -cookie reader (HTTP-triggered composition); the unattended Discovery Sweep
+  // injects the headless allowlisted-email resolver, since a cron has no session.
+  // Threaded into the default `resolveRepository` and `persistImageSet`.
+  operatorSession?: OperatorSessionReader;
   // The image prompt fed to Image Generation. Defaults to the Default Image
   // Prompt — an automated run has no operator to write a User Image Prompt.
   imagePrompt?: string;
   // The deployment origin used to build served-image URLs (no HTTP request
-  // exists in a server-driven composition). Issue 020 supplies the real origin.
+  // exists in a server-driven composition). Defaults to APP_BASE_URL via `env`.
   origin?: string;
+  // Environment the persistence resolvers and origin read. Defaults to process.env.
+  env?: AutomatedRunEnvironment;
   now?: () => Date;
   createRunId?: () => string;
 };
@@ -109,10 +120,22 @@ export async function composeAutomatedRun(
   const discover = dependencies.discoverNewsLinkedImages ?? discoverNewsLinkedImages;
   const orchestrate = dependencies.orchestrateGeneration ?? orchestrateThreeProviderGeneration;
   const generateImageSet = dependencies.generateImageSet ?? generateImageSetForRun;
-  const persistImageSet = dependencies.persistImageSet ?? persistImageSetToOwnerStorage;
-  const resolveRepository = dependencies.resolveRepository ?? resolveRunRepository;
+  const env = dependencies.env ?? process.env;
+  const operatorSession = dependencies.operatorSession ?? getOperatorSession;
+  const persistImageSet =
+    dependencies.persistImageSet ??
+    (({ imageSet, origin: imageOrigin, runId: imageRunId }) =>
+      persistImageSetToOwnerStorage({
+        imageSet,
+        origin: imageOrigin,
+        runId: imageRunId,
+        env,
+        getSession: operatorSession,
+      }));
+  const resolveRepository =
+    dependencies.resolveRepository ?? (() => resolveRunRepository(env, operatorSession));
   const imagePrompt = dependencies.imagePrompt ?? defaultImagePrompt;
-  const origin = dependencies.origin ?? resolveAutomatedRunOrigin();
+  const origin = dependencies.origin ?? resolveAutomatedRunOrigin(env);
   const now = dependencies.now ?? (() => new Date());
   const createRunId = dependencies.createRunId ?? defaultCreateRunId;
 

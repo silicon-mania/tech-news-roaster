@@ -2,6 +2,7 @@ import "server-only";
 
 import { composeAutomatedRun } from "@/services/automated-run/compose-automated-run";
 import { isDiscoverySweepReady, readRuntimeStatus } from "@/services/runtime-status";
+import { resolveHeadlessOperatorSession } from "@/services/saved-runs/resolve-headless-operator";
 import { resolveOwnerId } from "@/services/saved-runs/run-repository";
 import {
   type DiscoveredTweet,
@@ -268,10 +269,15 @@ export async function runDiscoverySweep(
     }
 
     const clusterId = createClusterId();
-    const composed = await compose({
-      sourceTweetUrl: discovered.url,
-      newsCoverageClusterId: clusterId,
-    });
+    const composed = await compose(
+      {
+        sourceTweetUrl: discovered.url,
+        newsCoverageClusterId: clusterId,
+      },
+      // The sweep is unattended (no operator session): compose must resolve the
+      // Operator Account headlessly, the same way as the discovery stores below.
+      { operatorSession: resolveHeadlessOperatorSession, env },
+    );
 
     if ("unauthorized" in composed) {
       // The gate cleared but the operator became unresolvable mid-sweep; stop rather
@@ -324,7 +330,9 @@ async function defaultIsReady(env: SweepEnvironment): Promise<boolean> {
 async function resolveDiscoverySweepRepositories(
   env: SweepEnvironment,
 ): Promise<DiscoverySweepRepositoriesResolution> {
-  const owner = await resolveOwnerId(env);
+  // Unattended: resolve the one operator by allowlisted email (service-role admin),
+  // not a session cookie — a cron sweep has none. See resolveHeadlessOperatorSession.
+  const owner = await resolveOwnerId(env, resolveHeadlessOperatorSession);
 
   if ("unauthorized" in owner) {
     return { unauthorized: true };

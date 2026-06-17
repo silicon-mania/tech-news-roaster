@@ -25,6 +25,21 @@ these variables with `NEXT_PUBLIC_`.
    - Decide the public `OUTSIDE_X_ENRICHMENT_ENDPOINT`. For the same Vercel deployment, this is
      usually `https://<your-production-domain>/enrich`.
 
+4. Supabase (server-side persistence + single-operator auth — required for v4 automated discovery)
+   - Create a Supabase project. From Project Settings -> API copy the **Project URL**
+     (`SUPABASE_URL`), the **anon** key (`SUPABASE_ANON_KEY`), and the **service_role** key
+     (`SUPABASE_SERVICE_ROLE_KEY`). The service-role key is secret — server-only, never
+     `NEXT_PUBLIC_`.
+   - Apply the database schema. In the Supabase dashboard SQL Editor, run each file in
+     `supabase/migrations/` **in order** (`0001` → `0004`). This creates the run, author-baseline,
+     cluster, and seen-tweet tables, their row-level-security policies, **and the private
+     `generated-images` storage bucket** (`0002`) — no manual bucket creation needed.
+   - Enable email auth. Authentication -> Providers -> **Email** on; the operator signs in with an
+     email OTP. For reliable delivery configure SMTP (Authentication -> Emails); the built-in
+     sender is heavily rate-limited and is the most common cause of "code could not be sent".
+   - Decide the single operator email for `OPERATOR_ALLOWLISTED_EMAIL`. Only this address can
+     receive a code or create the account.
+
 ## 2. Configure Vercel environment variables
 
 In the Vercel dashboard, open the project, then go to Settings -> Environment Variables. Add these
@@ -41,9 +56,18 @@ AI_GATEWAY_VISUAL_JOKE_MODEL=openai/gpt-5.4-mini
 OUTSIDE_X_ENRICHMENT_ENDPOINT=https://<your-production-domain>/enrich
 OUTSIDE_X_ENRICHMENT_API_KEY=<shared enrichment bearer token>
 SERPER_API_KEY=<serper key, if using this repo's /enrich route>
+SUPABASE_URL=<supabase project url>
+SUPABASE_ANON_KEY=<supabase anon key>
+SUPABASE_SERVICE_ROLE_KEY=<supabase service_role key>
+OPERATOR_ALLOWLISTED_EMAIL=<the single operator email>
+APP_BASE_URL=https://<your-production-domain>
 DISCOVERY_SOURCE_LIST_IDS=<comma-separated operator-owned X List ids>
 CRON_SECRET=<long random secret protecting the sweep route>
 ```
+
+`APP_BASE_URL` is required for automated runs: a cron-driven run has no incoming request, so it
+builds its stored image URLs from this base. Without it those URLs default to `localhost` and are
+unreachable in production.
 
 Optional (automated discovery):
 
@@ -123,11 +147,18 @@ The sweep runs unattended as a **Vercel Cron job** that hits the secured
   outright in production.
 - **Discovery Source.** Set `DISCOVERY_SOURCE_LIST_IDS` to your operator-owned X List
   ids (comma-separated). With none set the route returns 503 and sweeps nothing.
+- **The Operator Account must exist first.** A cron request has no session cookie, so the
+  sweep resolves the single operator by `OPERATOR_ALLOWLISTED_EMAIL` through the
+  service-role admin API. That auth user only exists once you have **signed in to the app
+  at least once** with the allowlisted email (email OTP). Until then the sweep returns
+  `{ "status": "unauthorized" }` (HTTP 500) and starts nothing. So: deploy → sign in once →
+  then rely on the cron.
 - **Readiness gate.** A sweep that finds the Runtime Readiness Gate not ready starts
   nothing that cycle and returns `{ "status": "not-ready" }` (HTTP 200). Confirm
   `/api/runtime-status` reports `retrieval.mode: live`, `persistence.mode: live`, and
   both the image model and visual-joke model as `available: true` before relying on
-  unattended sweeps.
+  unattended sweeps. (The gate checks boundaries, not whether the operator has signed in —
+  that is the separate `unauthorized` case above.)
 
 ## 6. Real Discovery Sweep smoke (v4)
 
