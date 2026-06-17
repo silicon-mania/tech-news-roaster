@@ -57,4 +57,17 @@ describe("operator gate", () => {
       });
     }
   });
+
+  test("leaves the bearer-authenticated discovery-sweep route public to the session gate", () => {
+    // The unattended Vercel Cron request carries no operator session — it
+    // authenticates with CRON_SECRET inside the route — so the session gate must
+    // not 401 it first.
+    expect(
+      resolveOperatorGate({
+        hasOperator: false,
+        isConfigured: true,
+        pathname: "/api/discovery-sweep",
+      }),
+    ).toEqual({ type: "allow" });
+  });
 });
