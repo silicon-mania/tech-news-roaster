@@ -17,7 +17,7 @@ A generation run started by the system from a discovered viral tweet while the u
 _Avoid_: Background job, cron run, bot run
 
 **Automated Selection**:
-The rule by which an automated run makes, without human input, the choices a manual run leaves to the user: the first text draft, the recommended visual joke, the first image original candidate, and the first generated variation. Each remains overridable once the operator opens the run.
+The rule by which an automated run makes, without human input, the choices a manual run leaves to the user: the first text draft, the first Top Pick visual joke, the first image original candidate, and the first generated variation. Each remains overridable once the operator opens the run.
 _Avoid_: Auto-publish, locked choice, final pick
 
 **Operator Account**:
@@ -189,19 +189,15 @@ The part of a generation run that starts after joke context gathering and create
 _Avoid_: Better draft generation, image generation with text, caption overlay
 
 **Visual Joke Workflow**:
-The internal creative process for visual joke generation that can gather context, extract jokeable tensions, generate pattern-diverse candidates, critique them against visual joke taste, and return the strongest visual joke set.
-_Avoid_: Single prompt, joke completion, caption call
+The internal creative process for visual joke generation that hands the joke context snapshot and visual joke direction to the model and returns the categorized visual joke set — three Visual Joke Sections plus the Top Picks — without a separate local critique stage; taste lives in the visual joke direction and the model's own Top Picks.
+_Avoid_: Single prompt, joke completion, caption call, local critic
 
 **Visual Joke Service**:
 The provider-agnostic service boundary that runs the visual joke workflow and returns a visual joke set without binding product language to a specific AI provider or model.
 _Avoid_: OpenAI joke call, Gemini joke call, caption generator
 
-**Visual Joke Critic**:
-The internal quality filter that ranks or rejects visual joke candidates against visual joke taste, joke title length, factual support, joke target, earned edge, and joke pattern diversity before the visual joke set is returned.
-_Avoid_: User rating, moderation panel, visible score
-
 **Boring Accuracy**:
-A factually correct but flat visual joke candidate that summarizes the news without surprise, tension, misdirection, or a strong punchline, and should be rejected by the visual joke critic.
+A factually correct but flat visual joke that summarizes the news without surprise, tension, misdirection, or a strong punchline; the visual joke direction steers the model away from it rather than a local critic rejecting it.
 _Avoid_: Safe summary, neutral title, accurate caption
 
 **Visual Joke Direction**:
@@ -337,32 +333,28 @@ A short, non-editable joke or caption generated from the source tweet, its media
 _Avoid_: Image caption, meme text, overlay text
 
 **Joke Title**:
-The preferred format for a visual joke: a short, title-like one-liner that gives a fast read on the news while landing like an insider punchline, usually three to twelve words.
+The preferred format for a visual joke: a short, title-like one-liner that gives a fast read on the news while landing like an insider punchline, kept compressed by the visual joke direction rather than a fixed word cap.
 _Avoid_: Paragraph joke, long caption, explanatory copy
 
 **Visual Joke Set**:
-The ranked, polished, publishable visual jokes produced for one generation run — up to eight, with eight as the default target and the strongest candidate shown first. When the critic rejects candidates, the set ships the survivors (as few as one) rather than failing the whole result area, and the result surface shows a quiet shortfall notice whenever fewer than the target are returned.
-_Avoid_: Joke list, caption batch, meme options
+The categorized, publishable visual jokes produced for one generation run — organized into three Visual Joke Sections of up to seven each (up to twenty-one total) plus the ordered Top Picks. The set ships whatever the model returns per section (as few as one joke overall) rather than failing the whole result area, and the result surface shows a quiet per-section shortfall notice whenever a section returns fewer than seven.
+_Avoid_: Joke list, caption batch, meme options, ranked eight
 
-**Recommended Visual Joke**:
-The first visual joke in the ranked visual joke set, shown with a quiet recommended label while all other visual jokes remain visible.
-_Avoid_: Winner, only option, hidden ranking
+**Visual Joke Section**:
+One of the three labeled groups a visual joke set is organized into, defined by who the joke punches at and how experimental it is: **Satire** (may hit the company, founders, product, valuation, press-release language, or culture), **Tech-Positive** (punches at everyone except the company and founder — the haters, the wrong analysts, Wall Street, retail investors, the press, the public — leaving the company looking good or untouched), and **Experimental** (deliberately breaks the guidelines to discover new registers, where some candidates are expected to miss). Each section targets seven visual jokes.
+_Avoid_: Joke pattern, category tag, tone bucket
 
-**Bold Joke Candidate**:
-A higher-risk visual joke candidate included when the context supports earned edge, named news actors, or strong truthful misdirection, so the visual joke set can explore a possible standout without making every joke risky.
-_Avoid_: Unsafe joke, random shock, default edge
+**Top Pick**:
+One of the model's two-to-three self-flagged strongest visual jokes across all sections, surfaced as an ordered list with a quiet label while every other visual joke stays visible. The first Top Pick is the system's default and the one Automated Selection takes. Each Top Pick carries an internal one-line reason that is not shown on the main surface.
+_Avoid_: Recommended visual joke, winner, hidden ranking
 
 **Selected Visual Joke**:
-The visual joke whose joke title is placed on the final quote tweet image: the user chooses it from the visual joke set in a manual run and the system takes the recommended visual joke in an automated run, and it can be changed afterward.
+The visual joke whose joke title is placed on the final quote tweet image: the user chooses it from any section of the visual joke set in a manual run and the system takes the first Top Pick in an automated run, and it can be changed afterward.
 _Avoid_: Required joke choice, final caption, edited joke
 
-**Joke Pattern Diversity**:
-The requirement that a visual joke set explores different joke patterns such as truthful misdirection, dark tech satire, tech-native metaphor, fake product naming, deadpan diagnosis, incentive roast, absurd headline, and earned edge instead of repeating one idea.
-_Avoid_: Variation spread, paraphrase diversity, random variety
-
-**Visual Joke Metadata**:
-The internal structure attached to a visual joke, such as its joke pattern, joke target, referenced fact, and short rationale, while the user-facing surface shows only the joke title without any visible rationale.
-_Avoid_: Visible explanation, joke card details, debug notes
+**Section Coverage**:
+The requirement that a visual joke set populate all three Visual Joke Sections toward seven jokes each, exploring the distinct angle of each section rather than repeating one idea across the set.
+_Avoid_: Joke pattern diversity, variation spread, random variety
 
 **Selected Generated Image**:
 The one generated Image Option — always one of the four variations, never the original — chosen as the picture placed inside the Final Quote Tweet Image: the user chooses it in a manual run and the system takes the first variation in an automated run. It is distinct from the Selected Image Original, which is the input to image generation.
