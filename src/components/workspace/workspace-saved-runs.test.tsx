@@ -216,7 +216,7 @@ describe("Workspace saved runs", () => {
     expect(within(visualJokeArea).getAllByRole("article")).toHaveLength(5);
     expect(
       within(visualJokeArea).getByRole("button", {
-        name: /clear visual joke 2 selection/i,
+        name: /clear tech-positive visual joke 1 selection/i,
       }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(visualJokeArea).toHaveTextContent(

@@ -73,7 +73,7 @@ describe("deriveAutomatedSelection", () => {
     expect(selection).toEqual({
       // First text draft as Selected Draft.
       selectedDraftId: "draft-openai",
-      // Recommended Visual Joke as Selected Visual Joke.
+      // First Top Pick as Selected Visual Joke.
       selectedVisualJoke: {
         selectedAt,
         visualJokeId: "visual-joke-1",
@@ -102,35 +102,36 @@ describe("deriveAutomatedSelection", () => {
     expect(selection.selectedGeneratedImage?.selectedAt).toBe(selectedAt);
   });
 
-  test("selects the flagged Recommended Visual Joke even when it is not first", () => {
-    const recommendedThird: VisualJokeSet = {
+  test("selects the first Top Pick even when it is not the first joke", () => {
+    const topPickThird: VisualJokeSet = {
       generatedAt: "2026-06-06T10:12:00.000Z",
-      id: "visual-joke-set-recommended-third",
-      targetCount: 8,
-      jokes: buildVisualJokes(5).map((joke, index) => ({
-        ...joke,
-        recommended: index === 2,
-      })),
+      id: "visual-joke-set-top-pick-third",
+      targetPerSection: 7,
+      jokes: buildVisualJokes(5),
+      topPicks: [{ reason: "The third joke is the sharpest.", visualJokeId: "visual-joke-3" }],
     };
 
     const selection = deriveAutomatedSelection(
-      { drafts, visualJokeSet: recommendedThird },
+      { drafts, visualJokeSet: topPickThird },
       { now: fixedNow },
     );
 
     expect(selection.selectedVisualJoke?.visualJokeId).toBe("visual-joke-3");
   });
 
-  test("falls back to the first joke when none is flagged recommended", () => {
-    const noneRecommended: VisualJokeSet = {
+  test("falls back to the first joke when the set carries no top picks", () => {
+    const noTopPicks: VisualJokeSet = {
       generatedAt: "2026-06-06T10:12:00.000Z",
-      id: "visual-joke-set-none-recommended",
-      targetCount: 8,
-      jokes: buildVisualJokes(5).map((joke) => ({ ...joke, recommended: false })),
+      id: "visual-joke-set-no-top-picks",
+      targetPerSection: 7,
+      jokes: buildVisualJokes(5),
+      // Defensive: the schema guarantees at least one Top Pick, but a hand-built or
+      // degraded set must still degrade to a sensible pick rather than none.
+      topPicks: [],
     };
 
     const selection = deriveAutomatedSelection(
-      { drafts, visualJokeSet: noneRecommended },
+      { drafts, visualJokeSet: noTopPicks },
       { now: fixedNow },
     );
 

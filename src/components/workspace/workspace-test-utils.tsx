@@ -474,65 +474,40 @@ export function buildVisualJokeSet(): VisualJokeSet {
   return parseVisualJokeSet({
     generatedAt: "2026-06-06T10:14:00.000Z",
     id: "visual-joke-set-1",
-    targetCount: 5,
+    targetPerSection: 7,
     jokes: [
       {
         id: "visual-joke-1",
-        metadata: {
-          jokePattern: "status-theater",
-          jokeTarget: "Workflow launch pressure",
-          referencedFact: "The launch is framed as one-click automation.",
-          shortRationale: "It turns productivity theatre into the visual gag.",
-        },
-        rank: 1,
-        recommended: true,
+        order: 1,
+        section: "satire",
         text: "A one-click launch button labeled 'Eventually, manual work.'",
       },
       {
         id: "visual-joke-2",
-        metadata: {
-          jokePattern: "literalized-platform-risk",
-          jokeTarget: "Platform dependence",
-          referencedFact: "Replies read the workflow as lock-in.",
-          shortRationale: "It makes lock-in visible without inventing details.",
-        },
-        rank: 2,
+        order: 1,
+        section: "tech-positive",
         text: "A workflow map where every exit arrow points back to the login screen.",
       },
       {
         id: "visual-joke-3",
-        metadata: {
-          jokePattern: "enterprise-understatement",
-          jokeTarget: "Operator pressure",
-          referencedFact: "The rollout promises productivity.",
-          shortRationale: "It plays the launch tone against the operator burden.",
-        },
-        rank: 3,
+        order: 1,
+        section: "experimental",
         text: "A dashboard celebrating that the bottleneck has been promoted to admin.",
       },
       {
         id: "visual-joke-4",
-        metadata: {
-          jokePattern: "button-label-reversal",
-          jokeTarget: "Automation expectations",
-          referencedFact: "The media shows one-click workflow automation.",
-          shortRationale: "It keeps the joke grounded in the visible UI claim.",
-        },
-        rank: 4,
+        order: 2,
+        section: "satire",
         text: "A polished product card with one button: 'Automate explaining this later.'",
       },
       {
         id: "visual-joke-5",
-        metadata: {
-          jokePattern: "soft-dystopia",
-          jokeTarget: "Productivity framing",
-          referencedFact: "The source tweet frames the launch as productivity.",
-          shortRationale: "It lightly darkens the stated product promise.",
-        },
-        rank: 5,
+        order: 2,
+        section: "tech-positive",
         text: "A launch graphic where confetti falls only on the terms-of-service checkbox.",
       },
     ],
+    topPicks: [{ reason: "Sharpest satire angle.", visualJokeId: "visual-joke-1" }],
   });
 }
 

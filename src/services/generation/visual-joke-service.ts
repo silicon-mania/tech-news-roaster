@@ -3,20 +3,18 @@ import {
   type JokeContextSnapshot,
   parseVisualJokeDirectionText,
   parseVisualJokeSet,
+  targetPerSection,
   type VisualJoke,
-  type VisualJokeMetadata,
+  type VisualJokeSection,
   type VisualJokeSet,
+  type VisualJokeTopPick,
+  visualJokeSectionSchema,
+  visualJokeSections,
 } from "@/services/generation";
 import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 import { readConfiguredAiGatewayVisualJokeModel, readEnvValue } from "./ai-gateway-models";
 
-// A publishable set needs at least this many jokes; below it we fail the area.
-// We keep it at one so a critic that rejects most candidates still ships the few
-// that survive instead of discarding the whole set — the result surface shows a
-// quiet shortfall notice whenever fewer than the target are returned.
-const minimumPublishableJokeCount = 1;
-const targetReturnedJokeCount = 8;
-const maximumTitleWordCount = 12;
+const maximumTopPickCount = 3;
 const maximumGatewayErrorLength = 500;
 const defaultAiGatewayBaseUrl = "https://ai-gateway.vercel.sh/v1";
 // A hung Visual Joke generation call is bounded by this timeout so it fails fast
@@ -24,36 +22,25 @@ const defaultAiGatewayBaseUrl = "https://ai-gateway.vercel.sh/v1";
 // completes from the surviving branches). Tunable via
 // AI_GATEWAY_VISUAL_JOKE_TIMEOUT_MS.
 const defaultVisualJokeTimeoutMs = 60_000;
-// JSON mode makes malformed candidate output rare, but a single unescaped
-// character still fails JSON.parse for the whole batch at once. One repair-retry
-// (a fresh sample) recovers the otherwise-good jokes; beyond that we surface the
-// failure. 2 = the original attempt plus one retry.
+// Structured Outputs makes malformed candidate output rare, but a single
+// unescaped character still fails JSON.parse for the whole batch at once. One
+// repair-retry (a fresh sample) recovers the otherwise-good jokes; beyond that we
+// surface the failure. 2 = the original attempt plus one retry.
 const maximumCandidateGenerationAttempts = 2;
-
-const visualJokePatterns = [
-  "truthful misdirection",
-  "dark tech satire",
-  "tech-native metaphor",
-  "fake product naming",
-  "deadpan diagnosis",
-  "incentive roast",
-  "absurd headline",
-  "earned edge",
-] as const;
-
-type VisualJokePattern = (typeof visualJokePatterns)[number];
 
 type VisualJokeModelEnvironment = Readonly<Record<string, string | undefined>>;
 
-type RoughVisualJokeCandidate = {
-  metadata: VisualJokeMetadata;
-  text: string;
+// The provider's categorized output (ADR 0017's provider-agnostic boundary): jokes
+// grouped by section plus the model's self-flagged top picks, each with a one-line
+// reason. The service — not the provider — assigns stable ids and within-section
+// order and resolves top picks to those ids.
+export type VisualJokeCandidateOutput = {
+  jokes: Array<{ section: VisualJokeSection; text: string }>;
+  topPicks: Array<{ reason: string; section: VisualJokeSection; text: string }>;
 };
 
-type EvaluatedCandidate = RoughVisualJokeCandidate & {
-  pattern: VisualJokePattern;
-  score: number;
-};
+type VisualJokeCandidate = VisualJokeCandidateOutput["jokes"][number];
+type VisualJokeTopPickCandidate = VisualJokeCandidateOutput["topPicks"][number];
 
 const gatewayResponseSchema = z.object({
   choices: z
@@ -67,49 +54,69 @@ const gatewayResponseSchema = z.object({
     .min(1),
 });
 
-const visualJokeCandidateSchema = z
-  .object({
-    jokePattern: z.enum(visualJokePatterns),
-    jokeTarget: z.string().trim().min(1),
-    referencedFact: z.string().trim().min(1),
-    shortRationale: z.string().trim().min(1),
-    text: z.string().trim().min(1),
-  })
-  .strict();
-
 const visualJokeProviderOutputSchema = z
   .object({
-    candidates: z.array(visualJokeCandidateSchema).min(minimumPublishableJokeCount),
+    jokes: z
+      .array(
+        z
+          .object({
+            section: visualJokeSectionSchema,
+            text: z.string().trim().min(1),
+          })
+          .strict(),
+      )
+      .min(1),
+    topPicks: z
+      .array(
+        z
+          .object({
+            reason: z.string().trim().min(1),
+            section: visualJokeSectionSchema,
+            text: z.string().trim().min(1),
+          })
+          .strict(),
+      )
+      .default([]),
   })
   .strict();
 
-// OpenAI Structured Outputs schema mirroring `visualJokeProviderOutputSchema`.
-// The Vercel AI Gateway's chat/completions endpoint requires the `json_schema`
-// response_format — plain `json_object` is rejected (400) for models like
-// gpt-5.5. `additionalProperties: false` plus every key marked required keeps it
-// strict-compatible; size constraints (e.g. minItems) are intentionally omitted
-// because they are not strict-mode keywords, and `visualJokeProviderOutputSchema`
-// re-validates the shape after the parse anyway.
+// OpenAI Structured Outputs schema mirroring `visualJokeProviderOutputSchema`. The
+// Vercel AI Gateway's chat/completions endpoint requires the `json_schema`
+// response_format — plain `json_object` is rejected (400) for models like gpt-5.5.
+// `additionalProperties: false` plus every key required keeps it strict-compatible;
+// size constraints (minItems/maxItems) are intentionally omitted because they are
+// not strict-mode keywords, and `visualJokeProviderOutputSchema` re-validates the
+// shape after the parse anyway.
 const visualJokeCandidatesJsonSchema = {
   additionalProperties: false,
   properties: {
-    candidates: {
+    jokes: {
       items: {
         additionalProperties: false,
         properties: {
-          jokePattern: { enum: [...visualJokePatterns], type: "string" },
-          jokeTarget: { type: "string" },
-          referencedFact: { type: "string" },
-          shortRationale: { type: "string" },
+          section: { enum: [...visualJokeSections], type: "string" },
           text: { type: "string" },
         },
-        required: ["jokePattern", "jokeTarget", "referencedFact", "shortRationale", "text"],
+        required: ["section", "text"],
+        type: "object",
+      },
+      type: "array",
+    },
+    topPicks: {
+      items: {
+        additionalProperties: false,
+        properties: {
+          reason: { type: "string" },
+          section: { enum: [...visualJokeSections], type: "string" },
+          text: { type: "string" },
+        },
+        required: ["reason", "section", "text"],
         type: "object",
       },
       type: "array",
     },
   },
-  required: ["candidates"],
+  required: ["jokes", "topPicks"],
   type: "object",
 };
 
@@ -128,15 +135,14 @@ export type VisualJokeCandidateProvider = {
   provider: "ai-gateway" | "local" | "test";
   generateCandidates(input: {
     jokeContextSnapshot: JokeContextSnapshot;
-    targetCount: number;
     visualJokeDirection: string;
-  }): Promise<RoughVisualJokeCandidate[]>;
+  }): Promise<VisualJokeCandidateOutput>;
 };
 
 // Carries a flat, human-readable `debugLog` for the Quiet Failure Details surface
 // — mirroring the Image Generation failure path. The default message is identical
 // whether the orchestrator or this service produced it, so the debugLog is what
-// actually tells the two cases (and the rejection breakdown) apart.
+// actually tells the two cases apart.
 export class VisualJokeGenerationError extends Error {
   readonly debugLog?: string[];
 
@@ -150,22 +156,6 @@ export class VisualJokeGenerationError extends Error {
   }
 }
 
-const candidateRejectionReasons = [
-  "invalid-pattern",
-  "word-count",
-  "condescending",
-  "cheap-profanity",
-  "boring-accuracy",
-  "unsupported-reference",
-  "forbidden-assumption",
-] as const;
-
-type CandidateRejectionReason = (typeof candidateRejectionReasons)[number];
-
-type CandidateEvaluation =
-  | { candidate: EvaluatedCandidate; status: "accepted" }
-  | { reason: CandidateRejectionReason; status: "rejected" };
-
 export async function generateVisualJokeSet(
   input: VisualJokeServiceInput,
   options: {
@@ -175,17 +165,14 @@ export async function generateVisualJokeSet(
 ): Promise<VisualJokeServiceResult> {
   const visualJokeDirection = parseVisualJokeDirectionText(input.visualJokeDirection);
   const provider = options.provider ?? createDefaultVisualJokeCandidateProvider();
-  const roughCandidates = await provider.generateCandidates({
+  const providerOutput = await provider.generateCandidates({
     jokeContextSnapshot: input.jokeContextSnapshot,
-    targetCount: targetReturnedJokeCount,
     visualJokeDirection,
   });
   const visualJokeSet = buildVisualJokeSet({
-    jokeContextSnapshot: input.jokeContextSnapshot,
     now: options.now ?? (() => new Date()),
     providerLabel: `${provider.provider}/${provider.model}`,
-    roughCandidates,
-    targetCount: targetReturnedJokeCount,
+    providerOutput,
   });
 
   return {
@@ -219,7 +206,7 @@ function createLocalVisualJokeCandidateProvider(
     model,
     provider: "local",
     async generateCandidates({ jokeContextSnapshot }) {
-      return buildLocalCandidates(jokeContextSnapshot);
+      return buildLocalCandidateOutput(jokeContextSnapshot);
     },
   };
 }
@@ -238,7 +225,7 @@ function createAiGatewayVisualJokeCandidateProvider({
   return {
     model,
     provider: "ai-gateway",
-    async generateCandidates({ jokeContextSnapshot, targetCount, visualJokeDirection }) {
+    async generateCandidates({ jokeContextSnapshot, visualJokeDirection }) {
       if (!apiKey) {
         throw new VisualJokeGenerationError("AI Gateway credentials are not configured.", {
           debugLog: ["Step: generate-candidates", `Provider: ai-gateway/${model}`],
@@ -256,7 +243,6 @@ function createAiGatewayVisualJokeCandidateProvider({
             {
               content: buildGatewayPrompt({
                 jokeContextSnapshot,
-                targetCount,
                 visualJokeDirection,
               }),
               role: "user",
@@ -269,7 +255,7 @@ function createAiGatewayVisualJokeCandidateProvider({
             ? {
                 response_format: {
                   json_schema: {
-                    description: "A set of publishable visual-joke candidates.",
+                    description: "A categorized set of publishable visual-joke candidates.",
                     name: "visual_joke_candidates",
                     schema: visualJokeCandidatesJsonSchema,
                     strict: true,
@@ -336,19 +322,7 @@ function createAiGatewayVisualJokeCandidateProvider({
         const payload = gatewayResponseSchema.parse(await response.json());
 
         try {
-          const parsedOutput = visualJokeProviderOutputSchema.parse(
-            JSON.parse(extractJsonObject(payload.choices[0].message.content)),
-          );
-
-          return parsedOutput.candidates.map((candidate) => ({
-            metadata: {
-              jokePattern: candidate.jokePattern,
-              jokeTarget: candidate.jokeTarget,
-              referencedFact: candidate.referencedFact,
-              shortRationale: candidate.shortRationale,
-            },
-            text: candidate.text,
-          }));
+          return parseGatewayVisualJokeOutput(payload.choices[0].message.content);
         } catch (error) {
           lastParseError = error;
         }
@@ -371,364 +345,205 @@ function createAiGatewayVisualJokeCandidateProvider({
   };
 }
 
+// A pure step: map a raw gateway JSON string into the categorized provider output.
+// Exercisable without the network (extracted and unit-tested directly in issue 024).
+function parseGatewayVisualJokeOutput(content: string): VisualJokeCandidateOutput {
+  const parsed = visualJokeProviderOutputSchema.parse(JSON.parse(extractJsonObject(content)));
+
+  return {
+    jokes: parsed.jokes.map((joke) => ({ section: joke.section, text: joke.text })),
+    topPicks: parsed.topPicks.map((topPick) => ({
+      reason: topPick.reason,
+      section: topPick.section,
+      text: topPick.text,
+    })),
+  };
+}
+
 function buildVisualJokeSet({
-  jokeContextSnapshot,
   now,
   providerLabel,
-  roughCandidates,
-  targetCount,
+  providerOutput,
 }: {
-  jokeContextSnapshot: JokeContextSnapshot;
   now: () => Date;
   providerLabel: string;
-  roughCandidates: RoughVisualJokeCandidate[];
-  targetCount: number;
-}) {
-  const evaluations = roughCandidates.map((candidate) =>
-    evaluateCandidate(candidate, jokeContextSnapshot),
-  );
-  const evaluatedCandidates = evaluations
-    .filter(
-      (evaluation): evaluation is { candidate: EvaluatedCandidate; status: "accepted" } =>
-        evaluation.status === "accepted",
-    )
-    .map((evaluation) => evaluation.candidate);
-  const selectedCandidates = selectDiverseCandidates({
-    evaluatedCandidates,
-    jokeContextSnapshot,
-    targetCount,
-  });
+  providerOutput: VisualJokeCandidateOutput;
+}): VisualJokeSet {
+  const jokes = assignSectionedJokes(providerOutput.jokes);
 
-  if (selectedCandidates.length < minimumPublishableJokeCount) {
+  if (jokes.length === 0) {
     throw new VisualJokeGenerationError(undefined, {
-      debugLog: describeSelectionShortfall({
-        acceptedCount: evaluatedCandidates.length,
-        evaluations,
-        providerLabel,
-        roughCandidateCount: roughCandidates.length,
-        selectedCount: selectedCandidates.length,
-        targetCount,
-      }),
+      debugLog: [
+        "Step: assemble-visual-joke-set",
+        `Provider: ${providerLabel}`,
+        `Jokes returned: ${providerOutput.jokes.length}`,
+        "No publishable visual jokes survived across the three sections.",
+      ],
     });
   }
 
   return parseVisualJokeSet({
     generatedAt: now().toISOString(),
     id: "visual-joke-set-1",
-    jokes: selectedCandidates.map((candidate, index) => buildVisualJoke(candidate, index)),
-    targetCount,
+    jokes,
+    targetPerSection,
+    topPicks: resolveTopPicks(providerOutput.topPicks, jokes),
   });
 }
 
-function buildVisualJoke(candidate: EvaluatedCandidate, index: number): VisualJoke {
-  return {
-    id: `visual-joke-${index + 1}`,
-    metadata: candidate.metadata,
-    rank: index + 1,
-    recommended: index === 0,
-    text: candidate.text.trim(),
-  };
-}
+// Group the provider's jokes by section in direction order, drop blanks, cap each
+// section at the target, and assign stable ids plus contiguous within-section order.
+function assignSectionedJokes(candidates: VisualJokeCandidate[]): VisualJoke[] {
+  const jokes: VisualJoke[] = [];
 
-function selectDiverseCandidates({
-  evaluatedCandidates,
-  jokeContextSnapshot,
-  targetCount,
-}: {
-  evaluatedCandidates: EvaluatedCandidate[];
-  jokeContextSnapshot: JokeContextSnapshot;
-  targetCount: number;
-}) {
-  const candidatesByPattern = new Map<VisualJokePattern, EvaluatedCandidate[]>();
+  for (const section of visualJokeSections) {
+    const sectionCandidates = candidates
+      .filter((candidate) => candidate.section === section)
+      .map((candidate) => candidate.text.trim())
+      .filter((text) => text.length > 0)
+      .slice(0, targetPerSection);
 
-  for (const pattern of visualJokePatterns) {
-    candidatesByPattern.set(
-      pattern,
-      evaluatedCandidates
-        .filter((candidate) => candidate.pattern === pattern)
-        .sort((left, right) => right.score - left.score),
-    );
+    sectionCandidates.forEach((text, indexInSection) => {
+      jokes.push({
+        id: `visual-joke-${jokes.length + 1}`,
+        order: indexInSection + 1,
+        section,
+        text,
+      });
+    });
   }
 
-  const selected: EvaluatedCandidate[] = [];
-  const usedTexts = new Set<string>();
+  return jokes;
+}
 
-  for (const pattern of visualJokePatterns) {
-    const candidate = candidatesByPattern
-      .get(pattern)
-      ?.find((entry) => !usedTexts.has(normalizeForComparison(entry.text)));
+// Resolve each Top Pick to the id of its matching joke (exact text within section).
+// Unmatched picks are dropped rather than failing the set; if all drop, the first
+// joke becomes the sole Top Pick so Automated Selection always has a target.
+function resolveTopPicks(
+  topPickCandidates: VisualJokeTopPickCandidate[],
+  jokes: VisualJoke[],
+): VisualJokeTopPick[] {
+  const resolved: VisualJokeTopPick[] = [];
+  const usedJokeIds = new Set<string>();
 
-    if (!candidate) {
+  for (const topPick of topPickCandidates) {
+    if (resolved.length === maximumTopPickCount) {
+      break;
+    }
+
+    const match = jokes.find(
+      (joke) =>
+        joke.section === topPick.section &&
+        joke.text === topPick.text.trim() &&
+        !usedJokeIds.has(joke.id),
+    );
+
+    if (!match) {
       continue;
     }
 
-    selected.push(candidate);
-    usedTexts.add(normalizeForComparison(candidate.text));
-
-    if (selected.length === targetCount) {
-      break;
-    }
+    resolved.push({ reason: topPick.reason.trim(), visualJokeId: match.id });
+    usedJokeIds.add(match.id);
   }
 
-  const remainingCandidates = evaluatedCandidates
-    .filter((candidate) => !usedTexts.has(normalizeForComparison(candidate.text)))
-    .sort((left, right) => right.score - left.score);
-
-  for (const candidate of remainingCandidates) {
-    if (selected.length === targetCount) {
-      break;
-    }
-
-    selected.push(candidate);
-    usedTexts.add(normalizeForComparison(candidate.text));
+  if (resolved.length > 0) {
+    return resolved;
   }
-
-  const needsBoldCandidate =
-    contextSupportsBoldCandidate(jokeContextSnapshot) &&
-    !selected.some((candidate) => candidate.pattern === "earned edge");
-
-  if (needsBoldCandidate) {
-    const earnedEdgeCandidate = candidatesByPattern.get("earned edge")?.[0];
-
-    if (earnedEdgeCandidate) {
-      const replacementIndex = selected.findLastIndex(
-        (candidate) => candidate.pattern !== "earned edge",
-      );
-
-      if (replacementIndex >= 0) {
-        selected.splice(replacementIndex, 1, earnedEdgeCandidate);
-      } else if (selected.length < targetCount) {
-        selected.push(earnedEdgeCandidate);
-      }
-    }
-  }
-
-  return selected.sort((left, right) => right.score - left.score).slice(0, targetCount);
-}
-
-function evaluateCandidate(
-  candidate: RoughVisualJokeCandidate,
-  jokeContextSnapshot: JokeContextSnapshot,
-): CandidateEvaluation {
-  const normalizedText = collapseWhitespace(candidate.text);
-  const pattern = normalizePattern(candidate.metadata.jokePattern);
-
-  if (!pattern) {
-    return { reason: "invalid-pattern", status: "rejected" };
-  }
-
-  if (countWords(normalizedText) > maximumTitleWordCount || countWords(normalizedText) < 3) {
-    return { reason: "word-count", status: "rejected" };
-  }
-
-  if (looksCondescending(normalizedText, candidate.metadata.jokeTarget)) {
-    return { reason: "condescending", status: "rejected" };
-  }
-
-  if (containsCheapProfanity(normalizedText)) {
-    return { reason: "cheap-profanity", status: "rejected" };
-  }
-
-  if (looksLikeBoringAccuracy(normalizedText, jokeContextSnapshot)) {
-    return { reason: "boring-accuracy", status: "rejected" };
-  }
-
-  if (!isReferenceSupported(candidate.metadata.referencedFact, jokeContextSnapshot)) {
-    return { reason: "unsupported-reference", status: "rejected" };
-  }
-
-  if (violatesForbiddenAssumptions(normalizedText, jokeContextSnapshot)) {
-    return { reason: "forbidden-assumption", status: "rejected" };
-  }
-
-  const namedActorCount = extractNamedNewsActors(jokeContextSnapshot).filter((actor) =>
-    normalizeForComparison(normalizedText).includes(normalizeForComparison(actor)),
-  ).length;
-  const tensionOverlap = buildContextTerms(jokeContextSnapshot).filter((term) =>
-    normalizeForComparison(normalizedText).includes(term),
-  ).length;
-  const score =
-    100 -
-    countWords(normalizedText) +
-    patternScore(pattern) +
-    namedActorCount * 6 +
-    tensionOverlap * 2;
-
-  return {
-    candidate: {
-      metadata: candidate.metadata,
-      pattern,
-      score,
-      text: normalizedText,
-    },
-    status: "accepted",
-  };
-}
-
-// Flat, human-readable lines explaining why the critic could not assemble a
-// publishable set — the per-reason rejection breakdown is what distinguishes an
-// over-filtering critic from a thin provider response on the Quiet Failure
-// Details surface.
-function describeSelectionShortfall({
-  acceptedCount,
-  evaluations,
-  providerLabel,
-  roughCandidateCount,
-  selectedCount,
-  targetCount,
-}: {
-  acceptedCount: number;
-  evaluations: CandidateEvaluation[];
-  providerLabel: string;
-  roughCandidateCount: number;
-  selectedCount: number;
-  targetCount: number;
-}): string[] {
-  const rejectionCounts = new Map<CandidateRejectionReason, number>();
-
-  for (const evaluation of evaluations) {
-    if (evaluation.status === "rejected") {
-      rejectionCounts.set(evaluation.reason, (rejectionCounts.get(evaluation.reason) ?? 0) + 1);
-    }
-  }
-
-  const rejectionBreakdown = [...rejectionCounts.entries()]
-    .sort((left, right) => right[1] - left[1])
-    .map(([reason, count]) => `${reason}: ${count}`)
-    .join(", ");
 
   return [
-    "Step: select-publishable-set",
-    `Provider: ${providerLabel}`,
-    `Rough candidates returned: ${roughCandidateCount}`,
-    `Passed critic: ${acceptedCount}`,
-    `Selected after diversity & dedupe: ${selectedCount} (minimum ${minimumPublishableJokeCount}, target ${targetCount})`,
-    `Rejected by critic: ${rejectionBreakdown || "none"}`,
+    {
+      reason: "Default Top Pick — no model Top Pick matched a returned joke.",
+      visualJokeId: jokes[0].id,
+    },
   ];
 }
 
-function buildLocalCandidates(
+// A realistic offline 3-section set (~7 per section) plus Top Picks so the workflow
+// runs without live API calls. The jokes lean on the snapshot's named actor and
+// strongest details so the local-dev path resembles a real categorized result.
+function buildLocalCandidateOutput(
   jokeContextSnapshot: JokeContextSnapshot,
-): RoughVisualJokeCandidate[] {
+): VisualJokeCandidateOutput {
   const namedActor = extractNamedNewsActors(jokeContextSnapshot)[0] ?? "The launch";
-  const strongestFact =
-    jokeContextSnapshot.structuredContext.supportingFacts[0] ??
-    jokeContextSnapshot.structuredContext.sourceTweetClaim;
-  const strongestTension =
-    jokeContextSnapshot.structuredContext.jokeableTensions[0] ??
-    jokeContextSnapshot.structuredContext.sourceTweetClaim;
-  const mediaDetail =
-    jokeContextSnapshot.structuredContext.sourceTweetMediaExtraction.notableDetails[0] ??
-    jokeContextSnapshot.structuredContext.sourceTweetMediaExtraction.summary;
-  const jokeTarget = determineJokeTarget(jokeContextSnapshot);
-  const candidates: RoughVisualJokeCandidate[] = [
+
+  const satire = [
+    `${namedActor} Ships The Pricing Shortcut`,
+    `${namedActor} Premium Coordination Cloud`,
+    "Workflow Lock-In With Better Lighting",
+    "Every Launch Is A Billing Event",
+    "The Moat Is The Workflow",
+    "Breaking: The Dashboard Needs A Manager",
+    `${namedActor} Wants Rent On Your Entire Workflow`,
+  ];
+
+  const techPositive = [
+    `Everyone Who Doubted ${namedActor} Now Quietly Depends On It`,
+    "Analysts Who Called It A Toy Update Their Price Targets",
+    "The Haters Discover The Roadmap Was Real",
+    "Wall Street Reluctantly Learns The Demo Shipped",
+    "Critics Demand Refund On Their Skepticism",
+    "The Workflow They Mocked Becomes The Default",
+    "Press Corrects Itself, Slowly, In Smaller Font",
+  ];
+
+  const experimental = [
+    "2037: the bottleneck files for emancipation",
+    "A spinner, narrating its own launch",
+    "Two words: workflow finally",
+    "Correction: the product was the friends we automated along the way",
+    "Object permanence, but for your unsaved changes",
+    "The login screen writes a memoir",
+    "Headline redacted by its own roadmap",
+  ];
+
+  const jokes: VisualJokeCandidate[] = [
+    ...satire.map((text) => ({ section: "satire" as const, text })),
+    ...techPositive.map((text) => ({ section: "tech-positive" as const, text })),
+    ...experimental.map((text) => ({ section: "experimental" as const, text })),
+  ];
+
+  const topPicks: VisualJokeTopPickCandidate[] = [
     {
-      metadata: {
-        jokePattern: "truthful misdirection",
-        jokeTarget,
-        referencedFact: strongestFact,
-        shortRationale: "Frames the public launch as a disguised pricing or power move.",
-      },
-      text: `${namedActor} Ships The Pricing Shortcut`,
+      reason: "Sharpest satire angle — names the actor and the incentive in one line.",
+      section: "satire",
+      text: satire[0],
     },
     {
-      metadata: {
-        jokePattern: "dark tech satire",
-        jokeTarget,
-        referencedFact: strongestTension,
-        shortRationale: "Turns the workflow promise into a cynical systems read.",
-      },
-      text: "Workflow Lock-In With Better Lighting",
+      reason: "Cleanest tech-positive flip — defends the subject while staying funny.",
+      section: "tech-positive",
+      text: techPositive[0],
     },
     {
-      metadata: {
-        jokePattern: "tech-native metaphor",
-        jokeTarget,
-        referencedFact: strongestTension,
-        shortRationale: "Maps the launch onto a familiar technical abstraction.",
-      },
-      text: "Roadmap As A Service",
-    },
-    {
-      metadata: {
-        jokePattern: "fake product naming",
-        jokeTarget,
-        referencedFact: mediaDetail,
-        shortRationale: "Names the incentive structure like a product SKU.",
-      },
-      text: `${namedActor} Premium Coordination Cloud`,
-    },
-    {
-      metadata: {
-        jokePattern: "deadpan diagnosis",
-        jokeTarget,
-        referencedFact: strongestTension,
-        shortRationale: "States the incentive problem as a dry diagnosis.",
-      },
-      text: "The Moat Is The Workflow",
-    },
-    {
-      metadata: {
-        jokePattern: "incentive roast",
-        jokeTarget,
-        referencedFact: strongestFact,
-        shortRationale: "Roasts the incentive structure without losing factual support.",
-      },
-      text: "Every Launch Is A Billing Event",
-    },
-    {
-      metadata: {
-        jokePattern: "absurd headline",
-        jokeTarget,
-        referencedFact: mediaDetail,
-        shortRationale: "Pushes the announcement into absurd but legible headline territory.",
-      },
-      text: "Breaking: The Dashboard Needs A Manager",
-    },
-    {
-      metadata: {
-        jokePattern: "earned edge",
-        jokeTarget,
-        referencedFact: strongestTension,
-        shortRationale: "Lets the sharpest candidate push harder because the context supports it.",
-      },
-      text: `${namedActor} Wants Rent On Your Entire Workflow`,
-    },
-    {
-      metadata: {
-        jokePattern: "truthful misdirection",
-        jokeTarget,
-        referencedFact: strongestFact,
-        shortRationale: "This is a deliberate boring-accuracy decoy for the critic.",
-      },
-      text: `${namedActor} Launches Agent Workspace`,
+      reason: "Strongest experiment — a time jump that still lands.",
+      section: "experimental",
+      text: experimental[0],
     },
   ];
 
-  return candidates;
+  return { jokes, topPicks };
 }
 
 function buildGatewayPrompt({
   jokeContextSnapshot,
-  targetCount,
   visualJokeDirection,
 }: {
   jokeContextSnapshot: JokeContextSnapshot;
-  targetCount: number;
   visualJokeDirection: string;
 }) {
   return JSON.stringify({
-    task: "Return rough visual-joke candidates that a local critic can rank into a final publishable set.",
+    task: "Return a categorized set of visual-joke titles: up to seven per section across satire, tech-positive, and experimental, plus your two-to-three top picks.",
     requiredOutput: {
-      candidates: [
+      jokes: [
         {
-          jokePattern: visualJokePatterns,
-          jokeTarget:
-            "system, incentive, product dynamic, company behavior, platform power, or market logic",
-          referencedFact:
-            "an exact context-supported fact or tension copied from the Joke Context Snapshot",
-          shortRationale: "one short internal rationale",
-          text: "three-to-twelve-word visual-joke title",
+          section: visualJokeSections,
+          text: "a visual-joke title",
+        },
+      ],
+      topPicks: [
+        {
+          reason: "one short reason this is a top pick",
+          section: visualJokeSections,
+          text: "the exact title of one returned joke",
         },
       ],
     },
@@ -736,122 +551,11 @@ function buildGatewayPrompt({
       "Use the Joke Context Snapshot and the Visual Joke Direction only.",
       "Do not ask for or rely on User's Direction.",
       "Do not ask for or rely on any User Image Prompt.",
-      "Return more than the final target so the critic can reject weaker options.",
-      "Avoid boring accuracy, unsupported claims, condescending jokes, and cheap profanity.",
-      "Use named actors when the context clearly supports them.",
-      "Include at least one earned-edge candidate when the context supports it.",
+      "Each top pick's text must exactly match one returned joke in the same section.",
     ],
-    targetCount,
     jokeContextSnapshot,
     visualJokeDirection,
   });
-}
-
-function determineJokeTarget(jokeContextSnapshot: JokeContextSnapshot) {
-  const replySummary = jokeContextSnapshot.structuredContext.replySignals.summary.toLowerCase();
-  const sourceClaim = jokeContextSnapshot.structuredContext.sourceTweetClaim.toLowerCase();
-
-  if (replySummary.includes("pricing") || sourceClaim.includes("pricing")) {
-    return "platform pricing logic";
-  }
-
-  if (replySummary.includes("lock-in") || sourceClaim.includes("workflow")) {
-    return "workflow lock-in economics";
-  }
-
-  return "platform leverage";
-}
-
-function normalizePattern(value: string): VisualJokePattern | null {
-  const normalizedValue = collapseWhitespace(value).toLowerCase();
-
-  return visualJokePatterns.find((pattern) => pattern === normalizedValue) ?? null;
-}
-
-function patternScore(pattern: VisualJokePattern) {
-  switch (pattern) {
-    case "truthful misdirection":
-      return 18;
-    case "earned edge":
-      return 17;
-    case "incentive roast":
-      return 16;
-    case "tech-native metaphor":
-      return 15;
-    case "dark tech satire":
-      return 14;
-    case "fake product naming":
-      return 13;
-    case "deadpan diagnosis":
-      return 12;
-    case "absurd headline":
-      return 11;
-  }
-}
-
-function looksLikeBoringAccuracy(text: string, jokeContextSnapshot: JokeContextSnapshot) {
-  const candidateTerms = normalizeForComparison(text).split(" ").filter(Boolean);
-  const sourceTweetTerms = normalizeForComparison(
-    jokeContextSnapshot.structuredContext.sourceTweetClaim,
-  )
-    .split(" ")
-    .filter(Boolean);
-  const overlapCount = candidateTerms.filter((term) => sourceTweetTerms.includes(term)).length;
-
-  return overlapCount >= Math.max(3, Math.ceil(candidateTerms.length * 0.7));
-}
-
-function isReferenceSupported(referencedFact: string, jokeContextSnapshot: JokeContextSnapshot) {
-  const normalizedReference = normalizeForComparison(referencedFact);
-  const supportedFacts = [
-    jokeContextSnapshot.structuredContext.sourceTweetClaim,
-    jokeContextSnapshot.structuredContext.sourceTweetMediaExtraction.summary,
-    ...jokeContextSnapshot.structuredContext.sourceTweetMediaExtraction.notableDetails,
-    jokeContextSnapshot.structuredContext.replySignals.summary,
-    ...jokeContextSnapshot.structuredContext.supportingFacts,
-    ...jokeContextSnapshot.structuredContext.jokeableTensions,
-  ].map(normalizeForComparison);
-
-  return supportedFacts.some(
-    (fact) => fact.includes(normalizedReference) || normalizedReference.includes(fact),
-  );
-}
-
-function violatesForbiddenAssumptions(text: string, jokeContextSnapshot: JokeContextSnapshot) {
-  const normalizedText = normalizeForComparison(text);
-
-  return jokeContextSnapshot.structuredContext.forbiddenAssumptions.some((assumption) => {
-    const keywords = normalizeForComparison(assumption)
-      .split(" ")
-      .filter((word) => word.length > 4);
-
-    if (keywords.length === 0) {
-      return false;
-    }
-
-    return keywords.every((keyword) => normalizedText.includes(keyword));
-  });
-}
-
-function looksCondescending(text: string, jokeTarget: string) {
-  const normalized = normalizeForComparison(`${text} ${jokeTarget}`);
-
-  return ["idiot", "moron", "stupid", "loser", "clown", "dumb user"].some((term) =>
-    normalized.includes(term),
-  );
-}
-
-function containsCheapProfanity(text: string) {
-  const normalized = normalizeForComparison(text);
-
-  return ["fuck", "fucking", "shit", "shitty", "bitch"].some((term) => normalized.includes(term));
-}
-
-function contextSupportsBoldCandidate(jokeContextSnapshot: JokeContextSnapshot) {
-  return (
-    extractNamedNewsActors(jokeContextSnapshot).length > 0 ||
-    jokeContextSnapshot.structuredContext.jokeContextQuality.status === "strong"
-  );
 }
 
 function extractNamedNewsActors(jokeContextSnapshot: JokeContextSnapshot) {
@@ -866,43 +570,7 @@ function extractNamedNewsActors(jokeContextSnapshot: JokeContextSnapshot) {
     )
     .filter((value) => !["Source", "The"].includes(value));
 
-  return dedupe(actorMatches).slice(0, 3);
-}
-
-function buildContextTerms(jokeContextSnapshot: JokeContextSnapshot) {
-  return dedupe(
-    [
-      ...jokeContextSnapshot.structuredContext.jokeableTensions,
-      ...jokeContextSnapshot.structuredContext.supportingFacts,
-      jokeContextSnapshot.structuredContext.replySignals.summary,
-    ]
-      .flatMap((value) =>
-        normalizeForComparison(value)
-          .split(" ")
-          .filter((term) => term.length > 5),
-      )
-      .slice(0, 24),
-  );
-}
-
-function normalizeForComparison(value: string) {
-  return collapseWhitespace(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function collapseWhitespace(value: string) {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function countWords(value: string) {
-  return collapseWhitespace(value).split(" ").filter(Boolean).length;
-}
-
-function dedupe(values: string[]) {
-  return Array.from(new Set(values));
+  return Array.from(new Set(actorMatches)).slice(0, 3);
 }
 
 function stripJsonFences(value: string) {

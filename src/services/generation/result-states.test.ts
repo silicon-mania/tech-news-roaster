@@ -10,7 +10,6 @@ import {
   parseStructuredJokeContext,
   parseVisualJoke,
   parseVisualJokeDirectionText,
-  parseVisualJokeMetadata,
   parseVisualJokeSet,
 } from "@/services/generation";
 import { buildReplySignals } from "@/services/outside-x-enrichment";
@@ -19,7 +18,6 @@ import {
   buildGenerationResultStates,
   buildJokeContextSnapshot,
   buildStructuredJokeContext,
-  buildVisualJokeMetadata,
   buildVisualJokeSet,
 } from "./test-fixtures";
 
@@ -40,12 +38,9 @@ describe("generation result-state contracts", () => {
     expect(parseVisualJokeDirectionText("  Dark, sharp tech satire only.  ")).toBe(
       "Dark, sharp tech satire only.",
     );
-    expect(parseVisualJokeMetadata(buildVisualJokeMetadata())).toMatchObject({
-      jokePattern: "truthful misdirection",
-    });
     expect(parseVisualJoke(visualJokeSet.jokes[0])).toMatchObject({
-      recommended: true,
-      rank: 1,
+      order: 1,
+      section: "satire",
     });
     expect(parseSelectedVisualJoke(null, visualJokeSet)).toBeNull();
     expect(generationResultStates.newsLinkedImageDiscovery.status).toBe("failed");
@@ -124,7 +119,9 @@ describe("generation result-state contracts", () => {
         visualJokeId: visualJokeSet.jokes[2].id,
       },
       visualJokeSet: {
-        jokes: expect.arrayContaining([expect.objectContaining({ recommended: true, rank: 1 })]),
+        topPicks: expect.arrayContaining([
+          expect.objectContaining({ visualJokeId: "visual-joke-1" }),
+        ]),
       },
     });
   });

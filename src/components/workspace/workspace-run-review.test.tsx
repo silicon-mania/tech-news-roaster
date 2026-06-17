@@ -162,7 +162,9 @@ describe("Workspace run review and override loop", () => {
     const visualJokeArea = screen.getByRole("region", {
       name: /visual joke creative result area/i,
     });
-    await user.click(within(visualJokeArea).getByRole("button", { name: /select visual joke 4/i }));
+    await user.click(
+      within(visualJokeArea).getByRole("button", { name: /select satire visual joke 2/i }),
+    );
 
     await waitFor(() =>
       expect(

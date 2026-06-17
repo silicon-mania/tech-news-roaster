@@ -6,6 +6,9 @@ import {
   buildGenerationFailureEvent,
   buildGenerationRunStateEvent,
   defaultImagePrompt,
+  parseVisualJokeSet,
+  type VisualJokeSection,
+  type VisualJokeSet,
 } from "@/services/generation";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import {
@@ -189,18 +192,18 @@ describe("Workspace creative result areas", () => {
     expect(within(visualJokeArea).queryByText("#1")).not.toBeInTheDocument();
     expect(
       within(visualJokeArea).getByRole("button", {
-        name: /select visual joke 1/i,
+        name: /select satire visual joke 1/i,
       }),
     ).toHaveAttribute("aria-pressed", "false");
     expect(within(visualJokeArea).queryByRole("textbox")).not.toBeInTheDocument();
     expect(visualJokeArea).not.toHaveTextContent("status-theater");
     expect(visualJokeArea).not.toHaveTextContent("It turns productivity theatre");
-    // The full set matches its target, so the shortfall notice stays hidden.
-    expect(visualJokeArea).not.toHaveTextContent(/fewer sharp jokes/i);
+    // The internal Top Pick reason is never rendered on the main surface.
+    expect(visualJokeArea).not.toHaveTextContent("Sharpest satire angle.");
 
     await user.click(
       within(visualJokeArea).getByRole("button", {
-        name: /copy visual joke 2/i,
+        name: /copy tech-positive visual joke 1/i,
       }),
     );
 
@@ -211,7 +214,7 @@ describe("Workspace creative result areas", () => {
 
     await user.click(
       within(visualJokeArea).getByRole("button", {
-        name: /select visual joke 2/i,
+        name: /select tech-positive visual joke 1/i,
       }),
     );
 
@@ -228,13 +231,13 @@ describe("Workspace creative result areas", () => {
     expect(savedRunStore.save.mock.calls.at(-1)?.[0].visualJokeSet).toBe(visualJokeSet);
     expect(
       within(visualJokeArea).getByRole("button", {
-        name: /clear visual joke 2 selection/i,
+        name: /clear tech-positive visual joke 1 selection/i,
       }),
     ).toHaveAttribute("aria-pressed", "true");
 
     await user.click(
       within(visualJokeArea).getByRole("button", {
-        name: /clear visual joke 2 selection/i,
+        name: /clear tech-positive visual joke 1 selection/i,
       }),
     );
 
@@ -282,27 +285,105 @@ describe("Workspace creative result areas", () => {
     });
   });
 
-  test("shows a quiet shortfall notice when fewer jokes than the target survive the critic", async () => {
-    const savedRunStore = createMemorySavedRunStore();
-    const newsLinkedImages = buildNewsLinkedImages();
-    const fullSet = buildVisualJokeSet();
-    const shortfallVisualJokeSet = {
-      ...fullSet,
-      jokes: fullSet.jokes.slice(0, 4),
-      targetCount: 8,
-    };
+  test("groups jokes under the three section subheadings in direction order", () => {
+    const visualJokeSet = buildSectionedVisualJokeSet({
+      experimental: 1,
+      satire: 2,
+      techPositive: 2,
+    });
 
     renderWorkspace({
       initialActiveRunId: "saved-run",
       initialRuns: [
         buildCompletedRun({
-          imageGenerationState: {
-            status: "not-started",
-          },
-          newsLinkedImages,
-          phase: "waiting-for-image-selection",
           selectedVisualJoke: null,
-          visualJokeSet: shortfallVisualJokeSet,
+          visualJokeSet,
+        }),
+      ],
+    });
+
+    const visualJokeArea = screen.getByRole("region", {
+      name: /visual joke creative result area/i,
+    });
+
+    const subheadings = within(visualJokeArea).getAllByRole("heading", { level: 2 });
+    expect(subheadings.map((heading) => heading.textContent)).toEqual([
+      "Satire",
+      "Tech-positive",
+      "Experimental",
+    ]);
+
+    // Each section renders exactly its own jokes, addressable by section + order.
+    expect(
+      within(visualJokeArea).getAllByRole("article", { name: /^satire visual joke \d+$/i }),
+    ).toHaveLength(2);
+    expect(
+      within(visualJokeArea).getAllByRole("article", { name: /^tech-positive visual joke \d+$/i }),
+    ).toHaveLength(2);
+    expect(
+      within(visualJokeArea).getAllByRole("article", { name: /^experimental visual joke \d+$/i }),
+    ).toHaveLength(1);
+  });
+
+  test("shows quiet ordered Top pick labels and never renders the reason", () => {
+    const visualJokeSet = buildSectionedVisualJokeSet({
+      experimental: 1,
+      satire: 2,
+      techPositive: 2,
+      // Two ordered Top Picks across two different sections.
+      topPickIds: ["tech-positive-joke-2", "satire-joke-1"],
+    });
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          selectedVisualJoke: null,
+          visualJokeSet,
+        }),
+      ],
+    });
+
+    const visualJokeArea = screen.getByRole("region", {
+      name: /visual joke creative result area/i,
+    });
+
+    // Exactly the two Top Picks carry the label, in their declared order.
+    expect(within(visualJokeArea).getByText("Top pick 1")).toBeInTheDocument();
+    expect(within(visualJokeArea).getByText("Top pick 2")).toBeInTheDocument();
+    expect(within(visualJokeArea).queryByText("Top pick 3")).not.toBeInTheDocument();
+
+    // The first Top Pick (tech-positive-joke-2) is the second tech-positive card.
+    expect(
+      within(
+        within(visualJokeArea).getByRole("article", { name: /tech-positive visual joke 2/i }),
+      ).getByText("Top pick 1"),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        within(visualJokeArea).getByRole("article", { name: /satire visual joke 1/i }),
+      ).getByText("Top pick 2"),
+    ).toBeInTheDocument();
+
+    // The internal reason is retained for inspection only, never rendered.
+    expect(visualJokeArea).not.toHaveTextContent("Reason for");
+  });
+
+  test("selecting a joke in one section clears a selection in another section", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore();
+    const visualJokeSet = buildSectionedVisualJokeSet({
+      experimental: 1,
+      satire: 2,
+      techPositive: 2,
+    });
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          selectedVisualJoke: null,
+          visualJokeSet,
         }),
       ],
       savedRunStore,
@@ -312,9 +393,65 @@ describe("Workspace creative result areas", () => {
       name: /visual joke creative result area/i,
     });
 
-    expect(within(visualJokeArea).getAllByRole("article")).toHaveLength(4);
-    expect(visualJokeArea).toHaveTextContent("Showing 4 of 8");
-    expect(visualJokeArea).toHaveTextContent(/fewer sharp jokes/i);
+    await user.click(
+      within(visualJokeArea).getByRole("button", { name: /select satire visual joke 1/i }),
+    );
+
+    await waitFor(() =>
+      expect(
+        within(visualJokeArea).getByRole("button", {
+          name: /clear satire visual joke 1 selection/i,
+        }),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+
+    // Picking an experimental joke moves the single Selected Visual Joke across
+    // sections — the prior satire selection clears.
+    await user.click(
+      within(visualJokeArea).getByRole("button", { name: /select experimental visual joke 1/i }),
+    );
+
+    await waitFor(() =>
+      expect(
+        within(visualJokeArea).getByRole("button", {
+          name: /clear experimental visual joke 1 selection/i,
+        }),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+    expect(
+      within(visualJokeArea).getByRole("button", { name: /select satire visual joke 1/i }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(within(visualJokeArea).getAllByRole("button", { pressed: true })).toHaveLength(1);
+  });
+
+  test("shows a per-section shortfall notice only under short sections", () => {
+    const visualJokeSet = buildSectionedVisualJokeSet({
+      experimental: 3,
+      // A full satire section sits alongside two short sections.
+      satire: 7,
+      techPositive: 2,
+    });
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          selectedVisualJoke: null,
+          visualJokeSet,
+        }),
+      ],
+    });
+
+    const visualJokeArea = screen.getByRole("region", {
+      name: /visual joke creative result area/i,
+    });
+
+    // The full satire section shows no shortfall; the short sections each do.
+    const notices = within(visualJokeArea).getAllByText(/fewer sharp jokes/i);
+    expect(notices).toHaveLength(2);
+    expect(visualJokeArea).toHaveTextContent("Showing 2 of 7");
+    expect(visualJokeArea).toHaveTextContent("Showing 3 of 7");
+    expect(visualJokeArea).not.toHaveTextContent("Showing 7 of 7");
   });
 
   test("opens quiet context and direction reveals without turning context into a control surface", async () => {
@@ -617,3 +754,45 @@ describe("Workspace creative result areas", () => {
     expect(detailsDialog).toHaveTextContent("Serper quota was exhausted");
   });
 });
+
+// Build a valid categorized Visual Joke Set with controllable per-section counts,
+// so the sectioned UI tests can exercise grouping, Top Picks, and shortfall
+// notices without leaning on the smaller default fixture.
+function buildSectionedVisualJokeSet({
+  experimental,
+  satire,
+  techPositive,
+  topPickIds,
+}: {
+  experimental: number;
+  satire: number;
+  techPositive: number;
+  topPickIds?: string[];
+}): VisualJokeSet {
+  const jokes = [
+    ...buildSectionJokes("satire", satire),
+    ...buildSectionJokes("tech-positive", techPositive),
+    ...buildSectionJokes("experimental", experimental),
+  ];
+  const topPicks = (topPickIds ?? (jokes[0] ? [jokes[0].id] : [])).map((visualJokeId) => ({
+    reason: `Reason for ${visualJokeId}.`,
+    visualJokeId,
+  }));
+
+  return parseVisualJokeSet({
+    generatedAt: "2026-06-06T10:14:00.000Z",
+    id: "visual-joke-set-custom",
+    jokes,
+    targetPerSection: 7,
+    topPicks,
+  });
+}
+
+function buildSectionJokes(section: VisualJokeSection, count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `${section}-joke-${index + 1}`,
+    order: index + 1,
+    section,
+    text: `${section} joke ${index + 1}.`,
+  }));
+}

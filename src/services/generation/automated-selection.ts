@@ -36,7 +36,7 @@ export type AutomatedSelection = {
 /**
  * Automated Selection (issue 018): the pure rule that, with no operator, makes the
  * four choices a Manual Run leaves to a human — the first text draft as Selected
- * Draft, the Recommended Visual Joke as Selected Visual Joke, the first Image
+ * Draft, the first Top Pick visual joke as Selected Visual Joke, the first Image
  * Original Candidate as Selected Image Original, and the first generated variation
  * as Selected Generated Image.
  *
@@ -57,11 +57,11 @@ export function deriveAutomatedSelection(
     selection.selectedDraftId = firstDraft.id;
   }
 
-  const recommendedJoke = pickRecommendedVisualJoke(results.visualJokeSet);
-  if (recommendedJoke) {
+  const topPickJoke = pickTopPickVisualJoke(results.visualJokeSet);
+  if (topPickJoke) {
     selection.selectedVisualJoke = {
       selectedAt,
-      visualJokeId: recommendedJoke.id,
+      visualJokeId: topPickJoke.id,
     };
   }
 
@@ -82,17 +82,22 @@ export function deriveAutomatedSelection(
 }
 
 /**
- * The Recommended Visual Joke is the one the Visual Joke Set flags `recommended`
- * (the set guarantees that is its first joke). Falls back to the first joke when no
- * flag is present so a hand-built or degraded set still degrades to a sensible pick
- * rather than none.
+ * The automated pick is the first Top Pick's joke (the set guarantees at least one
+ * Top Pick exists). Falls back to the first joke in the set if — defensively — a
+ * hand-built or degraded set carries no Top Picks, so the pick degrades to a
+ * sensible choice rather than none. No section is excluded.
  */
-function pickRecommendedVisualJoke(visualJokeSet?: VisualJokeSet): VisualJoke | undefined {
+function pickTopPickVisualJoke(visualJokeSet?: VisualJokeSet): VisualJoke | undefined {
   if (!visualJokeSet) {
     return undefined;
   }
 
-  return visualJokeSet.jokes.find((joke) => joke.recommended) ?? visualJokeSet.jokes[0];
+  const firstTopPickId = visualJokeSet.topPicks[0]?.visualJokeId;
+  const topPickJoke = firstTopPickId
+    ? visualJokeSet.jokes.find((joke) => joke.id === firstTopPickId)
+    : undefined;
+
+  return topPickJoke ?? visualJokeSet.jokes[0];
 }
 
 /**

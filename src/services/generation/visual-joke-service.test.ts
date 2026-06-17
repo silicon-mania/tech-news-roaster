@@ -1,155 +1,194 @@
 import { describe, expect, test, vi } from "vitest";
 import { defaultVisualJokeDirection, parseJokeContextSnapshot } from "@/services/generation";
-import { generateVisualJokeSet, VisualJokeGenerationError } from "./visual-joke-service";
+import {
+  generateVisualJokeSet,
+  type VisualJokeCandidateOutput,
+  VisualJokeGenerationError,
+} from "./visual-joke-service";
+
+const serviceInput = {
+  jokeContextSnapshot: buildJokeContextSnapshot(),
+  visualJokeDirection: defaultVisualJokeDirection,
+};
+
+function fakeProvider(output: VisualJokeCandidateOutput) {
+  return {
+    model: "test-model",
+    provider: "test" as const,
+    async generateCandidates() {
+      return output;
+    },
+  };
+}
 
 describe("visual joke service", () => {
-  test("returns a ranked, pattern-diverse visual joke set with a bold candidate when context supports it", async () => {
-    const result = await generateVisualJokeSet(
-      {
-        jokeContextSnapshot: buildJokeContextSnapshot(),
-        visualJokeDirection: defaultVisualJokeDirection,
-      },
-      {
-        now: () => new Date("2026-06-06T10:12:00.000Z"),
-      },
-    );
+  test("assembles categorized output with assigned ids and within-section order", async () => {
+    const result = await generateVisualJokeSet(serviceInput, {
+      now: () => new Date("2026-06-06T10:12:00.000Z"),
+      // Sections arrive interleaved to prove the service regroups them.
+      provider: fakeProvider({
+        jokes: [
+          { section: "tech-positive", text: "Tech positive one" },
+          { section: "satire", text: "Satire one" },
+          { section: "experimental", text: "Experimental one" },
+          { section: "satire", text: "Satire two" },
+          { section: "tech-positive", text: "Tech positive two" },
+        ],
+        topPicks: [
+          { reason: "Best satire.", section: "satire", text: "Satire one" },
+          { reason: "Best tech-positive.", section: "tech-positive", text: "Tech positive one" },
+        ],
+      }),
+    });
 
     expect(result.visualJokeDirection).toBe(defaultVisualJokeDirection);
     expect(result.visualJokeSet).toMatchObject({
       generatedAt: "2026-06-06T10:12:00.000Z",
       id: "visual-joke-set-1",
-      targetCount: 8,
+      targetPerSection: 7,
     });
-    expect(result.visualJokeSet.jokes).toHaveLength(8);
-    expect(result.visualJokeSet.jokes[0]).toMatchObject({
-      rank: 1,
-      recommended: true,
-    });
-    expect(new Set(result.visualJokeSet.jokes.map((joke) => joke.metadata.jokePattern)).size).toBe(
-      8,
-    );
-    expect(
-      result.visualJokeSet.jokes.some(
-        (joke) => joke.metadata.jokePattern === "earned edge" && joke.text.includes("OpenAI"),
-      ),
-    ).toBe(true);
+    expect(result.visualJokeSet.jokes).toEqual([
+      { id: "visual-joke-1", order: 1, section: "satire", text: "Satire one" },
+      { id: "visual-joke-2", order: 2, section: "satire", text: "Satire two" },
+      { id: "visual-joke-3", order: 1, section: "tech-positive", text: "Tech positive one" },
+      { id: "visual-joke-4", order: 2, section: "tech-positive", text: "Tech positive two" },
+      { id: "visual-joke-5", order: 1, section: "experimental", text: "Experimental one" },
+    ]);
+    // Top picks resolve to the assigned ids, in order.
+    expect(result.visualJokeSet.topPicks).toEqual([
+      { reason: "Best satire.", visualJokeId: "visual-joke-1" },
+      { reason: "Best tech-positive.", visualJokeId: "visual-joke-3" },
+    ]);
   });
 
-  test("rejects boring accuracy, unsupported claims, condescension, cheap profanity, and overlong titles", async () => {
-    const result = await generateVisualJokeSet(
-      {
-        jokeContextSnapshot: buildJokeContextSnapshot(),
-        visualJokeDirection: defaultVisualJokeDirection,
-      },
-      {
-        now: () => new Date("2026-06-06T10:12:00.000Z"),
-        provider: {
-          model: "test-model",
-          provider: "test",
-          async generateCandidates() {
-            return [
-              buildCandidate("OpenAI launches agent workspace", "truthful misdirection"),
-              buildCandidate("Workflow Lock-In With Better Lighting", "dark tech satire"),
-              buildCandidate("Roadmap As A Service", "tech-native metaphor"),
-              buildCandidate("OpenAI Premium Coordination Cloud", "fake product naming"),
-              buildCandidate("The Moat Is The Workflow", "deadpan diagnosis"),
-              buildCandidate("Every Launch Is A Billing Event", "incentive roast"),
-              buildCandidate("Breaking: The Dashboard Needs A Manager", "absurd headline"),
-              buildCandidate("OpenAI Wants Rent On Your Entire Workflow", "earned edge"),
-              buildCandidate("OpenAI Turns The Roadmap Into Rent", "truthful misdirection"),
-              {
-                metadata: {
-                  jokePattern: "truthful misdirection",
-                  jokeTarget: "platform leverage",
-                  referencedFact: "This fact is not in the snapshot.",
-                  shortRationale: "Unsupported claim should be rejected.",
-                },
-                text: "Invented Context Everywhere",
-              },
-              {
-                metadata: {
-                  jokePattern: "dark tech satire",
-                  jokeTarget: "harmless users",
-                  referencedFact: "The rollout is framed as an operator productivity update.",
-                  shortRationale: "Condescension should be rejected.",
-                },
-                text: "Only Idiots Need This Dashboard",
-              },
-              {
-                metadata: {
-                  jokePattern: "earned edge",
-                  jokeTarget: "platform leverage",
-                  referencedFact:
-                    "The launch promises simplicity while increasing platform dependence.",
-                  shortRationale: "Cheap profanity should be rejected.",
-                },
-                text: "OpenAI's Shitshow Workflow Empire",
-              },
-              {
-                metadata: {
-                  jokePattern: "absurd headline",
-                  jokeTarget: "platform leverage",
-                  referencedFact: "The rollout is framed as an operator productivity update.",
-                  shortRationale: "Overlong titles should be rejected.",
-                },
-                text: "A very long joke title that keeps explaining the product instead of landing any kind of fast punchline",
-              },
-            ];
-          },
-        },
-      },
-    );
+  test("caps each section at the target and trims joke text", async () => {
+    const result = await generateVisualJokeSet(serviceInput, {
+      provider: fakeProvider({
+        jokes: [
+          ...Array.from({ length: 9 }, (_value, index) => ({
+            section: "satire" as const,
+            text: `  Satire ${index + 1}  `,
+          })),
+        ],
+        topPicks: [{ reason: "Pick.", section: "satire", text: "Satire 1" }],
+      }),
+    });
 
-    expect(result.visualJokeSet.jokes).toHaveLength(8);
-    expect(result.visualJokeSet.jokes.map((joke) => joke.text)).not.toContain(
-      "OpenAI launches agent workspace",
+    const satire = result.visualJokeSet.jokes.filter((joke) => joke.section === "satire");
+    expect(satire).toHaveLength(7);
+    expect(satire[0].text).toBe("Satire 1");
+    expect(satire.map((joke) => joke.order)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  test("drops an unmatchable top pick while keeping the matched ones", async () => {
+    const result = await generateVisualJokeSet(serviceInput, {
+      provider: fakeProvider({
+        jokes: [
+          { section: "satire", text: "Satire one" },
+          { section: "satire", text: "Satire two" },
+        ],
+        topPicks: [
+          { reason: "Real.", section: "satire", text: "Satire two" },
+          { reason: "Ghost.", section: "satire", text: "Does not exist" },
+        ],
+      }),
+    });
+
+    expect(result.visualJokeSet.topPicks).toEqual([
+      { reason: "Real.", visualJokeId: "visual-joke-2" },
+    ]);
+  });
+
+  test("falls back to the first joke as sole top pick when none match", async () => {
+    const result = await generateVisualJokeSet(serviceInput, {
+      provider: fakeProvider({
+        jokes: [
+          { section: "satire", text: "Satire one" },
+          { section: "tech-positive", text: "Tech positive one" },
+        ],
+        topPicks: [{ reason: "Ghost.", section: "satire", text: "Nope" }],
+      }),
+    });
+
+    expect(result.visualJokeSet.topPicks).toHaveLength(1);
+    expect(result.visualJokeSet.topPicks[0].visualJokeId).toBe("visual-joke-1");
+  });
+
+  test("ships the surviving sections when one section returns nothing", async () => {
+    const result = await generateVisualJokeSet(serviceInput, {
+      provider: fakeProvider({
+        jokes: [
+          { section: "satire", text: "Only satire" },
+          { section: "experimental", text: "Only experimental" },
+        ],
+        topPicks: [{ reason: "Pick.", section: "satire", text: "Only satire" }],
+      }),
+    });
+
+    // tech-positive returned nothing; the set still ships with the other two.
+    expect(result.visualJokeSet.jokes.map((joke) => joke.section)).toEqual([
+      "satire",
+      "experimental",
+    ]);
+  });
+
+  test("throws with a debug log when the whole set is empty", async () => {
+    const error = await generateVisualJokeSet(serviceInput, {
+      provider: fakeProvider({ jokes: [], topPicks: [] }),
+    }).catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(VisualJokeGenerationError);
+    expect((error as VisualJokeGenerationError).debugLog ?? []).toEqual(
+      expect.arrayContaining([
+        "Step: assemble-visual-joke-set",
+        "Provider: test/test-model",
+        expect.stringContaining("No publishable visual jokes"),
+      ]),
     );
-    expect(result.visualJokeSet.jokes.map((joke) => joke.text)).not.toContain(
-      "Invented Context Everywhere",
+  });
+
+  test("does not retry or fall back when the configured provider fails", async () => {
+    const provider = {
+      model: "test-model",
+      provider: "test" as const,
+      generateCandidates: vi.fn(async () => {
+        throw new Error("Provider exploded.");
+      }),
+    };
+
+    await expect(generateVisualJokeSet(serviceInput, { provider })).rejects.toThrow(
+      "Provider exploded.",
     );
-    expect(result.visualJokeSet.jokes.map((joke) => joke.text)).not.toContain(
-      "Only Idiots Need This Dashboard",
-    );
-    expect(result.visualJokeSet.jokes.map((joke) => joke.text)).not.toContain(
-      "OpenAI's Shitshow Workflow Empire",
-    );
+    expect(provider.generateCandidates).toHaveBeenCalledTimes(1);
+  });
+
+  test("uses the offline local provider to produce a usable 3-section set", async () => {
+    const previousApiKey = process.env.AI_GATEWAY_API_KEY;
+    const previousVercelKey = process.env.VERCEL_AI_GATEWAY_API_KEY;
+    // With no gateway credentials and a non-production env, the default provider is
+    // the local one, so the workflow runs entirely offline.
+    delete process.env.AI_GATEWAY_API_KEY;
+    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
+
+    try {
+      const result = await generateVisualJokeSet(serviceInput);
+
+      expect(new Set(result.visualJokeSet.jokes.map((joke) => joke.section))).toEqual(
+        new Set(["satire", "tech-positive", "experimental"]),
+      );
+      expect(result.visualJokeSet.jokes.length).toBeGreaterThanOrEqual(3);
+      expect(result.visualJokeSet.topPicks.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      restoreEnvValue("AI_GATEWAY_API_KEY", previousApiKey);
+      restoreEnvValue("VERCEL_AI_GATEWAY_API_KEY", previousVercelKey);
+    }
   });
 
   test("sends only the joke context snapshot and visual joke direction to the AI Gateway prompt", async () => {
     const previousApiKey = process.env.AI_GATEWAY_API_KEY;
     const previousModel = process.env.AI_GATEWAY_VISUAL_JOKE_MODEL;
     const previousFetch = globalThis.fetch;
-    const fetcher = vi.fn<typeof fetch>(async () =>
-      Response.json({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                candidates: [
-                  buildCandidatePayload(
-                    "OpenAI Ships The Pricing Shortcut",
-                    "truthful misdirection",
-                  ),
-                  buildCandidatePayload(
-                    "Workflow Lock-In With Better Lighting",
-                    "dark tech satire",
-                  ),
-                  buildCandidatePayload("Roadmap As A Service", "tech-native metaphor"),
-                  buildCandidatePayload("OpenAI Premium Coordination Cloud", "fake product naming"),
-                  buildCandidatePayload("The Moat Is The Workflow", "deadpan diagnosis"),
-                  buildCandidatePayload("Every Launch Is A Billing Event", "incentive roast"),
-                  buildCandidatePayload(
-                    "Breaking: The Dashboard Needs A Manager",
-                    "absurd headline",
-                  ),
-                  buildCandidatePayload("OpenAI Wants Rent On Your Entire Workflow", "earned edge"),
-                ],
-              }),
-            },
-          },
-        ],
-      }),
-    );
+    const fetcher = vi.fn<typeof fetch>(async () => buildValidGatewayResponse());
 
     process.env.AI_GATEWAY_API_KEY = "gateway-secret";
     process.env.AI_GATEWAY_VISUAL_JOKE_MODEL = "openai/visual-joke-model";
@@ -223,86 +262,6 @@ describe("visual joke service", () => {
     }
   });
 
-  test("attaches a critic rejection breakdown to the failure debug log when too few candidates survive", async () => {
-    const error = await generateVisualJokeSet(
-      {
-        jokeContextSnapshot: buildJokeContextSnapshot(),
-        visualJokeDirection: defaultVisualJokeDirection,
-      },
-      {
-        provider: {
-          model: "critic-test-model",
-          provider: "test",
-          async generateCandidates() {
-            // Every candidate references a fact absent from the snapshot, so the
-            // critic rejects all of them for "unsupported-reference".
-            return Array.from({ length: 6 }, (_value, index) => ({
-              metadata: {
-                jokePattern: "truthful misdirection",
-                jokeTarget: "platform leverage",
-                referencedFact: "This fact is not present anywhere in the snapshot.",
-                shortRationale: "Unsupported claim should be rejected.",
-              },
-              text: `Invented Context Number ${index + 1}`,
-            }));
-          },
-        },
-      },
-    ).catch((thrown: unknown) => thrown);
-
-    expect(error).toBeInstanceOf(VisualJokeGenerationError);
-    const debugLog = (error as VisualJokeGenerationError).debugLog ?? [];
-    expect(debugLog).toEqual(
-      expect.arrayContaining([
-        "Step: select-publishable-set",
-        "Provider: test/critic-test-model",
-        "Rough candidates returned: 6",
-        "Passed critic: 0",
-        expect.stringContaining("minimum 1"),
-        expect.stringContaining("unsupported-reference: 6"),
-      ]),
-    );
-  });
-
-  test("ships the surviving jokes instead of failing when the critic rejects most candidates", async () => {
-    const result = await generateVisualJokeSet(
-      {
-        jokeContextSnapshot: buildJokeContextSnapshot(),
-        visualJokeDirection: defaultVisualJokeDirection,
-      },
-      {
-        now: () => new Date("2026-06-06T10:12:00.000Z"),
-        provider: {
-          model: "test-model",
-          provider: "test",
-          async generateCandidates() {
-            return [
-              // Four publishable candidates across distinct patterns...
-              buildCandidate("Workflow Lock-In With Better Lighting", "dark tech satire"),
-              buildCandidate("Roadmap As A Service", "tech-native metaphor"),
-              buildCandidate("The Moat Is The Workflow", "deadpan diagnosis"),
-              buildCandidate("Every Launch Is A Billing Event", "incentive roast"),
-              // ...and four the critic rejects for an unsupported reference.
-              ...Array.from({ length: 4 }, (_value, index) => ({
-                metadata: {
-                  jokePattern: "truthful misdirection",
-                  jokeTarget: "platform leverage",
-                  referencedFact: "This fact is not present anywhere in the snapshot.",
-                  shortRationale: "Unsupported claim should be rejected.",
-                },
-                text: `Invented Context Number ${index + 1}`,
-              })),
-            ];
-          },
-        },
-      },
-    );
-
-    expect(result.visualJokeSet.jokes).toHaveLength(4);
-    expect(result.visualJokeSet.targetCount).toBe(8);
-    expect(result.visualJokeSet.jokes[0]?.recommended).toBe(true);
-  });
-
   test("requests structured outputs and recovers from a single malformed payload with one repair-retry", async () => {
     const previousApiKey = process.env.AI_GATEWAY_API_KEY;
     const previousModel = process.env.AI_GATEWAY_VISUAL_JOKE_MODEL;
@@ -322,7 +281,7 @@ describe("visual joke service", () => {
         visualJokeDirection: defaultVisualJokeDirection,
       });
 
-      expect(result.visualJokeSet.jokes).toHaveLength(8);
+      expect(result.visualJokeSet.jokes).toHaveLength(4);
       expect(fetcher).toHaveBeenCalledTimes(2);
 
       const body = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as {
@@ -370,7 +329,7 @@ describe("visual joke service", () => {
         visualJokeDirection: defaultVisualJokeDirection,
       });
 
-      expect(result.visualJokeSet.jokes).toHaveLength(8);
+      expect(result.visualJokeSet.jokes).toHaveLength(4);
       expect(fetcher).toHaveBeenCalledTimes(2);
 
       const firstBody = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as {
@@ -419,29 +378,6 @@ describe("visual joke service", () => {
       restoreEnvValue("AI_GATEWAY_VISUAL_JOKE_MODEL", previousModel);
       globalThis.fetch = previousFetch;
     }
-  });
-
-  test("does not retry or fall back when the configured provider fails", async () => {
-    const provider = {
-      model: "test-model",
-      provider: "test" as const,
-      generateCandidates: vi.fn(async () => {
-        throw new Error("Provider exploded.");
-      }),
-    };
-
-    await expect(
-      generateVisualJokeSet(
-        {
-          jokeContextSnapshot: buildJokeContextSnapshot(),
-          visualJokeDirection: defaultVisualJokeDirection,
-        },
-        {
-          provider,
-        },
-      ),
-    ).rejects.toThrow("Provider exploded.");
-    expect(provider.generateCandidates).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -494,15 +430,18 @@ function buildValidGatewayResponse() {
       {
         message: {
           content: JSON.stringify({
-            candidates: [
-              buildCandidatePayload("OpenAI Ships The Pricing Shortcut", "truthful misdirection"),
-              buildCandidatePayload("Workflow Lock-In With Better Lighting", "dark tech satire"),
-              buildCandidatePayload("Roadmap As A Service", "tech-native metaphor"),
-              buildCandidatePayload("OpenAI Premium Coordination Cloud", "fake product naming"),
-              buildCandidatePayload("The Moat Is The Workflow", "deadpan diagnosis"),
-              buildCandidatePayload("Every Launch Is A Billing Event", "incentive roast"),
-              buildCandidatePayload("Breaking: The Dashboard Needs A Manager", "absurd headline"),
-              buildCandidatePayload("OpenAI Wants Rent On Your Entire Workflow", "earned edge"),
+            jokes: [
+              { section: "satire", text: "OpenAI Ships The Pricing Shortcut" },
+              { section: "satire", text: "Every Launch Is A Billing Event" },
+              { section: "tech-positive", text: "The Haters Discover The Roadmap Was Real" },
+              { section: "experimental", text: "2037: the bottleneck files for emancipation" },
+            ],
+            topPicks: [
+              {
+                reason: "Names the actor and the incentive in one line.",
+                section: "satire",
+                text: "OpenAI Ships The Pricing Shortcut",
+              },
             ],
           }),
         },
@@ -518,35 +457,11 @@ function buildMalformedGatewayResponse() {
     choices: [
       {
         message: {
-          content:
-            '{"candidates":[{"jokePattern":"deadpan diagnosis","jokeTarget":"platform leverage","referencedFact":"The rollout is framed as an operator productivity update.","shortRationale":"r","text":"the "cool" glasses"}]}',
+          content: '{"jokes":[{"section":"satire","text":"the "cool" glasses"}],"topPicks":[]}',
         },
       },
     ],
   });
-}
-
-function buildCandidate(text: string, jokePattern: string) {
-  return {
-    metadata: buildCandidateMetadata(jokePattern),
-    text,
-  };
-}
-
-function buildCandidatePayload(text: string, jokePattern: string) {
-  return {
-    ...buildCandidateMetadata(jokePattern),
-    text,
-  };
-}
-
-function buildCandidateMetadata(jokePattern: string) {
-  return {
-    jokePattern,
-    jokeTarget: "platform leverage",
-    referencedFact: "The rollout is framed as an operator productivity update.",
-    shortRationale: "Turns the feature reveal into a pricing-pressure punchline.",
-  };
 }
 
 function restoreEnvValue(name: string, value: string | undefined) {

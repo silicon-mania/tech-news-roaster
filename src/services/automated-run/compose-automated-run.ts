@@ -341,7 +341,7 @@ export async function composeAutomatedRun(
     }
   }
 
-  // 6. Automated Selection over the generated outputs: first draft, recommended
+  // 6. Automated Selection over the generated outputs: first draft, first Top Pick
   //    visual joke, first candidate as original, first variation. Read from the
   //    persisted Image Set so the Selected Image Original's URL is the stored one.
   const selection = deriveAutomatedSelection(

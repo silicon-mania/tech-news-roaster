@@ -466,7 +466,9 @@ describe("generation stream route", () => {
           },
         },
         visualJokeSet: {
-          jokes: expect.arrayContaining([expect.objectContaining({ recommended: true, rank: 1 })]),
+          topPicks: expect.arrayContaining([
+            expect.objectContaining({ visualJokeId: "visual-joke-1" }),
+          ]),
         },
       },
     });
@@ -856,21 +858,18 @@ function buildNewsLinkedImageDiscoveryResult() {
 }
 
 function buildVisualJokeSet() {
+  const sections = ["satire", "tech-positive", "experimental"] as const;
+
   return {
     generatedAt: "2026-06-06T10:12:00.000Z",
     id: "visual-joke-set-1",
     jokes: Array.from({ length: 5 }, (_, index) => ({
       id: `visual-joke-${index + 1}`,
-      metadata: {
-        jokePattern: "truthful misdirection",
-        jokeTarget: "platform pricing logic",
-        referencedFact: "The launch screenshot foregrounds premium workflow controls.",
-        shortRationale: "Turns the feature reveal into a pricing-pressure punchline.",
-      },
-      rank: index + 1,
-      recommended: index === 0,
+      order: Math.floor(index / sections.length) + 1,
+      section: sections[index % sections.length],
       text: `Visual joke ${index + 1}`,
     })),
-    targetCount: 5,
+    targetPerSection: 7,
+    topPicks: [{ reason: "Sharpest satire angle.", visualJokeId: "visual-joke-1" }],
   };
 }

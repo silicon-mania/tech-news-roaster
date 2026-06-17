@@ -112,29 +112,22 @@ export function buildJokeContextSnapshot() {
   };
 }
 
-export function buildVisualJokeMetadata() {
-  return {
-    jokePattern: "truthful misdirection",
-    jokeTarget: "platform pricing logic",
-    referencedFact: "The launch screenshot foregrounds premium workflow controls.",
-    shortRationale: "Turns the feature reveal into a pricing-pressure punchline.",
-  };
-}
+// The three Visual Joke Sections in direction order. Fixture jokes round-robin
+// across them so any count still produces contiguous within-section order.
+const visualJokeSectionOrder = ["satire", "tech-positive", "experimental"] as const;
 
 type VisualJokeFixture = {
   id: string;
-  metadata: ReturnType<typeof buildVisualJokeMetadata>;
-  rank: number;
-  recommended: boolean;
+  order: number;
+  section: (typeof visualJokeSectionOrder)[number];
   text: string;
 };
 
 export function buildVisualJoke(index: number, overrides: Partial<VisualJokeFixture> = {}) {
   const joke = {
     id: `visual-joke-${index + 1}`,
-    metadata: buildVisualJokeMetadata(),
-    rank: index + 1,
-    recommended: index === 0,
+    order: Math.floor(index / visualJokeSectionOrder.length) + 1,
+    section: visualJokeSectionOrder[index % visualJokeSectionOrder.length],
     text: `Visual joke ${index + 1}`,
   };
 
@@ -152,8 +145,12 @@ export function buildVisualJokeSet() {
   return {
     generatedAt: "2026-06-06T10:12:00.000Z",
     id: "visual-joke-set-1",
-    jokes: buildVisualJokes(8),
-    targetCount: 8,
+    jokes: buildVisualJokes(6),
+    targetPerSection: 7,
+    topPicks: [
+      { reason: "Sharpest satire angle.", visualJokeId: "visual-joke-1" },
+      { reason: "Strong tech-positive flip.", visualJokeId: "visual-joke-2" },
+    ],
   };
 }
 

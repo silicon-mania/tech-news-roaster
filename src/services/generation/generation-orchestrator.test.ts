@@ -33,7 +33,9 @@ describe("generation orchestrator", () => {
       ],
       visualJokeDirection: defaultVisualJokeDirection,
       visualJokeSet: {
-        jokes: expect.arrayContaining([expect.objectContaining({ recommended: true, rank: 1 })]),
+        topPicks: expect.arrayContaining([
+          expect.objectContaining({ visualJokeId: "visual-joke-1" }),
+        ]),
       },
     });
     expect(run.drafts).toHaveLength(3);
@@ -397,7 +399,7 @@ describe("generation orchestrator", () => {
         status: "completed",
       },
     });
-    expect(run.visualJokeSet?.jokes).toHaveLength(8);
+    expect(run.visualJokeSet?.jokes).toHaveLength(5);
   });
 
   test("keeps the run successful when visual joke generation fails but text succeeds", async () => {
@@ -479,29 +481,26 @@ function buildVisualJokeProvider() {
     model: "test-visual-joke-model",
     provider: "test" as const,
     async generateCandidates() {
-      return [
-        buildVisualJokeCandidate("OpenAI Ships The Pricing Shortcut", "truthful misdirection"),
-        buildVisualJokeCandidate("Workflow Lock-In With Better Lighting", "dark tech satire"),
-        buildVisualJokeCandidate("Roadmap As A Service", "tech-native metaphor"),
-        buildVisualJokeCandidate("OpenAI Premium Coordination Cloud", "fake product naming"),
-        buildVisualJokeCandidate("The Moat Is The Workflow", "deadpan diagnosis"),
-        buildVisualJokeCandidate("Every Launch Is A Billing Event", "incentive roast"),
-        buildVisualJokeCandidate("Breaking: The Dashboard Needs A Manager", "absurd headline"),
-        buildVisualJokeCandidate("OpenAI Wants Rent On Your Entire Workflow", "earned edge"),
-      ];
+      return {
+        jokes: [
+          { section: "satire" as const, text: "OpenAI Ships The Pricing Shortcut" },
+          { section: "satire" as const, text: "Every Launch Is A Billing Event" },
+          { section: "tech-positive" as const, text: "The Haters Discover The Roadmap Was Real" },
+          {
+            section: "tech-positive" as const,
+            text: "Analysts Quietly Revise Their Price Targets",
+          },
+          { section: "experimental" as const, text: "2037: the bottleneck files for emancipation" },
+        ],
+        topPicks: [
+          {
+            reason: "Names the actor and the incentive in one line.",
+            section: "satire" as const,
+            text: "OpenAI Ships The Pricing Shortcut",
+          },
+        ],
+      };
     },
-  };
-}
-
-function buildVisualJokeCandidate(text: string, jokePattern: string) {
-  return {
-    metadata: {
-      jokePattern,
-      jokeTarget: "platform leverage",
-      referencedFact: "The rollout is framed as an operator productivity update.",
-      shortRationale: "Turns the feature reveal into a pricing-pressure punchline.",
-    },
-    text,
   };
 }
 
