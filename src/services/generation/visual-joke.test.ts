@@ -18,12 +18,29 @@ import {
 
 describe("visual joke contracts", () => {
   test("rejects invalid visual joke set sizes and missing recommended ordering", () => {
+    // An empty set is unpublishable, and more than the cap is still rejected...
     expect(() =>
       parseVisualJokeSet({
         ...buildVisualJokeSet(),
-        jokes: buildVisualJokes(4),
+        jokes: [],
       }),
     ).toThrow();
+
+    expect(() =>
+      parseVisualJokeSet({
+        ...buildVisualJokeSet(),
+        jokes: buildVisualJokes(9),
+      }),
+    ).toThrow();
+
+    // ...but a single surviving joke is a valid publishable set: we would rather
+    // ship the few that clear the critic than fail the whole area.
+    expect(() =>
+      parseVisualJokeSet({
+        ...buildVisualJokeSet(),
+        jokes: buildVisualJokes(1),
+      }),
+    ).not.toThrow();
 
     expect(() =>
       parseVisualJokeSet({

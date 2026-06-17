@@ -341,7 +341,7 @@ The preferred format for a visual joke: a short, title-like one-liner that gives
 _Avoid_: Paragraph joke, long caption, explanatory copy
 
 **Visual Joke Set**:
-The ranked five to eight polished, publishable visual jokes produced for one generation run, with eight as the default target and the strongest candidate shown first.
+The ranked, polished, publishable visual jokes produced for one generation run — up to eight, with eight as the default target and the strongest candidate shown first. When the critic rejects candidates, the set ships the survivors (as few as one) rather than failing the whole result area, and the result surface shows a quiet shortfall notice whenever fewer than the target are returned.
 _Avoid_: Joke list, caption batch, meme options
 
 **Recommended Visual Joke**:

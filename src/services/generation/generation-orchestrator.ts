@@ -12,10 +12,12 @@ import {
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
+import { describeErrorDetail, summarizeErrorMessage } from "./error-detail";
 import {
   defaultVisualJokeDirection,
   generateVisualJokeSet,
   type VisualJokeCandidateProvider,
+  VisualJokeGenerationError,
   type VisualJokeServiceResult,
 } from "./visual-joke-service";
 
@@ -335,12 +337,45 @@ function buildCreativeResultStates({
             status: "completed",
             visualJokeSet: visualJokeResult.result.visualJokeSet,
           }
-        : {
+        : buildVisualJokeFailureState({
+            error: visualJokeResult.error,
             failedAt: completedAt,
-            message: "Visual joke generation could not produce a publishable joke set.",
             startedAt: visualJokeGenerationStartedAt,
-            status: "failed",
-          },
+          }),
+  };
+}
+
+// Surfaces the real Visual Joke failure on the Quiet Failure Details surface,
+// mirroring the Image Generation failure path: the summarized error becomes the
+// message, and the flat error/cause chain plus any domain debugLog (e.g. the
+// critic's rejection breakdown) become the numbered debug lines. Without this the
+// failure collapses to one generic, undiagnosable line.
+function buildVisualJokeFailureState({
+  error,
+  failedAt,
+  startedAt,
+}: {
+  error: unknown;
+  failedAt: string;
+  startedAt: string;
+}): Extract<GenerationResultStates["visualJokeGeneration"], { status: "failed" }> {
+  const debugLog = [
+    ...describeErrorDetail(error),
+    ...(error instanceof VisualJokeGenerationError && error.debugLog ? error.debugLog : []),
+  ];
+  const message = summarizeErrorMessage(
+    error,
+    "Visual joke generation could not produce a publishable joke set.",
+  );
+
+  console.error("[visual-joke] generation failed", { debugLog, message });
+
+  return {
+    debugLog: debugLog.length > 0 ? debugLog : undefined,
+    failedAt,
+    message,
+    startedAt,
+    status: "failed",
   };
 }
 

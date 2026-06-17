@@ -10,7 +10,11 @@ import {
 import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 import { readConfiguredAiGatewayVisualJokeModel, readEnvValue } from "./ai-gateway-models";
 
-const minimumReturnedJokeCount = 5;
+// A publishable set needs at least this many jokes; below it we fail the area.
+// We keep it at one so a critic that rejects most candidates still ships the few
+// that survive instead of discarding the whole set — the result surface shows a
+// quiet shortfall notice whenever fewer than the target are returned.
+const minimumPublishableJokeCount = 1;
 const targetReturnedJokeCount = 8;
 const maximumTitleWordCount = 12;
 const maximumGatewayErrorLength = 500;
@@ -70,7 +74,7 @@ const visualJokeCandidateSchema = z
 
 const visualJokeProviderOutputSchema = z
   .object({
-    candidates: z.array(visualJokeCandidateSchema).min(minimumReturnedJokeCount),
+    candidates: z.array(visualJokeCandidateSchema).min(minimumPublishableJokeCount),
   })
   .strict();
 
@@ -105,12 +109,38 @@ export type VisualJokeCandidateProvider = {
   }): Promise<RoughVisualJokeCandidate[]>;
 };
 
-class VisualJokeGenerationError extends Error {
-  constructor(message = "Visual joke generation could not produce a publishable joke set.") {
+// Carries a flat, human-readable `debugLog` for the Quiet Failure Details surface
+// — mirroring the Image Generation failure path. The default message is identical
+// whether the orchestrator or this service produced it, so the debugLog is what
+// actually tells the two cases (and the rejection breakdown) apart.
+export class VisualJokeGenerationError extends Error {
+  readonly debugLog?: string[];
+
+  constructor(
+    message = "Visual joke generation could not produce a publishable joke set.",
+    options: { debugLog?: string[] } = {},
+  ) {
     super(message);
     this.name = "VisualJokeGenerationError";
+    this.debugLog = options.debugLog;
   }
 }
+
+const candidateRejectionReasons = [
+  "invalid-pattern",
+  "word-count",
+  "condescending",
+  "cheap-profanity",
+  "boring-accuracy",
+  "unsupported-reference",
+  "forbidden-assumption",
+] as const;
+
+type CandidateRejectionReason = (typeof candidateRejectionReasons)[number];
+
+type CandidateEvaluation =
+  | { candidate: EvaluatedCandidate; status: "accepted" }
+  | { reason: CandidateRejectionReason; status: "rejected" };
 
 export async function generateVisualJokeSet(
   input: VisualJokeServiceInput,
@@ -129,6 +159,7 @@ export async function generateVisualJokeSet(
   const visualJokeSet = buildVisualJokeSet({
     jokeContextSnapshot: input.jokeContextSnapshot,
     now: options.now ?? (() => new Date()),
+    providerLabel: `${provider.provider}/${provider.model}`,
     roughCandidates,
     targetCount: targetReturnedJokeCount,
   });
@@ -185,7 +216,9 @@ function createAiGatewayVisualJokeCandidateProvider({
     provider: "ai-gateway",
     async generateCandidates({ jokeContextSnapshot, targetCount, visualJokeDirection }) {
       if (!apiKey) {
-        throw new VisualJokeGenerationError("AI Gateway credentials are not configured.");
+        throw new VisualJokeGenerationError("AI Gateway credentials are not configured.", {
+          debugLog: ["Step: generate-candidates", `Provider: ai-gateway/${model}`],
+        });
       }
 
       const response = await fetchWithTimeout(
@@ -224,6 +257,13 @@ function createAiGatewayVisualJokeCandidateProvider({
       if (!response.ok) {
         throw new VisualJokeGenerationError(
           `Visual joke generation failed (${response.status}): ${await readGatewayError(response)}`,
+          {
+            debugLog: [
+              "Step: generate-candidates",
+              `Provider: ai-gateway/${model}`,
+              `Gateway status: ${response.status}`,
+            ],
+          },
         );
       }
 
@@ -248,25 +288,42 @@ function createAiGatewayVisualJokeCandidateProvider({
 function buildVisualJokeSet({
   jokeContextSnapshot,
   now,
+  providerLabel,
   roughCandidates,
   targetCount,
 }: {
   jokeContextSnapshot: JokeContextSnapshot;
   now: () => Date;
+  providerLabel: string;
   roughCandidates: RoughVisualJokeCandidate[];
   targetCount: number;
 }) {
-  const evaluatedCandidates = roughCandidates
-    .map((candidate) => evaluateCandidate(candidate, jokeContextSnapshot))
-    .filter((candidate): candidate is EvaluatedCandidate => candidate !== null);
+  const evaluations = roughCandidates.map((candidate) =>
+    evaluateCandidate(candidate, jokeContextSnapshot),
+  );
+  const evaluatedCandidates = evaluations
+    .filter(
+      (evaluation): evaluation is { candidate: EvaluatedCandidate; status: "accepted" } =>
+        evaluation.status === "accepted",
+    )
+    .map((evaluation) => evaluation.candidate);
   const selectedCandidates = selectDiverseCandidates({
     evaluatedCandidates,
     jokeContextSnapshot,
     targetCount,
   });
 
-  if (selectedCandidates.length < minimumReturnedJokeCount) {
-    throw new VisualJokeGenerationError();
+  if (selectedCandidates.length < minimumPublishableJokeCount) {
+    throw new VisualJokeGenerationError(undefined, {
+      debugLog: describeSelectionShortfall({
+        acceptedCount: evaluatedCandidates.length,
+        evaluations,
+        providerLabel,
+        roughCandidateCount: roughCandidates.length,
+        selectedCount: selectedCandidates.length,
+        targetCount,
+      }),
+    });
   }
 
   return parseVisualJokeSet({
@@ -366,35 +423,36 @@ function selectDiverseCandidates({
 function evaluateCandidate(
   candidate: RoughVisualJokeCandidate,
   jokeContextSnapshot: JokeContextSnapshot,
-) {
+): CandidateEvaluation {
   const normalizedText = collapseWhitespace(candidate.text);
   const pattern = normalizePattern(candidate.metadata.jokePattern);
 
   if (!pattern) {
-    return null;
+    return { reason: "invalid-pattern", status: "rejected" };
   }
 
   if (countWords(normalizedText) > maximumTitleWordCount || countWords(normalizedText) < 3) {
-    return null;
+    return { reason: "word-count", status: "rejected" };
   }
 
   if (looksCondescending(normalizedText, candidate.metadata.jokeTarget)) {
-    return null;
+    return { reason: "condescending", status: "rejected" };
   }
 
   if (containsCheapProfanity(normalizedText)) {
-    return null;
+    return { reason: "cheap-profanity", status: "rejected" };
   }
 
   if (looksLikeBoringAccuracy(normalizedText, jokeContextSnapshot)) {
-    return null;
+    return { reason: "boring-accuracy", status: "rejected" };
   }
 
-  if (
-    !isReferenceSupported(candidate.metadata.referencedFact, jokeContextSnapshot) ||
-    violatesForbiddenAssumptions(normalizedText, jokeContextSnapshot)
-  ) {
-    return null;
+  if (!isReferenceSupported(candidate.metadata.referencedFact, jokeContextSnapshot)) {
+    return { reason: "unsupported-reference", status: "rejected" };
+  }
+
+  if (violatesForbiddenAssumptions(normalizedText, jokeContextSnapshot)) {
+    return { reason: "forbidden-assumption", status: "rejected" };
   }
 
   const namedActorCount = extractNamedNewsActors(jokeContextSnapshot).filter((actor) =>
@@ -411,11 +469,56 @@ function evaluateCandidate(
     tensionOverlap * 2;
 
   return {
-    metadata: candidate.metadata,
-    pattern,
-    score,
-    text: normalizedText,
-  } satisfies EvaluatedCandidate;
+    candidate: {
+      metadata: candidate.metadata,
+      pattern,
+      score,
+      text: normalizedText,
+    },
+    status: "accepted",
+  };
+}
+
+// Flat, human-readable lines explaining why the critic could not assemble a
+// publishable set — the per-reason rejection breakdown is what distinguishes an
+// over-filtering critic from a thin provider response on the Quiet Failure
+// Details surface.
+function describeSelectionShortfall({
+  acceptedCount,
+  evaluations,
+  providerLabel,
+  roughCandidateCount,
+  selectedCount,
+  targetCount,
+}: {
+  acceptedCount: number;
+  evaluations: CandidateEvaluation[];
+  providerLabel: string;
+  roughCandidateCount: number;
+  selectedCount: number;
+  targetCount: number;
+}): string[] {
+  const rejectionCounts = new Map<CandidateRejectionReason, number>();
+
+  for (const evaluation of evaluations) {
+    if (evaluation.status === "rejected") {
+      rejectionCounts.set(evaluation.reason, (rejectionCounts.get(evaluation.reason) ?? 0) + 1);
+    }
+  }
+
+  const rejectionBreakdown = [...rejectionCounts.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .map(([reason, count]) => `${reason}: ${count}`)
+    .join(", ");
+
+  return [
+    "Step: select-publishable-set",
+    `Provider: ${providerLabel}`,
+    `Rough candidates returned: ${roughCandidateCount}`,
+    `Passed critic: ${acceptedCount}`,
+    `Selected after diversity & dedupe: ${selectedCount} (minimum ${minimumPublishableJokeCount}, target ${targetCount})`,
+    `Rejected by critic: ${rejectionBreakdown || "none"}`,
+  ];
 }
 
 function buildLocalCandidates(

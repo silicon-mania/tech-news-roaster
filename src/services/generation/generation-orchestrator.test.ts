@@ -428,7 +428,8 @@ describe("generation orchestrator", () => {
         status: "completed",
       },
       visualJokeGeneration: {
-        message: "Visual joke generation could not produce a publishable joke set.",
+        debugLog: expect.arrayContaining([expect.stringContaining("Visual joke provider failed.")]),
+        message: "Visual joke provider failed.",
         status: "failed",
       },
     });

@@ -186,6 +186,8 @@ describe("Workspace creative result areas", () => {
     expect(within(visualJokeArea).queryByRole("textbox")).not.toBeInTheDocument();
     expect(visualJokeArea).not.toHaveTextContent("status-theater");
     expect(visualJokeArea).not.toHaveTextContent("It turns productivity theatre");
+    // The full set matches its target, so the shortfall notice stays hidden.
+    expect(visualJokeArea).not.toHaveTextContent(/fewer sharp jokes/i);
 
     await user.click(
       within(visualJokeArea).getByRole("button", {
@@ -269,6 +271,41 @@ describe("Workspace creative result areas", () => {
       selectedImageId: "news-linked-image-1",
       userImagePrompt: "Make it feel like a serious product launch image.",
     });
+  });
+
+  test("shows a quiet shortfall notice when fewer jokes than the target survive the critic", async () => {
+    const savedRunStore = createMemorySavedRunStore();
+    const newsLinkedImages = buildNewsLinkedImages();
+    const fullSet = buildVisualJokeSet();
+    const shortfallVisualJokeSet = {
+      ...fullSet,
+      jokes: fullSet.jokes.slice(0, 4),
+      targetCount: 8,
+    };
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [
+        buildCompletedRun({
+          imageGenerationState: {
+            status: "not-started",
+          },
+          newsLinkedImages,
+          phase: "waiting-for-image-selection",
+          selectedVisualJoke: null,
+          visualJokeSet: shortfallVisualJokeSet,
+        }),
+      ],
+      savedRunStore,
+    });
+
+    const visualJokeArea = screen.getByRole("region", {
+      name: /visual joke creative result area/i,
+    });
+
+    expect(within(visualJokeArea).getAllByRole("article")).toHaveLength(4);
+    expect(visualJokeArea).toHaveTextContent("Showing 4 of 8");
+    expect(visualJokeArea).toHaveTextContent(/fewer sharp jokes/i);
   });
 
   test("opens quiet context and direction reveals without turning context into a control surface", async () => {

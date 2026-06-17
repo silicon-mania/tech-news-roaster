@@ -95,6 +95,12 @@ export function VisualJokeArea({
             );
           })}
         </ul>
+        {visualJokeSet.jokes.length < visualJokeSet.targetCount ? (
+          <p className="text-muted-foreground text-xs leading-5">
+            Showing {visualJokeSet.jokes.length} of {visualJokeSet.targetCount} — we would rather
+            show fewer sharp jokes than pad the set with weaker ones.
+          </p>
+        ) : null}
       </section>
       {hasVisualJokeDirection ? (
         <DirectionPanel id={panelId} isOpen={isDirectionOpen} title="Visual joke direction">

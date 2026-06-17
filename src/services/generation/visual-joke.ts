@@ -26,7 +26,11 @@ export const visualJokeSetSchema = z
   .object({
     generatedAt: z.string().datetime(),
     id: runLocalIdSchema,
-    jokes: z.array(visualJokeSchema).min(5).max(8),
+    // A publishable set can be as small as one joke: we would rather ship the
+    // few that survive the critic than fail the whole area (see the Visual Joke
+    // shortfall notice on the result surface). `targetCount` still records the
+    // goal (8), and the superRefine below keeps it >= the returned count.
+    jokes: z.array(visualJokeSchema).min(1).max(8),
     targetCount: z.number().int().min(5).max(8).default(8),
   })
   .strict()

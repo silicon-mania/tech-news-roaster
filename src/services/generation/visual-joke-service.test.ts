@@ -1,6 +1,10 @@
 import { describe, expect, test, vi } from "vitest";
 import { parseJokeContextSnapshot } from "@/services/generation";
-import { defaultVisualJokeDirection, generateVisualJokeSet } from "./visual-joke-service";
+import {
+  defaultVisualJokeDirection,
+  generateVisualJokeSet,
+  VisualJokeGenerationError,
+} from "./visual-joke-service";
 
 describe("visual joke service", () => {
   test("returns a ranked, pattern-diverse visual joke set with a bold candidate when context supports it", async () => {
@@ -221,6 +225,86 @@ describe("visual joke service", () => {
       restoreEnvValue("AI_GATEWAY_VISUAL_JOKE_TIMEOUT_MS", previousTimeout);
       globalThis.fetch = previousFetch;
     }
+  });
+
+  test("attaches a critic rejection breakdown to the failure debug log when too few candidates survive", async () => {
+    const error = await generateVisualJokeSet(
+      {
+        jokeContextSnapshot: buildJokeContextSnapshot(),
+        visualJokeDirection: defaultVisualJokeDirection,
+      },
+      {
+        provider: {
+          model: "critic-test-model",
+          provider: "test",
+          async generateCandidates() {
+            // Every candidate references a fact absent from the snapshot, so the
+            // critic rejects all of them for "unsupported-reference".
+            return Array.from({ length: 6 }, (_value, index) => ({
+              metadata: {
+                jokePattern: "truthful misdirection",
+                jokeTarget: "platform leverage",
+                referencedFact: "This fact is not present anywhere in the snapshot.",
+                shortRationale: "Unsupported claim should be rejected.",
+              },
+              text: `Invented Context Number ${index + 1}`,
+            }));
+          },
+        },
+      },
+    ).catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(VisualJokeGenerationError);
+    const debugLog = (error as VisualJokeGenerationError).debugLog ?? [];
+    expect(debugLog).toEqual(
+      expect.arrayContaining([
+        "Step: select-publishable-set",
+        "Provider: test/critic-test-model",
+        "Rough candidates returned: 6",
+        "Passed critic: 0",
+        expect.stringContaining("minimum 1"),
+        expect.stringContaining("unsupported-reference: 6"),
+      ]),
+    );
+  });
+
+  test("ships the surviving jokes instead of failing when the critic rejects most candidates", async () => {
+    const result = await generateVisualJokeSet(
+      {
+        jokeContextSnapshot: buildJokeContextSnapshot(),
+        visualJokeDirection: defaultVisualJokeDirection,
+      },
+      {
+        now: () => new Date("2026-06-06T10:12:00.000Z"),
+        provider: {
+          model: "test-model",
+          provider: "test",
+          async generateCandidates() {
+            return [
+              // Four publishable candidates across distinct patterns...
+              buildCandidate("Workflow Lock-In With Better Lighting", "dark tech satire"),
+              buildCandidate("Roadmap As A Service", "tech-native metaphor"),
+              buildCandidate("The Moat Is The Workflow", "deadpan diagnosis"),
+              buildCandidate("Every Launch Is A Billing Event", "incentive roast"),
+              // ...and four the critic rejects for an unsupported reference.
+              ...Array.from({ length: 4 }, (_value, index) => ({
+                metadata: {
+                  jokePattern: "truthful misdirection",
+                  jokeTarget: "platform leverage",
+                  referencedFact: "This fact is not present anywhere in the snapshot.",
+                  shortRationale: "Unsupported claim should be rejected.",
+                },
+                text: `Invented Context Number ${index + 1}`,
+              })),
+            ];
+          },
+        },
+      },
+    );
+
+    expect(result.visualJokeSet.jokes).toHaveLength(4);
+    expect(result.visualJokeSet.targetCount).toBe(8);
+    expect(result.visualJokeSet.jokes[0]?.recommended).toBe(true);
   });
 
   test("does not retry or fall back when the configured provider fails", async () => {
