@@ -346,8 +346,9 @@ function createAiGatewayVisualJokeCandidateProvider({
 }
 
 // A pure step: map a raw gateway JSON string into the categorized provider output.
-// Exercisable without the network (extracted and unit-tested directly in issue 024).
-function parseGatewayVisualJokeOutput(content: string): VisualJokeCandidateOutput {
+// Exported so it is exercisable directly without the network — it tolerates code
+// fences and surrounding prose, then re-validates the shape via Zod.
+export function parseGatewayVisualJokeOutput(content: string): VisualJokeCandidateOutput {
   const parsed = visualJokeProviderOutputSchema.parse(JSON.parse(extractJsonObject(content)));
 
   return {

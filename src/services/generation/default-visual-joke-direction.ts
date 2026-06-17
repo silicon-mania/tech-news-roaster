@@ -65,7 +65,18 @@ give me exactly 21 headlines in three labeled sections of 7:
 
 ## format
 
-plain list, bold headlines, sentence case or lowercase. no numbering needed. after the list, your top picks with one-line reasoning.
+return a single JSON object and nothing else — no prose around it, no markdown, no code fences. this exact shape:
+
+{
+  "jokes": [
+    { "section": "satire" | "tech-positive" | "experimental", "text": "the headline" }
+  ],
+  "topPicks": [
+    { "section": "satire" | "tech-positive" | "experimental", "text": "the exact text of one headline from jokes", "reason": "one line on why it's a top pick" }
+  ]
+}
+
+put all 21 headlines in "jokes", each tagged with its "section" (one of satire, tech-positive, experimental). sentence case or lowercase; the section field does the labeling, so don't repeat it inside the text. then flag your 2-3 strongest overall in "topPicks" — each "text" must match one headline from "jokes" exactly, with a one-line "reason".
 
 ready? here's the story:
 `);

@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { defaultVisualJokeDirection, parseJokeContextSnapshot } from "@/services/generation";
 import {
   generateVisualJokeSet,
+  parseGatewayVisualJokeOutput,
   type VisualJokeCandidateOutput,
   VisualJokeGenerationError,
 } from "./visual-joke-service";
@@ -378,6 +379,72 @@ describe("visual joke service", () => {
       restoreEnvValue("AI_GATEWAY_VISUAL_JOKE_MODEL", previousModel);
       globalThis.fetch = previousFetch;
     }
+  });
+});
+
+describe("parseGatewayVisualJokeOutput", () => {
+  test("maps a well-formed gateway payload to the categorized provider output", () => {
+    const output = parseGatewayVisualJokeOutput(
+      JSON.stringify({
+        jokes: [
+          { section: "satire", text: "OpenAI Ships The Pricing Shortcut" },
+          { section: "tech-positive", text: "The Haters Discover The Roadmap Was Real" },
+          { section: "experimental", text: "2037: the bottleneck files for emancipation" },
+        ],
+        topPicks: [
+          {
+            reason: "Names the actor and the incentive in one line.",
+            section: "satire",
+            text: "OpenAI Ships The Pricing Shortcut",
+          },
+        ],
+      }),
+    );
+
+    expect(output).toEqual({
+      jokes: [
+        { section: "satire", text: "OpenAI Ships The Pricing Shortcut" },
+        { section: "tech-positive", text: "The Haters Discover The Roadmap Was Real" },
+        { section: "experimental", text: "2037: the bottleneck files for emancipation" },
+      ],
+      topPicks: [
+        {
+          reason: "Names the actor and the incentive in one line.",
+          section: "satire",
+          text: "OpenAI Ships The Pricing Shortcut",
+        },
+      ],
+    });
+  });
+
+  test("tolerates code fences and surrounding prose around the JSON object", () => {
+    const output = parseGatewayVisualJokeOutput(
+      'Here you go:\n```json\n{"jokes":[{"section":"satire","text":"A joke"}],"topPicks":[]}\n```',
+    );
+
+    expect(output.jokes).toEqual([{ section: "satire", text: "A joke" }]);
+    expect(output.topPicks).toEqual([]);
+  });
+
+  test("keeps a headline that runs past the old twelve-word cap", () => {
+    const longHeadline =
+      "Everyone who laughed at landing rockets now quietly needs them in their own index fund anyway";
+    expect(longHeadline.split(/\s+/)).toHaveLength(16);
+
+    const output = parseGatewayVisualJokeOutput(
+      JSON.stringify({
+        jokes: [{ section: "tech-positive", text: longHeadline }],
+        topPicks: [],
+      }),
+    );
+
+    expect(output.jokes).toEqual([{ section: "tech-positive", text: longHeadline }]);
+  });
+
+  test("throws on a malformed JSON payload so the adapter can repair-retry", () => {
+    expect(() =>
+      parseGatewayVisualJokeOutput('{"jokes":[{"section":"satire","text":"the "cool" glasses"}]}'),
+    ).toThrow();
   });
 });
 
