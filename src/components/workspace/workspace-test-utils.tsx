@@ -342,7 +342,7 @@ export function buildRuntimeStatus(overrides: Partial<RuntimeStatus> = {}): Runt
         },
         visualJokeModel: {
           available: false,
-          id: "openai/gpt-5.4-mini",
+          id: "openai/gpt-5.5",
         },
       },
       credentials: {

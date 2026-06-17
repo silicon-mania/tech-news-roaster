@@ -23,7 +23,7 @@ function buildStatus({
           anthropic: { available: true, id: "anthropic/claude-sonnet-4.6" },
           google: { available: true, id: "google/gemini-3-flash" },
         },
-        visualJokeModel: { available: visualJokeModelAvailable, id: "openai/gpt-5.4-mini" },
+        visualJokeModel: { available: visualJokeModelAvailable, id: "openai/gpt-5.5" },
       },
       credentials: { aiGatewayApiKey: true },
       mode: "live",
