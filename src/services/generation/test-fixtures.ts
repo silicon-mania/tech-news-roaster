@@ -154,6 +154,30 @@ export function buildVisualJokeSet() {
   };
 }
 
+// The pre-categorized ranked-eight Visual Joke Set shape (with per-joke
+// `metadata`/`rank`/`recommended` and a set-level `targetCount`). It predates
+// the categorized schema and fails its strict validation, so it exists only to
+// exercise the saved-run back-compat gate — never to round-trip.
+export function buildLegacyVisualJokeSet() {
+  return {
+    generatedAt: "2026-06-06T10:12:00.000Z",
+    id: "visual-joke-set-legacy",
+    jokes: [1, 2].map((rank) => ({
+      id: `legacy-visual-joke-${rank}`,
+      metadata: {
+        jokePattern: "Juxtaposition",
+        jokeTarget: "The launch hype",
+        referencedFact: "The keynote ran long.",
+        shortRationale: "Plays the timing against the promise.",
+      },
+      rank,
+      recommended: rank === 1,
+      text: `Legacy visual joke ${rank}`,
+    })),
+    targetCount: 8,
+  };
+}
+
 export function buildGenerationResultStates({
   jokeContextSnapshot,
   visualJokeSet,

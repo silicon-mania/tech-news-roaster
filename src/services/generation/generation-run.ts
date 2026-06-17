@@ -272,6 +272,84 @@ export function parseCompletedGenerationRunPayload(
   return completedGenerationRunPayloadSchema.parse(payload);
 }
 
+// Pre-categorized Visual Joke Sets (the ranked-eight shape) predate the
+// categorized schema and fail its strict validation. Per the PRD there is no
+// migration/backfill — only newly generated sets use the categorized shape — so
+// a stored run carrying the old shape must still reopen rather than crash the
+// runs list or the Active Run. We detect such a set and gate it out (leaving an
+// empty Visual Joke area) while every other area of the run stays usable. A set
+// already in the categorized shape passes through untouched, so freshly
+// generated runs round-trip unchanged.
+const legacyVisualJokeGatedMessage =
+  "Legacy Visual Joke Set — generated before the categorized format and no longer displayable.";
+
+function isCategorizedVisualJokeSet(value: unknown): boolean {
+  return visualJokeSetSchema.safeParse(value).success;
+}
+
+function hasCompletedCreativeAreaBesidesVisualJokes(states: Record<string, unknown>): boolean {
+  const textGeneration = states.textGeneration as { status?: unknown } | undefined;
+  const newsLinkedImageDiscovery = states.newsLinkedImageDiscovery as
+    | { status?: unknown }
+    | undefined;
+
+  return textGeneration?.status === "completed" || newsLinkedImageDiscovery?.status === "completed";
+}
+
+function gateLegacyVisualJokeSet(run: unknown): unknown {
+  if (!run || typeof run !== "object") {
+    return run;
+  }
+
+  const candidate: Record<string, unknown> = { ...(run as Record<string, unknown>) };
+
+  // Top-level set: drop a legacy (or otherwise unparseable) set and the Selected
+  // Visual Joke that can only reference a joke inside it.
+  if (
+    candidate.visualJokeSet !== undefined &&
+    !isCategorizedVisualJokeSet(candidate.visualJokeSet)
+  ) {
+    delete candidate.visualJokeSet;
+    delete candidate.selectedVisualJoke;
+  }
+
+  // Nested result-state set: a completed Visual Joke Generation stage that
+  // carries a legacy set is downgraded so the strict stage schema doesn't throw.
+  const states = candidate.generationResultStates;
+
+  if (states && typeof states === "object") {
+    const stagedStates = states as Record<string, unknown>;
+    const visualJokeGeneration = stagedStates.visualJokeGeneration as
+      | { status?: unknown; visualJokeSet?: unknown }
+      | undefined;
+
+    if (
+      visualJokeGeneration?.status === "completed" &&
+      !isCategorizedVisualJokeSet(visualJokeGeneration.visualJokeSet)
+    ) {
+      const gatedStates: Record<string, unknown> = {
+        ...stagedStates,
+        visualJokeGeneration: { status: "not-started" },
+      };
+      candidate.generationResultStates = gatedStates;
+
+      // If the legacy Visual Jokes were the run's only completed creative area, a
+      // "completed" run would now fail the "needs one successful creative result
+      // area" invariant. Reopen it as a failed run instead of throwing.
+      if (
+        candidate.status === "completed" &&
+        !hasCompletedCreativeAreaBesidesVisualJokes(gatedStates)
+      ) {
+        candidate.status = "failed";
+        candidate.phase = "failed";
+        candidate.failureMessage = candidate.failureMessage ?? legacyVisualJokeGatedMessage;
+      }
+    }
+  }
+
+  return candidate;
+}
+
 export function parseSavedGenerationRun(run: unknown): SavedGenerationRun {
-  return savedGenerationRunSchema.parse(run);
+  return savedGenerationRunSchema.parse(gateLegacyVisualJokeSet(run));
 }
