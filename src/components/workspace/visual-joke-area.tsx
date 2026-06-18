@@ -9,6 +9,7 @@ import type { GenerationRun } from "@/services/workspace";
 import { copyTextToClipboard } from "@/utils/copy-text-to-clipboard";
 import { DirectionPanel } from "./direction-panel";
 import { useDirectionPanel } from "./direction-panel-context";
+import { JokeTitleEditor } from "./joke-title-editor";
 import { SectionHeader } from "./section-header";
 
 // The three Visual Joke Sections in direction order, each with its
@@ -24,10 +25,12 @@ export function VisualJokeArea({
   run,
   visualJokeSet,
   onSelectedVisualJokeChange,
+  onVisualJokeTitleChange,
 }: {
   run: GenerationRun;
   visualJokeSet: VisualJokeSet;
   onSelectedVisualJokeChange: (runId: string, visualJokeId: string | null) => void;
+  onVisualJokeTitleChange: (runId: string, visualJokeId: string, title: string) => void;
 }) {
   const selectedVisualJokeId = run.selectedVisualJoke?.visualJokeId ?? null;
   const { openPanelId, togglePanel } = useDirectionPanel();
@@ -68,6 +71,7 @@ export function VisualJokeArea({
                       isSelected={selectedVisualJokeId === joke.id}
                       joke={joke}
                       onSelect={(visualJokeId) => onSelectedVisualJokeChange(run.id, visualJokeId)}
+                      onTitleChange={(title) => onVisualJokeTitleChange(run.id, joke.id, title)}
                       sectionLabel={section.label}
                       topPickOrder={topPickOrderByJokeId.get(joke.id) ?? null}
                     />
@@ -99,12 +103,14 @@ function VisualJokeCard({
   isSelected,
   joke,
   onSelect,
+  onTitleChange,
   sectionLabel,
   topPickOrder,
 }: {
   isSelected: boolean;
   joke: VisualJoke;
   onSelect: (visualJokeId: string | null) => void;
+  onTitleChange: (title: string) => void;
   sectionLabel: string;
   topPickOrder: number | null;
 }) {
@@ -122,9 +128,12 @@ function VisualJokeCard({
           Top pick {topPickOrder}
         </p>
       ) : null}
-      <p className="break-words text-foreground text-sm leading-6 sm:text-base sm:leading-7">
-        {joke.text}
-      </p>
+      <JokeTitleEditor
+        label={jokeLabel}
+        onValueChange={onTitleChange}
+        textClassName="text-sm leading-6 sm:text-base sm:leading-7"
+        value={joke.text}
+      />
       <div className="flex items-center gap-1">
         <Tooltip>
           <TooltipTrigger

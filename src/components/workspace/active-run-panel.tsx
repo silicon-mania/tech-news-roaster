@@ -23,6 +23,7 @@ type ActiveRunPanelProps = {
   onSelectedDraftChange: (draftId: string | null) => void;
   onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onSelectedVisualJokeChange: (runId: string, visualJokeId: string | null) => void;
+  onVisualJokeTitleChange: (runId: string, visualJokeId: string, title: string) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
 };
 
@@ -32,6 +33,7 @@ export function ActiveRunPanel({
   onSelectedDraftChange,
   onSelectedGeneratedImageChange,
   onSelectedVisualJokeChange,
+  onVisualJokeTitleChange,
   onStartImageGeneration,
 }: ActiveRunPanelProps) {
   if (!activeRun) {
@@ -83,6 +85,7 @@ export function ActiveRunPanel({
       run={activeRun}
       visualJokeSet={activeRun.visualJokeSet}
       onSelectedVisualJokeChange={onSelectedVisualJokeChange}
+      onVisualJokeTitleChange={onVisualJokeTitleChange}
     />
   ) : visualJokeFailure ? (
     <CreativeFailureArea
