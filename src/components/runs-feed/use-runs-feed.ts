@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { GenerationRun, SavedRunStore } from "@/services/workspace";
 import { isCompleteRun } from "@/services/workspace";
 
@@ -13,6 +20,11 @@ export const feedPageSize = 14;
 type RunsFeed = {
   /** The Complete Runs loaded so far, newest-first (the store sorts by savedAt). */
   runs: GenerationRun[];
+  /**
+   * The loaded-runs setter, so the Selected Run sidebar can update a run in place
+   * — the card reads the same list, so an edit reflects on it instantly.
+   */
+  setRuns: Dispatch<SetStateAction<GenerationRun[]>>;
   /** Whether more pages remain to load. */
   hasMore: boolean;
   /** True while a page is being fetched (initial load or scroll). */
@@ -109,5 +121,5 @@ export function useRunsFeed(savedRunStore: SavedRunStore): RunsFeed {
     [loadMore],
   );
 
-  return { runs, hasMore, isLoading, setSentinel };
+  return { runs, setRuns, hasMore, isLoading, setSentinel };
 }

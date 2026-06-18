@@ -15,6 +15,12 @@ import { resolveRunCardContent } from "./resolve-run-card-content";
 
 type RunCardProps = {
   run: GenerationRun;
+  /**
+   * Opens the run's Selected Run sidebar. When omitted the card is a static
+   * preview (e.g. rendered in isolation); the feed always passes it so the whole
+   * card becomes one click target.
+   */
+  onSelect?: (runId: string) => void;
 };
 
 // The fixed Operator Account every Run Card posts as (PRD "Brand identity"). The
@@ -47,12 +53,23 @@ const engagementChrome: { Icon: LucideIcon; key: string; value: string }[] = [
  * persists nothing. The run label is the card's accessible name, not painted, so
  * the preview reads like a genuine post rather than an internal list row.
  */
-export function RunCard({ run }: RunCardProps) {
+export function RunCard({ run, onSelect }: RunCardProps) {
   const { draft, sourceTweet, variation, visualJoke } = resolveRunCardContent(run);
 
   return (
     <article aria-label={run.label} className="grid gap-2">
-      <div className="grid gap-3 rounded-xl bg-card px-5 py-4">
+      <div className="relative grid gap-3 rounded-xl bg-card px-5 py-4">
+        {onSelect ? (
+          // A full-card overlay button — the card's content is non-interactive
+          // (the embedded Source Tweet is static, the chrome decorative), so the
+          // whole preview is a single click target that opens the sidebar.
+          <button
+            aria-label={`Open ${run.label}`}
+            className="absolute inset-0 z-10 rounded-xl transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            onClick={() => onSelect(run.id)}
+            type="button"
+          />
+        ) : null}
         <header className="flex items-center gap-3">
           <Image
             alt=""

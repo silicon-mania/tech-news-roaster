@@ -16,12 +16,19 @@ export function useRunAutosave(savedRunStore: SavedRunStore) {
     };
   }, []);
 
-  function scheduleRunAutosave(run: GenerationRun) {
-    const currentTimeout = autosaveTimeouts.current.get(run.id);
+  function clearPendingAutosave(runId: string) {
+    const currentTimeout = autosaveTimeouts.current.get(runId);
 
     if (currentTimeout) {
       clearTimeout(currentTimeout);
+      autosaveTimeouts.current.delete(runId);
     }
+  }
+
+  // Debounced save for free-text edits (draft text, joke title) — successive
+  // edits to the same run coalesce into one write.
+  function scheduleRunAutosave(run: GenerationRun) {
+    clearPendingAutosave(run.id);
 
     const timeout = setTimeout(() => {
       autosaveTimeouts.current.delete(run.id);
@@ -31,5 +38,13 @@ export function useRunAutosave(savedRunStore: SavedRunStore) {
     autosaveTimeouts.current.set(run.id, timeout);
   }
 
-  return { scheduleRunAutosave };
+  // Immediate save for discrete selection switches (draft / joke / variation).
+  // It cancels any pending debounced save for the same run first, so a stale
+  // free-text snapshot can't fire afterwards and clobber the just-saved choice.
+  function saveRunNow(run: GenerationRun) {
+    clearPendingAutosave(run.id);
+    void savedRunStore.save(run).catch(() => undefined);
+  }
+
+  return { saveRunNow, scheduleRunAutosave };
 }

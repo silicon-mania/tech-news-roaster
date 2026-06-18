@@ -11,7 +11,9 @@ import { httpSavedRunStore } from "@/services/saved-runs";
 import type { SavedRunStore } from "@/services/workspace";
 import { RunsFeedEmptyState } from "./empty-state";
 import { RunCard } from "./run-card";
+import { SelectedRunSidebar } from "./selected-run-sidebar";
 import { useRunsFeed } from "./use-runs-feed";
+import { useSelectedRun } from "./use-selected-run";
 
 type RunsFeedProps = {
   savedRunStore?: SavedRunStore;
@@ -35,59 +37,76 @@ export function RunsFeed({
   savedRunStore = httpSavedRunStore,
   discoverySourceListIds = [],
 }: RunsFeedProps) {
-  const { runs, hasMore, isLoading, setSentinel } = useRunsFeed(savedRunStore);
+  const { runs, setRuns, hasMore, isLoading, setSentinel } = useRunsFeed(savedRunStore);
+  const { selectedRun, selectRun, closeSelectedRun, updateSelectedDraft, updateDraftText } =
+    useSelectedRun({ runs, savedRunStore, setRuns });
   const isInitialLoading = isLoading && runs.length === 0;
   const isEmpty = !isLoading && runs.length === 0;
 
   return (
-    <main className="min-h-screen px-3 py-6 text-foreground sm:px-8 sm:py-10">
-      <div className="mx-auto grid w-full max-w-xl gap-6">
-        <header className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <Image
-              src={LOGO_SRC}
-              alt=""
-              aria-hidden
-              width={32}
-              height={32}
-              className="size-7 rounded-lg sm:size-8"
-            />
-            <h1 className="title-serif text-2xl text-foreground sm:text-3xl">Auto-news</h1>
-          </div>
+    <>
+      <main
+        className={cn(
+          "min-h-screen px-3 py-6 text-foreground transition-[padding] duration-300 ease-out sm:px-8 sm:py-10",
+          // Shift the feed left of the docked sidebar so the selected card stays
+          // visible beside it while the operator edits.
+          selectedRun ? "lg:pr-[28rem]" : "",
+        )}>
+        <div className="mx-auto grid w-full max-w-xl gap-6">
+          <header className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <Image
+                src={LOGO_SRC}
+                alt=""
+                aria-hidden
+                width={32}
+                height={32}
+                className="size-7 rounded-lg sm:size-8"
+              />
+              <h1 className="title-serif text-2xl text-foreground sm:text-3xl">Auto-news</h1>
+            </div>
 
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Link
-                  href="/workspace"
-                  aria-label="New Manual Run"
-                  className={cn(
-                    buttonVariants({ size: "icon", variant: "ghost" }),
-                    "text-muted-foreground",
-                  )}
-                />
-              }>
-              <Plus aria-hidden className="size-4" strokeWidth={1.75} />
-            </TooltipTrigger>
-            <TooltipContent>New Manual Run</TooltipContent>
-          </Tooltip>
-        </header>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Link
+                    href="/workspace"
+                    aria-label="New Manual Run"
+                    className={cn(
+                      buttonVariants({ size: "icon", variant: "ghost" }),
+                      "text-muted-foreground",
+                    )}
+                  />
+                }>
+                <Plus aria-hidden className="size-4" strokeWidth={1.75} />
+              </TooltipTrigger>
+              <TooltipContent>New Manual Run</TooltipContent>
+            </Tooltip>
+          </header>
 
-        {isInitialLoading ? (
-          <FeedSkeletons />
-        ) : isEmpty ? (
-          <RunsFeedEmptyState discoverySourceListIds={discoverySourceListIds} />
-        ) : (
-          <section aria-label="Runs" className="grid gap-4">
-            {runs.map((run) => (
-              <RunCard key={run.id} run={run} />
-            ))}
+          {isInitialLoading ? (
+            <FeedSkeletons />
+          ) : isEmpty ? (
+            <RunsFeedEmptyState discoverySourceListIds={discoverySourceListIds} />
+          ) : (
+            <section aria-label="Runs" className="grid gap-4">
+              {runs.map((run) => (
+                <RunCard key={run.id} run={run} onSelect={selectRun} />
+              ))}
 
-            {hasMore ? <div ref={setSentinel} aria-hidden className="h-px" /> : null}
-          </section>
-        )}
-      </div>
-    </main>
+              {hasMore ? <div ref={setSentinel} aria-hidden className="h-px" /> : null}
+            </section>
+          )}
+        </div>
+      </main>
+
+      <SelectedRunSidebar
+        onClose={closeSelectedRun}
+        onDraftTextChange={updateDraftText}
+        onSelectedDraftChange={updateSelectedDraft}
+        run={selectedRun}
+      />
+    </>
   );
 }
 
