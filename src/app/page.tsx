@@ -1,5 +1,5 @@
-import { Workspace } from "@/components/workspace";
+import { RunsFeed } from "@/components/runs-feed";
 
 export default function Home() {
-  return <Workspace />;
+  return <RunsFeed />;
 }

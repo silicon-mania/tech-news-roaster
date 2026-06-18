@@ -1,0 +1,169 @@
+import "@testing-library/jest-dom/vitest";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import type { GenerationRun } from "@/services/workspace";
+import {
+  buildCompletedRun,
+  buildCompletedV3Run,
+  createMemorySavedRunStore,
+} from "../workspace/workspace-test-utils";
+import { RunsFeed } from "./runs-feed";
+import { feedPageSize } from "./use-runs-feed";
+
+// jsdom has no IntersectionObserver. Capture each instance so a test can drive
+// "scroll the bottom sentinel into view" by invoking the observed callback.
+class FakeIntersectionObserver {
+  static instances: FakeIntersectionObserver[] = [];
+  readonly callback: IntersectionObserverCallback;
+  disconnected = false;
+
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+    FakeIntersectionObserver.instances.push(this);
+  }
+
+  observe() {}
+  unobserve() {}
+  disconnect() {
+    this.disconnected = true;
+  }
+}
+
+function triggerFeedScroll() {
+  const observer = FakeIntersectionObserver.instances.filter((each) => !each.disconnected).at(-1);
+
+  if (!observer) {
+    throw new Error("Expected an active IntersectionObserver to drive feed scrolling.");
+  }
+
+  act(() => {
+    observer.callback(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      observer as unknown as IntersectionObserver,
+    );
+  });
+}
+
+// A Complete Run carries a draft, a visual joke, and an image variation. The
+// ordinal drives both a unique label and a savedAt minute so newest-first order
+// and pagination are deterministic.
+function buildCompleteRun(ordinal: number): GenerationRun {
+  return buildCompletedV3Run({
+    id: `complete-run-${ordinal}`,
+    label: `Complete run ${ordinal}`,
+    savedAt: `2026-06-06T11:${String(ordinal).padStart(2, "0")}:00.000Z`,
+  });
+}
+
+// A successful-but-incomplete run (no visual joke set, no image set) — fails
+// isCompleteRun and must stay out of the feed.
+function buildIncompleteRun(ordinal: number): GenerationRun {
+  return buildCompletedRun({
+    id: `incomplete-run-${ordinal}`,
+    label: `Incomplete run ${ordinal}`,
+    savedAt: `2026-06-06T11:${String(ordinal).padStart(2, "0")}:00.000Z`,
+  });
+}
+
+function feedCardTitles() {
+  return within(screen.getByRole("region", { name: "Runs" }))
+    .getAllByRole("heading", { level: 2 })
+    .map((heading) => heading.textContent);
+}
+
+beforeEach(() => {
+  FakeIntersectionObserver.instances = [];
+  vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("Runs Feed", () => {
+  test("lists only Complete Runs, newest-first", async () => {
+    const savedRunStore = createMemorySavedRunStore([
+      buildCompleteRun(1),
+      buildIncompleteRun(2),
+      buildCompleteRun(3),
+    ]);
+
+    render(<RunsFeed savedRunStore={savedRunStore} />);
+
+    await waitFor(() => expect(screen.getByText("Complete run 3")).toBeInTheDocument());
+
+    expect(screen.queryByText("Incomplete run 2")).not.toBeInTheDocument();
+    expect(feedCardTitles()).toEqual(["Complete run 3", "Complete run 1"]);
+  });
+
+  test("shows the resolved selected draft text on each card", async () => {
+    const savedRunStore = createMemorySavedRunStore([buildCompleteRun(1)]);
+
+    render(<RunsFeed savedRunStore={savedRunStore} />);
+
+    await waitFor(() => expect(screen.getByText("Complete run 1")).toBeInTheDocument());
+    expect(screen.getByText("Quote-tweet draft: first saved draft.")).toBeInTheDocument();
+  });
+
+  test("opens the relocated Workspace via an icon-only New Manual Run action", async () => {
+    const savedRunStore = createMemorySavedRunStore();
+
+    render(<RunsFeed savedRunStore={savedRunStore} />);
+
+    const newRunLink = screen.getByRole("link", { name: /new manual run/i });
+    expect(newRunLink).toHaveAttribute("href", "/workspace");
+    // Icon-only: the action carries no visible text label.
+    expect(newRunLink).toHaveTextContent("");
+  });
+
+  test("pages with limit 14 and appends the next cursor's runs on scroll", async () => {
+    const savedRunStore = createMemorySavedRunStore(
+      Array.from({ length: 20 }, (_, index) => buildCompleteRun(index + 1)),
+    );
+
+    render(<RunsFeed savedRunStore={savedRunStore} />);
+
+    // First page: the newest 14 runs (run 20 down to run 7). The oldest is absent.
+    await waitFor(() => expect(feedCardTitles()).toHaveLength(feedPageSize));
+    expect(savedRunStore.listPaginated).toHaveBeenCalledWith({
+      cursor: null,
+      limit: feedPageSize,
+    });
+    expect(screen.queryByText("Complete run 1")).not.toBeInTheDocument();
+
+    triggerFeedScroll();
+
+    // Scrolling the sentinel into view loads the next page at the offset cursor
+    // and appends the remaining six runs, including the oldest.
+    await waitFor(() => expect(screen.getByText("Complete run 1")).toBeInTheDocument());
+    expect(savedRunStore.listPaginated).toHaveBeenCalledWith({
+      cursor: "14",
+      limit: feedPageSize,
+    });
+    expect(feedCardTitles()).toHaveLength(20);
+  });
+
+  test("fetches further pages within one load to fill toward the visible target when runs are filtered out", async () => {
+    // The newest four runs are incomplete, so the first raw page yields only ten
+    // Complete Runs — the feed must fetch the next page to fill toward 14.
+    const incompleteRuns = [17, 18, 19, 20].map(buildIncompleteRun);
+    const completeRuns = Array.from({ length: 16 }, (_, index) => buildCompleteRun(index + 1));
+    const savedRunStore = createMemorySavedRunStore([...completeRuns, ...incompleteRuns]);
+
+    render(<RunsFeed savedRunStore={savedRunStore} />);
+
+    await waitFor(() => expect(savedRunStore.listPaginated).toHaveBeenCalledTimes(2));
+
+    expect(savedRunStore.listPaginated).toHaveBeenNthCalledWith(1, {
+      cursor: null,
+      limit: feedPageSize,
+    });
+    expect(savedRunStore.listPaginated).toHaveBeenNthCalledWith(2, {
+      cursor: "14",
+      limit: feedPageSize,
+    });
+
+    await waitFor(() => expect(feedCardTitles()).toHaveLength(16));
+    expect(screen.queryByText(/^Incomplete run/)).not.toBeInTheDocument();
+  });
+});
