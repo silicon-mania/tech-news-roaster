@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { GenerationRun } from "@/services/workspace";
 import { getRunPhaseLabel } from "@/services/workspace";
+import { formatRelativeTime } from "@/utils/relative-time";
 
 type RunsListProps = {
   activeRunId: string | null;
@@ -56,7 +57,7 @@ export function RunsList({ activeRunId, runs, onDeleteRun, onSelectRun }: RunsLi
                       </span>
                     </span>
                     <span className="truncate text-muted-foreground text-xs">
-                      {formatRelativeDate(run.savedAt)}
+                      {formatRelativeTime(run.savedAt)}
                     </span>
                     <span className="truncate text-muted-foreground/90 text-xs">{phaseLabel}</span>
                   </span>
@@ -138,38 +139,4 @@ function getStatusDotClass(run: GenerationRun) {
   }
 
   return "bg-muted-foreground/40";
-}
-
-function formatRelativeDate(savedAt: string | undefined) {
-  if (!savedAt) {
-    return "just now";
-  }
-
-  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - Date.parse(savedAt)) / 1000));
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  const elapsedWeeks = Math.floor(elapsedDays / 7);
-
-  if (elapsedMinutes < 1) {
-    return "just now";
-  }
-
-  if (elapsedMinutes < 60) {
-    return `${elapsedMinutes} ${pluralize("minute", elapsedMinutes)} ago`;
-  }
-
-  if (elapsedHours < 24) {
-    return `${elapsedHours} ${pluralize("hour", elapsedHours)} ago`;
-  }
-
-  if (elapsedDays < 14) {
-    return `${elapsedDays} ${pluralize("day", elapsedDays)} ago`;
-  }
-
-  return `${elapsedWeeks} ${pluralize("week", elapsedWeeks)} ago`;
-}
-
-function pluralize(unit: string, count: number) {
-  return count === 1 ? unit : `${unit}s`;
 }

@@ -65,10 +65,12 @@ function buildIncompleteRun(ordinal: number): GenerationRun {
   });
 }
 
-function feedCardTitles() {
+// The faithful Run Card carries its run label as the article's accessible name
+// (not painted text), so cards are identified — and ordered — by that label.
+function feedCardLabels() {
   return within(screen.getByRole("region", { name: "Runs" }))
-    .getAllByRole("heading", { level: 2 })
-    .map((heading) => heading.textContent);
+    .getAllByRole("article")
+    .map((card) => card.getAttribute("aria-label"));
 }
 
 beforeEach(() => {
@@ -90,10 +92,14 @@ describe("Runs Feed", () => {
 
     render(<RunsFeed savedRunStore={savedRunStore} />);
 
-    await waitFor(() => expect(screen.getByText("Complete run 3")).toBeInTheDocument());
+    await waitFor(() => expect(feedCardLabels()).toEqual(["Complete run 3", "Complete run 1"]));
 
-    expect(screen.queryByText("Incomplete run 2")).not.toBeInTheDocument();
-    expect(feedCardTitles()).toEqual(["Complete run 3", "Complete run 1"]);
+    // The successful-but-incomplete run is filtered out — never rendered as a card.
+    expect(
+      within(screen.getByRole("region", { name: "Runs" })).queryByRole("article", {
+        name: "Incomplete run 2",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   test("shows the resolved selected draft text on each card", async () => {
@@ -101,8 +107,10 @@ describe("Runs Feed", () => {
 
     render(<RunsFeed savedRunStore={savedRunStore} />);
 
-    await waitFor(() => expect(screen.getByText("Complete run 1")).toBeInTheDocument());
-    expect(screen.getByText("Quote-tweet draft: first saved draft.")).toBeInTheDocument();
+    // The card's commentary is the resolved Selected Draft (first draft fallback).
+    await waitFor(() =>
+      expect(screen.getByText("Quote-tweet draft: first saved draft.")).toBeInTheDocument(),
+    );
   });
 
   test("opens the relocated Workspace via an icon-only New Manual Run action", async () => {
@@ -124,23 +132,23 @@ describe("Runs Feed", () => {
     render(<RunsFeed savedRunStore={savedRunStore} />);
 
     // First page: the newest 14 runs (run 20 down to run 7). The oldest is absent.
-    await waitFor(() => expect(feedCardTitles()).toHaveLength(feedPageSize));
+    await waitFor(() => expect(feedCardLabels()).toHaveLength(feedPageSize));
     expect(savedRunStore.listPaginated).toHaveBeenCalledWith({
       cursor: null,
       limit: feedPageSize,
     });
-    expect(screen.queryByText("Complete run 1")).not.toBeInTheDocument();
+    expect(feedCardLabels()).not.toContain("Complete run 1");
 
     triggerFeedScroll();
 
     // Scrolling the sentinel into view loads the next page at the offset cursor
     // and appends the remaining six runs, including the oldest.
-    await waitFor(() => expect(screen.getByText("Complete run 1")).toBeInTheDocument());
+    await waitFor(() => expect(feedCardLabels()).toContain("Complete run 1"));
     expect(savedRunStore.listPaginated).toHaveBeenCalledWith({
       cursor: "14",
       limit: feedPageSize,
     });
-    expect(feedCardTitles()).toHaveLength(20);
+    expect(feedCardLabels()).toHaveLength(20);
   });
 
   test("fetches further pages within one load to fill toward the visible target when runs are filtered out", async () => {
@@ -163,7 +171,23 @@ describe("Runs Feed", () => {
       limit: feedPageSize,
     });
 
-    await waitFor(() => expect(feedCardTitles()).toHaveLength(16));
-    expect(screen.queryByText(/^Incomplete run/)).not.toBeInTheDocument();
+    await waitFor(() => expect(feedCardLabels()).toHaveLength(16));
+    expect(feedCardLabels().some((label) => label?.startsWith("Incomplete run"))).toBe(false);
+  });
+
+  test("renders the feed without persisting a selection (defaults are display-only)", async () => {
+    const savedRunStore = createMemorySavedRunStore(
+      Array.from({ length: 20 }, (_, index) => buildCompleteRun(index + 1)),
+    );
+
+    render(<RunsFeed savedRunStore={savedRunStore} />);
+
+    await waitFor(() => expect(feedCardLabels()).toHaveLength(feedPageSize));
+    triggerFeedScroll();
+    await waitFor(() => expect(feedCardLabels()).toHaveLength(20));
+
+    // First-of-each resolution is display-only: showing and scrolling the feed
+    // writes nothing, so a view-only run reopens with the same defaults.
+    expect(savedRunStore.save).not.toHaveBeenCalled();
   });
 });

@@ -89,10 +89,23 @@ function FeedSkeletons() {
   return (
     <div aria-hidden className="grid gap-4">
       {skeletonCardKeys.map((key) => (
-        <div key={key} className="grid gap-2 rounded-xl bg-card px-5 py-4">
-          <Skeleton className="h-5 w-2/5" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
+        <div key={key} className="grid gap-2">
+          <div className="grid gap-3 rounded-xl bg-card px-5 py-4">
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-10 rounded-full" />
+              <div className="grid gap-1.5">
+                <Skeleton className="h-3.5 w-28" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </div>
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-4/5" />
+            {/* Matches the portrait Final Quote Tweet Image frame so media load
+                causes no layout shift. */}
+            <Skeleton className="aspect-[3240/4050] w-full rounded-xl" />
+            <Skeleton className="h-16 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-3 w-56" />
         </div>
       ))}
     </div>
