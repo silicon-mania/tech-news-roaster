@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { DraftComparison } from "@/components/workspace/draft-comparison";
+import { ImageResultsArea } from "@/components/workspace/image-results-area";
 import { VisualJokeList } from "@/components/workspace/visual-joke-list";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
@@ -17,6 +18,7 @@ type SelectedRunSidebarProps = {
   onDraftTextChange: (draftId: string, text: string) => void;
   onSelectedVisualJokeChange: (visualJokeId: string | null) => void;
   onVisualJokeTitleChange: (visualJokeId: string, title: string) => void;
+  onSelectedGeneratedImageChange: (imageOptionId: string | null) => void;
 };
 
 /**
@@ -31,8 +33,11 @@ type SelectedRunSidebarProps = {
  * workspace uses; and a Visual jokes section — grouped Satire / Tech-positive /
  * Experimental with Top Picks flagged, the selected joke switchable and its Joke
  * Title inline-editable — built from the same {@link VisualJokeList} the workspace
- * uses, so both behave identically. The panel scrolls. Later slices add the Image
- * and delete regions.
+ * uses, so both behave identically; and an Image section — the run's image set
+ * with the four generated variations switchable — built from the same
+ * {@link ImageResultsArea} the workspace uses, so switching a variation re-derives
+ * the card's Final Quote Tweet Image. The panel scrolls. A later slice adds the
+ * delete region.
  */
 export function SelectedRunSidebar({
   run,
@@ -41,6 +46,7 @@ export function SelectedRunSidebar({
   onDraftTextChange,
   onSelectedVisualJokeChange,
   onVisualJokeTitleChange,
+  onSelectedGeneratedImageChange,
 }: SelectedRunSidebarProps) {
   const isOpen = run !== null;
 
@@ -102,6 +108,21 @@ export function SelectedRunSidebar({
                 onVisualJokeTitleChange={onVisualJokeTitleChange}
                 selectedVisualJokeId={run.selectedVisualJoke?.visualJokeId ?? null}
                 visualJokeSet={run.visualJokeSet}
+              />
+            </section>
+          ) : null}
+
+          {run.imageSet ? (
+            <section aria-label="Image" className="grid min-w-0 gap-3">
+              <h3 className="title-serif text-foreground text-lg">Image</h3>
+              {/* The same switcher the workspace uses, so only the four generated
+                  variations are selectable — the Selected Image Original stays
+                  display-only and there is no regeneration or prompt control here,
+                  keeping the sidebar a quick editor. */}
+              <ImageResultsArea
+                imageSet={run.imageSet}
+                onSelectedGeneratedImageChange={onSelectedGeneratedImageChange}
+                selectedGeneratedImageOptionId={run.selectedGeneratedImage?.imageOptionId ?? null}
               />
             </section>
           ) : null}

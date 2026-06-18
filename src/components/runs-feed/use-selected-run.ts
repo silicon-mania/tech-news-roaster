@@ -27,6 +27,8 @@ type SelectedRun = {
   updateSelectedVisualJoke: (visualJokeId: string | null) => void;
   /** Inline-edit a visual joke's title — overwrites it and autosaves (debounced). */
   updateVisualJokeTitle: (visualJokeId: string, title: string) => void;
+  /** Switch the Selected Generated Image variation — updates the card and saves immediately. */
+  updateSelectedGeneratedImage: (imageOptionId: string | null) => void;
 };
 
 /**
@@ -156,6 +158,36 @@ export function useSelectedRun({ runs, setRuns, savedRunStore }: UseSelectedRunA
     scheduleRunAutosave(updatedRun);
   }
 
+  function updateSelectedGeneratedImage(imageOptionId: string | null) {
+    if (!selectedRun?.imageSet) {
+      return;
+    }
+
+    // Only the four generated variations are switchable — never the Selected Image
+    // Original — so a non-variation option (or a dangling id) is ignored, matching
+    // the workspace's image switch.
+    if (
+      imageOptionId &&
+      !selectedRun.imageSet.options.some(
+        (option) => option.id === imageOptionId && option.kind === "variation",
+      )
+    ) {
+      return;
+    }
+
+    const updatedRun: GenerationRun = {
+      ...selectedRun,
+      selectedGeneratedImage: imageOptionId
+        ? { imageOptionId, selectedAt: new Date().toISOString() }
+        : null,
+    };
+
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => (run.id === updatedRun.id ? updatedRun : run)),
+    );
+    saveRunNow(updatedRun);
+  }
+
   return {
     selectedRun,
     selectRun,
@@ -164,5 +196,6 @@ export function useSelectedRun({ runs, setRuns, savedRunStore }: UseSelectedRunA
     updateDraftText,
     updateSelectedVisualJoke,
     updateVisualJokeTitle,
+    updateSelectedGeneratedImage,
   };
 }

@@ -21,6 +21,12 @@ const secondDraftText = "Quote-tweet draft: second saved draft.";
 // joke) by default; visual-joke-1 is the set's only Top Pick.
 const selectedJokeTitle = "A workflow map where every exit arrow points back to the login screen.";
 const topPickJokeTitle = "A one-click launch button labeled 'Eventually, manual work.'";
+// buildCompletedV3Run's image set is built from the first news-linked image
+// ("Launch visual"); its options' alt text and ids follow from that. With no
+// explicit selection the card falls back to the first generated variation.
+const firstVariationAlt = "Launch visual variation 1.";
+const secondVariationAlt = "Launch visual variation 2.";
+const secondVariationOptionId = "image-option-news-linked-image-1-variation-2";
 
 function buildCompleteRun(overrides: Partial<GenerationRun> = {}): GenerationRun {
   return buildCompletedV3Run({
@@ -71,7 +77,8 @@ describe("Selected Run sidebar", () => {
     const sidebar = getSidebar();
 
     // The Source post reference links to the original tweet on X in a new tab.
-    const sourceLink = within(sidebar).getByRole("link");
+    // (The Image section adds per-variation download links, so scope by name.)
+    const sourceLink = within(sidebar).getByRole("link", { name: /open the source post on x/i });
     expect(sourceLink).toHaveAttribute("href", sourceTweetUrl);
     expect(sourceLink).toHaveAttribute("target", "_blank");
 
@@ -232,6 +239,58 @@ describe("Selected Run sidebar", () => {
       within(getFeedCard()).getByText("Every workflow exit arrow loops back to the login screen."),
     ).toBeInTheDocument();
     expect(within(getFeedCard()).queryByText(selectedJokeTitle)).not.toBeInTheDocument();
+  });
+
+  test("switching the image variation saves immediately and updates the visible card", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = renderFeed([buildCompleteRun()]);
+
+    await openSidebar(user);
+    const sidebar = getSidebar();
+
+    // With no explicit selection the card's Final Quote Tweet Image shows the
+    // first generated variation (the Automated Selection fallback).
+    expect(within(getFeedCard()).getByAltText(firstVariationAlt)).toBeInTheDocument();
+
+    // Switch to the second variation.
+    await user.click(within(sidebar).getByRole("button", { name: /^select variation 2$/i }));
+
+    // The discrete switch persists the new selection immediately.
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "complete-run-1",
+          selectedGeneratedImage: expect.objectContaining({
+            imageOptionId: secondVariationOptionId,
+          }),
+        }),
+      ),
+    );
+    // ...and the card's image reflects the new variation immediately.
+    expect(within(getFeedCard()).getByAltText(secondVariationAlt)).toBeInTheDocument();
+    expect(within(getFeedCard()).queryByAltText(firstVariationAlt)).not.toBeInTheDocument();
+  });
+
+  test("only the four variations are switchable — no original switch, regeneration, or prompt", async () => {
+    const user = userEvent.setup();
+    renderFeed([buildCompleteRun()]);
+
+    await openSidebar(user);
+    const imageSection = within(getSidebar()).getByRole("region", { name: "Image" });
+
+    // Exactly the four generated variations carry a Select control.
+    expect(
+      within(imageSection).getAllByRole("button", { name: /^select variation \d$/i }),
+    ).toHaveLength(4);
+    // The Selected Image Original is display-only — there is no way to switch to it.
+    expect(
+      within(imageSection).queryByRole("button", { name: /select original/i }),
+    ).not.toBeInTheDocument();
+    // Heavy image work stays in the workspace: no regeneration and no prompt input.
+    expect(
+      within(imageSection).queryByRole("button", { name: /regenerate|generate/i }),
+    ).not.toBeInTheDocument();
+    expect(within(imageSection).queryByRole("textbox")).not.toBeInTheDocument();
   });
 
   test("closing the sidebar dismisses it without persisting anything", async () => {

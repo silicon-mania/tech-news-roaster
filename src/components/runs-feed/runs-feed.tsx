@@ -29,9 +29,10 @@ const LOGO_SRC = "/assets/logo/logo.png";
 
 /**
  * The Runs Feed — the product's landing page. Lists the operator's Complete Runs
- * newest-first as an infinite-scrolling column of Run Cards, with the New Manual
- * Run action opening the (relocated) generation Workspace. The default store
- * reaches Supabase only through the server routes; tests inject an in-memory one.
+ * newest-first as an infinite-scrolling masonry of Run Cards (one column on
+ * narrow viewports, two when there's room), with the New Manual Run action
+ * opening the (relocated) generation Workspace. The default store reaches Supabase
+ * only through the server routes; tests inject an in-memory one.
  */
 export function RunsFeed({
   savedRunStore = httpSavedRunStore,
@@ -46,6 +47,7 @@ export function RunsFeed({
     updateDraftText,
     updateSelectedVisualJoke,
     updateVisualJokeTitle,
+    updateSelectedGeneratedImage,
   } = useSelectedRun({ runs, savedRunStore, setRuns });
   const isInitialLoading = isLoading && runs.length === 0;
   const isEmpty = !isLoading && runs.length === 0;
@@ -59,7 +61,7 @@ export function RunsFeed({
           // visible beside it while the operator edits.
           selectedRun ? "lg:pr-[28rem]" : "",
         )}>
-        <div className="mx-auto grid w-full max-w-xl gap-6">
+        <div className="mx-auto grid w-full max-w-md gap-6 lg:max-w-2xl">
           <header className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <Image
@@ -96,11 +98,21 @@ export function RunsFeed({
           ) : isEmpty ? (
             <RunsFeedEmptyState discoverySourceListIds={discoverySourceListIds} />
           ) : (
-            <section aria-label="Runs" className="grid gap-4">
-              {runs.map((run) => (
-                <RunCard key={run.id} run={run} onSelect={selectRun} />
-              ))}
+            <section aria-label="Runs">
+              {/* A masonry of tiles, not a grid: cards keep their natural height
+                  and pack column-by-column, so a short card never leaves a gap
+                  under a tall one. CSS multi-column preserves DOM order (newest
+                  first), so it flows top-of-column-1 downward, then column 2. */}
+              <div className="columns-1 gap-5 lg:columns-2">
+                {runs.map((run) => (
+                  <div key={run.id} className="mb-5 break-inside-avoid">
+                    <RunCard run={run} onSelect={selectRun} />
+                  </div>
+                ))}
+              </div>
 
+              {/* Kept outside the columns so it sits below the whole masonry —
+                  the bottom of the tallest column — and trips append-on-scroll. */}
               {hasMore ? <div ref={setSentinel} aria-hidden className="h-px" /> : null}
             </section>
           )}
@@ -111,6 +123,7 @@ export function RunsFeed({
         onClose={closeSelectedRun}
         onDraftTextChange={updateDraftText}
         onSelectedDraftChange={updateSelectedDraft}
+        onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
         onSelectedVisualJokeChange={updateSelectedVisualJoke}
         onVisualJokeTitleChange={updateVisualJokeTitle}
         run={selectedRun}
@@ -119,13 +132,21 @@ export function RunsFeed({
   );
 }
 
-const skeletonCardKeys = ["first", "second", "third"];
+// Caption-line widths vary per skeleton so the placeholder tiles stagger like the
+// real masonry (cards differ in commentary length) rather than aligning into a
+// rigid grid while loading.
+const skeletonCards = [
+  { captionWidths: ["w-full", "w-4/5"], key: "first" },
+  { captionWidths: ["w-full", "w-full", "w-2/3"], key: "second" },
+  { captionWidths: ["w-3/4"], key: "third" },
+  { captionWidths: ["w-full", "w-5/6"], key: "fourth" },
+];
 
 function FeedSkeletons() {
   return (
-    <div aria-hidden className="grid gap-4">
-      {skeletonCardKeys.map((key) => (
-        <div key={key} className="grid gap-2">
+    <div aria-hidden className="columns-1 gap-5 lg:columns-2">
+      {skeletonCards.map(({ captionWidths, key }) => (
+        <div key={key} className="mb-5 grid gap-2 break-inside-avoid">
           <div className="grid gap-3 rounded-xl bg-card px-5 py-4">
             <div className="flex items-center gap-3">
               <Skeleton className="size-10 rounded-full" />
@@ -134,8 +155,13 @@ function FeedSkeletons() {
                 <Skeleton className="h-3 w-20" />
               </div>
             </div>
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-4/5" />
+            {captionWidths.map((width, lineIndex) => (
+              <Skeleton
+                className={cn("h-4", width)}
+                // biome-ignore lint/suspicious/noArrayIndexKey: caption lines are positional placeholders with no identity
+                key={`${key}-caption-${lineIndex}`}
+              />
+            ))}
             {/* Matches the portrait Final Quote Tweet Image frame so media load
                 causes no layout shift. */}
             <Skeleton className="aspect-[3240/4050] w-full rounded-xl" />
