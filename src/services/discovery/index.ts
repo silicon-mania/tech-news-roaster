@@ -18,6 +18,7 @@ export * from "./in-memory-seen-tweet-repository";
 export * from "./news-coverage-cluster";
 export * from "./news-coverage-cluster-repository";
 export * from "./newsworthiness-filter";
+export * from "./parse-discovery-source-list-ids";
 export * from "./resolve-author-baseline";
 export * from "./seen-tweet-repository";
 export * from "./virality-config";

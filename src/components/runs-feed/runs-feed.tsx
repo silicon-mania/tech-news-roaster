@@ -9,11 +9,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import { httpSavedRunStore } from "@/services/saved-runs";
 import type { SavedRunStore } from "@/services/workspace";
+import { RunsFeedEmptyState } from "./empty-state";
 import { RunCard } from "./run-card";
 import { useRunsFeed } from "./use-runs-feed";
 
 type RunsFeedProps = {
   savedRunStore?: SavedRunStore;
+  /**
+   * Discovery Source X List ids, parsed server-side by the `/` route from
+   * `DISCOVERY_SOURCE_LIST_IDS` and passed in so the raw env var never reaches
+   * the client bundle. The empty state renders one link per id.
+   */
+  discoverySourceListIds?: string[];
 };
 
 const LOGO_SRC = "/assets/logo/logo.png";
@@ -24,7 +31,10 @@ const LOGO_SRC = "/assets/logo/logo.png";
  * Run action opening the (relocated) generation Workspace. The default store
  * reaches Supabase only through the server routes; tests inject an in-memory one.
  */
-export function RunsFeed({ savedRunStore = httpSavedRunStore }: RunsFeedProps) {
+export function RunsFeed({
+  savedRunStore = httpSavedRunStore,
+  discoverySourceListIds = [],
+}: RunsFeedProps) {
   const { runs, hasMore, isLoading, setSentinel } = useRunsFeed(savedRunStore);
   const isInitialLoading = isLoading && runs.length === 0;
   const isEmpty = !isLoading && runs.length === 0;
@@ -66,9 +76,7 @@ export function RunsFeed({ savedRunStore = httpSavedRunStore }: RunsFeedProps) {
         {isInitialLoading ? (
           <FeedSkeletons />
         ) : isEmpty ? (
-          <p className="py-16 text-center text-muted-foreground text-sm leading-6">
-            No complete runs yet.
-          </p>
+          <RunsFeedEmptyState discoverySourceListIds={discoverySourceListIds} />
         ) : (
           <section aria-label="Runs" className="grid gap-4">
             {runs.map((run) => (

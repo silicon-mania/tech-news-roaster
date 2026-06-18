@@ -190,4 +190,47 @@ describe("Runs Feed", () => {
     // writes nothing, so a view-only run reopens with the same defaults.
     expect(savedRunStore.save).not.toHaveBeenCalled();
   });
+
+  test("renders an empty state pointing at the New Manual Run action and the cadence", async () => {
+    const savedRunStore = createMemorySavedRunStore();
+
+    render(<RunsFeed savedRunStore={savedRunStore} />);
+
+    // Zero Complete Runs yields an empty state, not a blank page.
+    const emptyState = await screen.findByRole("region", { name: /no runs yet/i });
+
+    // It directs the operator to the `+` New Manual Run button and explains the
+    // automatic every-two-hours Discovery cadence.
+    expect(within(emptyState).getByText(/new manual run/i)).toBeInTheDocument();
+    expect(within(emptyState).getByText(/every two hours/i)).toBeInTheDocument();
+  });
+
+  test("renders one Discovery Source link per parsed id in the empty state", async () => {
+    const savedRunStore = createMemorySavedRunStore();
+
+    render(
+      <RunsFeed savedRunStore={savedRunStore} discoverySourceListIds={["1111", "2222", "3333"]} />,
+    );
+
+    const lists = await screen.findByRole("navigation", { name: /discovery source lists/i });
+    const links = within(lists).getAllByRole("link");
+
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "https://x.com/i/lists/1111",
+      "https://x.com/i/lists/2222",
+      "https://x.com/i/lists/3333",
+    ]);
+  });
+
+  test("omits the Discovery Source links when no list ids are configured", async () => {
+    const savedRunStore = createMemorySavedRunStore();
+
+    render(<RunsFeed savedRunStore={savedRunStore} discoverySourceListIds={[]} />);
+
+    // The empty state still renders; only the per-list links are absent.
+    await screen.findByRole("region", { name: /no runs yet/i });
+    expect(
+      screen.queryByRole("navigation", { name: /discovery source lists/i }),
+    ).not.toBeInTheDocument();
+  });
 });
