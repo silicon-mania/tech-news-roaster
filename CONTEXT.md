@@ -66,7 +66,11 @@ _Avoid_: Storage cleanup, pruning, history cap
 
 **Successful Run**:
 A generation run where joke context gathering has succeeded and at least one creative result area has succeeded, while text generation, visual joke generation, and image generation keep independent success or failure states.
-_Avoid_: Complete run, finished job, fully generated run
+_Avoid_: finished job, fully generated run
+
+**Complete Run**:
+A successful run that carries all three pieces a Run Card needs — at least one draft, at least one visual joke, and at least one generated image variation — so it can render a full Quote Repost. Only complete runs appear in the Runs Feed. A successful but incomplete run (image generation failed or never run, or no visual jokes) is still kept, but excluded from the feed and reachable only through the workspace's runs sidebar, where it can be inspected or deleted. Narrower than a Successful Run, which may have one creative area fail.
+_Avoid_: Successful Run, partial run, ready-to-post run
 
 **Running Run**:
 A generation run that has been created and is visible in the runs list while joke context gathering, text generation, visual joke generation, news-linked image discovery, or image generation is still in flight.
@@ -109,7 +113,7 @@ The server-side boundary that calls the connected AI providers, tracks provider 
 _Avoid_: Client coordinator, frontend workflow, provider client
 
 **Single-Page Workspace**:
-The product's one responsive page that contains generation, source tweet reference, draft editing, and saved run access without navigating to separate pages. "Workspace" is the canonical feature name for this surface in code.
+The manual-generation surface: one responsive page containing generation, source tweet reference, draft editing, and access to all saved runs. It is no longer the product's landing page — the Runs Feed is the main page, and the workspace is reached from it by the New Manual Run button. "Workspace" is the canonical feature name for this surface in code.
 _Avoid_: Multi-page flow, wizard, separate editor, intake
 
 **Generation Progress**:
@@ -133,8 +137,20 @@ The hidden technical detail or log reveal available from a failed context or cre
 _Avoid_: Error wall, visible stack trace, recovery workflow
 
 **Active Run**:
-The single run currently shown in the center workspace. Selecting another run replaces it rather than opening multiple workspaces at once.
+The single run currently shown in the center workspace — the manual-run surface, preserved unchanged from earlier versions and now reached from the Runs Feed by a button rather than being the landing page. Selecting another run inside the workspace replaces it rather than opening multiple workspaces at once. Existing successful runs can also be browsed and edited from the Runs Feed as the Selected Run, without entering the workspace.
 _Avoid_: Tab, secondary workspace, side-by-side run
+
+**Runs Feed**:
+The product's main page: the operator's successful runs shown newest-first as an infinite-scrolling list, each rendered as a card that previews the run as the quote tweet it will become. It replaces the earlier left-hand runs list as the way to browse and reopen past runs. Selecting a card opens that run as the Selected Run for editing.
+_Avoid_: Runs list, history sidebar, gallery, dashboard
+
+**Selected Run**:
+The single successful run whose editor is open in the right sidebar of the Runs Feed. Selecting a run card opens its sidebar, where the operator edits that run's draft text and switches its selected draft, selected visual joke, and selected generated image — all without entering the center workspace. The sidebar scrolls to expose every draft, visual joke, and image variation. Distinct from the Active Run, which is the run being generated in the center workspace.
+_Avoid_: Active Run, opened run, focused card, preview
+
+**Run Card**:
+The unit of the Runs Feed: a faithful preview of the Quote Repost a successful run will become, rendered as an X quote-repost post — the Operator Account header (fixed brand name, handle, and avatar), the Selected Draft as commentary, the Final Quote Tweet Image as media, and the Source Tweet embedded as the quoted post — with static, decorative engagement chrome. Each of the three slots shows the operator's explicit choice, or the first of each — first draft, first Top Pick visual joke, first generated variation — when none was chosen, so the card is ready as soon as all three exist. Beneath it sit the run's generated time and the source tweet's posted time. Selecting a card opens its Selected Run editor.
+_Avoid_: Final Quote Tweet Image, Source Tweet Preview, thumbnail, list row
 
 **Draft Stack**:
 The vertical set of three drafts inside the active run where one draft is expanded for full reading and editing while the others stay collapsed as compact previews.
@@ -329,7 +345,7 @@ The expressive manner a draft uses to deliver its angle, such as dry, sharp, sar
 _Avoid_: Tone, vibe, mood
 
 **Visual Joke**:
-A short, non-editable joke or caption generated from the source tweet, its media, replies, author context, and supporting research, intended to be the first readable element on the Quote Tweet image and available for copy or selection.
+A short joke or caption generated from the source tweet, its media, replies, author context, and supporting research, intended to be the first readable element on the Final Quote Tweet Image and available for copy or selection. The visual joke set is never regenerated, but a visual joke's Joke Title can be edited in place by the operator after generation — mirroring how a Draft is edited — overwriting that joke within the run's own visual joke set.
 _Avoid_: Image caption, meme text, overlay text
 
 **Joke Title**:
@@ -349,8 +365,8 @@ One of the model's two-to-three self-flagged strongest visual jokes across all s
 _Avoid_: Recommended visual joke, winner, hidden ranking
 
 **Selected Visual Joke**:
-The visual joke whose joke title is placed on the final quote tweet image: the user chooses it from any section of the visual joke set in a manual run and the system takes the first Top Pick in an automated run, and it can be changed afterward.
-_Avoid_: Required joke choice, final caption, edited joke
+The visual joke whose Joke Title is placed on the Final Quote Tweet Image: the user chooses it from any section of the visual joke set in a manual run and the system takes the first Top Pick in an automated run. It can be changed afterward, and its Joke Title can be edited in place — uniformly from either the Selected Run sidebar or the center workspace — overwriting that joke within the run's visual joke set, and the Final Quote Tweet Image re-derives from it immediately.
+_Avoid_: Required joke choice, final caption
 
 **Section Coverage**:
 The requirement that a visual joke set populate all three Visual Joke Sections toward seven jokes each, exploring the distinct angle of each section rather than repeating one idea across the set.
@@ -384,6 +400,6 @@ _Avoid_: Retry policy, silent retry, background retry
 
 ## Publish Modes
 
-**Quote Tweet**:
-A draft published as added commentary while reposting the source tweet.
-_Avoid_: Repost, quote repost, retweet with text
+**Quote Repost**:
+The final piece of content a generation run exists to produce: the Operator Account's quote of the Source Tweet — the Selected Draft shown as commentary above the Final Quote Tweet Image as media, quoting the embedded Source Tweet. The product never publishes it; the operator copies or downloads the pieces and posts the Quote Repost manually on X. This is the canonical name for the final content. "Quote Tweet" survives only inside the established "Final Quote Tweet Image" asset name.
+_Avoid_: Quote Tweet, retweet with text, reply, repost
