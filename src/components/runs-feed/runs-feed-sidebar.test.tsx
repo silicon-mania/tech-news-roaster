@@ -17,6 +17,10 @@ class NoopIntersectionObserver {
 const sourceTweetUrl = "https://x.com/siliconmania/status/1234567890";
 const firstDraftText = "Quote-tweet draft: first saved draft.";
 const secondDraftText = "Quote-tweet draft: second saved draft.";
+// buildCompletedV3Run selects jokes[1] (visual-joke-2, the first Tech-positive
+// joke) by default; visual-joke-1 is the set's only Top Pick.
+const selectedJokeTitle = "A workflow map where every exit arrow points back to the login screen.";
+const topPickJokeTitle = "A one-click launch button labeled 'Eventually, manual work.'";
 
 function buildCompleteRun(overrides: Partial<GenerationRun> = {}): GenerationRun {
   return buildCompletedV3Run({
@@ -142,6 +146,92 @@ describe("Selected Run sidebar", () => {
     );
     // The card — the live preview — shows the overwritten commentary.
     expect(within(getFeedCard()).getByText("Sharper commentary.")).toBeInTheDocument();
+  });
+
+  test("groups the visual jokes by section with Top Picks flagged", async () => {
+    const user = userEvent.setup();
+    renderFeed([buildCompleteRun()]);
+
+    await openSidebar(user);
+    const visualJokes = within(getSidebar()).getByRole("region", { name: "Visual jokes" });
+
+    expect(within(visualJokes).getByText("Satire")).toBeInTheDocument();
+    expect(within(visualJokes).getByText("Tech-positive")).toBeInTheDocument();
+    expect(within(visualJokes).getByText("Experimental")).toBeInTheDocument();
+    // visual-joke-1 is the set's only Top Pick.
+    expect(within(visualJokes).getByText("Top pick 1")).toBeInTheDocument();
+  });
+
+  test("switching the selected visual joke saves immediately and updates the visible card", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = renderFeed([buildCompleteRun()]);
+
+    await openSidebar(user);
+    const sidebar = getSidebar();
+
+    // The card's Final Quote Tweet Image starts on the explicitly selected joke.
+    expect(within(getFeedCard()).getByText(selectedJokeTitle)).toBeInTheDocument();
+
+    // Switch to the first Satire joke (the Top Pick).
+    await user.click(
+      within(sidebar).getByRole("button", { name: /^select satire visual joke 1$/i }),
+    );
+
+    // The discrete switch persists the new selection immediately.
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "complete-run-1",
+          selectedVisualJoke: expect.objectContaining({ visualJokeId: "visual-joke-1" }),
+        }),
+      ),
+    );
+    // ...and the card's image reflects the new Joke Title immediately.
+    expect(within(getFeedCard()).getByText(topPickJokeTitle)).toBeInTheDocument();
+    expect(within(getFeedCard()).queryByText(selectedJokeTitle)).not.toBeInTheDocument();
+  });
+
+  test("inline-editing the selected joke's title autosaves the overwrite and re-derives the card", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = renderFeed([buildCompleteRun()]);
+
+    await openSidebar(user);
+    const sidebar = getSidebar();
+
+    // The selected joke's title sits on the card's Final Quote Tweet Image.
+    expect(within(getFeedCard()).getByText(selectedJokeTitle)).toBeInTheDocument();
+
+    await user.click(
+      within(sidebar).getByRole("button", { name: /edit tech-positive visual joke 1/i }),
+    );
+    const editor = within(sidebar).getByRole("textbox", {
+      name: /edit tech-positive visual joke 1/i,
+    });
+    await user.clear(editor);
+    await user.type(editor, "Every workflow exit arrow loops back to the login screen.");
+
+    // The free-text edit rides the debounced autosave, overwriting the title
+    // within the run's own visual joke set.
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "complete-run-1",
+          visualJokeSet: expect.objectContaining({
+            jokes: expect.arrayContaining([
+              expect.objectContaining({
+                id: "visual-joke-2",
+                text: "Every workflow exit arrow loops back to the login screen.",
+              }),
+            ]),
+          }),
+        }),
+      ),
+    );
+    // The card re-derives its image from the overwritten title.
+    expect(
+      within(getFeedCard()).getByText("Every workflow exit arrow loops back to the login screen."),
+    ).toBeInTheDocument();
+    expect(within(getFeedCard()).queryByText(selectedJokeTitle)).not.toBeInTheDocument();
   });
 
   test("closing the sidebar dismisses it without persisting anything", async () => {

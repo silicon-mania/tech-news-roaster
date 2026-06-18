@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { DraftComparison } from "@/components/workspace/draft-comparison";
+import { VisualJokeList } from "@/components/workspace/visual-joke-list";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
 
@@ -14,6 +15,8 @@ type SelectedRunSidebarProps = {
   onClose: () => void;
   onSelectedDraftChange: (draftId: string | null) => void;
   onDraftTextChange: (draftId: string, text: string) => void;
+  onSelectedVisualJokeChange: (visualJokeId: string | null) => void;
+  onVisualJokeTitleChange: (visualJokeId: string, title: string) => void;
 };
 
 /**
@@ -22,17 +25,22 @@ type SelectedRunSidebarProps = {
  * workspace direction panel) without dimming the feed, so the selected card stays
  * visible as the live preview and every edit reflects on it instantly.
  *
- * This slice renders the shell plus its first two regions: a compact Source post
- * reference that opens the original tweet on X in a new tab, and a Text section —
- * the run's drafts, switchable and inline-editable — built from the same
- * {@link DraftComparison} the workspace uses, so behavior is uniform. The panel
- * scrolls. Later slices add the Visual jokes, Image, and delete regions.
+ * It renders the shell plus, top-to-bottom: a compact Source post reference that
+ * opens the original tweet on X in a new tab; a Text section — the run's drafts,
+ * switchable and inline-editable — built from the same {@link DraftComparison} the
+ * workspace uses; and a Visual jokes section — grouped Satire / Tech-positive /
+ * Experimental with Top Picks flagged, the selected joke switchable and its Joke
+ * Title inline-editable — built from the same {@link VisualJokeList} the workspace
+ * uses, so both behave identically. The panel scrolls. Later slices add the Image
+ * and delete regions.
  */
 export function SelectedRunSidebar({
   run,
   onClose,
   onSelectedDraftChange,
   onDraftTextChange,
+  onSelectedVisualJokeChange,
+  onVisualJokeTitleChange,
 }: SelectedRunSidebarProps) {
   const isOpen = run !== null;
 
@@ -85,6 +93,18 @@ export function SelectedRunSidebar({
               onSelectedDraftChange={onSelectedDraftChange}
             />
           </section>
+
+          {run.visualJokeSet ? (
+            <section aria-label="Visual jokes" className="grid min-w-0 gap-3">
+              <h3 className="title-serif text-foreground text-lg">Visual jokes</h3>
+              <VisualJokeList
+                onSelectedVisualJokeChange={onSelectedVisualJokeChange}
+                onVisualJokeTitleChange={onVisualJokeTitleChange}
+                selectedVisualJokeId={run.selectedVisualJoke?.visualJokeId ?? null}
+                visualJokeSet={run.visualJokeSet}
+              />
+            </section>
+          ) : null}
         </>
       ) : null}
     </aside>

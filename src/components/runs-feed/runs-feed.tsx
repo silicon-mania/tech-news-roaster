@@ -38,8 +38,15 @@ export function RunsFeed({
   discoverySourceListIds = [],
 }: RunsFeedProps) {
   const { runs, setRuns, hasMore, isLoading, setSentinel } = useRunsFeed(savedRunStore);
-  const { selectedRun, selectRun, closeSelectedRun, updateSelectedDraft, updateDraftText } =
-    useSelectedRun({ runs, savedRunStore, setRuns });
+  const {
+    selectedRun,
+    selectRun,
+    closeSelectedRun,
+    updateSelectedDraft,
+    updateDraftText,
+    updateSelectedVisualJoke,
+    updateVisualJokeTitle,
+  } = useSelectedRun({ runs, savedRunStore, setRuns });
   const isInitialLoading = isLoading && runs.length === 0;
   const isEmpty = !isLoading && runs.length === 0;
 
@@ -104,6 +111,8 @@ export function RunsFeed({
         onClose={closeSelectedRun}
         onDraftTextChange={updateDraftText}
         onSelectedDraftChange={updateSelectedDraft}
+        onSelectedVisualJokeChange={updateSelectedVisualJoke}
+        onVisualJokeTitleChange={updateVisualJokeTitle}
         run={selectedRun}
       />
     </>
