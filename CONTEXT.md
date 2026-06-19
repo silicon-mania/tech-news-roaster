@@ -153,7 +153,7 @@ The product's main page: the operator's successful runs shown newest-first as an
 _Avoid_: Runs list, history sidebar, gallery, dashboard
 
 **Selected Run**:
-The single successful run whose editor is open in the right sidebar of the Runs Feed. Selecting a run card opens its sidebar, where the operator edits that run's draft text and switches its selected draft, selected visual joke, and selected generated image — all without entering the center workspace. The sidebar scrolls to expose every draft, visual joke, and image variation. Distinct from the Active Run, which is the run being generated in the center workspace.
+The single successful run whose editor is open in the right sidebar of the Runs Feed. Selecting a run card opens its sidebar, where the operator edits that run's draft text and switches its selected draft, selected visual joke, and selected generated image — all without entering the center workspace. The sidebar scrolls to expose every draft, visual joke, and image variation. From the sidebar the operator can also download the run's Final Quote Tweet Image — the same export already available in the workspace. Distinct from the Active Run, which is the run being generated in the center workspace.
 _Avoid_: Active Run, opened run, focused card, preview
 
 **Run Card**:

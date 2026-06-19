@@ -9,6 +9,7 @@ import { ImageResultsArea } from "@/components/workspace/image-results-area";
 import { VisualJokeList } from "@/components/workspace/visual-joke-list";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
+import { FinalImageDownload } from "./final-image-download";
 
 type SelectedRunSidebarProps = {
   /** The open run, or null when the sidebar is closed. */
@@ -28,8 +29,11 @@ type SelectedRunSidebarProps = {
  * workspace direction panel) without dimming the feed, so the selected card stays
  * visible as the live preview and every edit reflects on it instantly.
  *
- * It renders the shell plus, top-to-bottom: a compact Source post reference that
- * opens the original tweet on X in a new tab; a Text section — the run's drafts,
+ * It renders the shell plus, top-to-bottom: a Final image section — a preview of
+ * the run's Final Quote Tweet Image with a Download action that saves it as the
+ * same lossless PNG the workspace offers ({@link FinalImageDownload}); a compact
+ * Source post reference that opens the original tweet on X in a new tab; a Text
+ * section — the run's drafts,
  * switchable and inline-editable — built from the same {@link DraftComparison} the
  * workspace uses; and a Visual jokes section — grouped Satire / Tech-positive /
  * Experimental with Top Picks flagged, the selected joke switchable and its Joke
@@ -90,6 +94,8 @@ export function SelectedRunSidebar({
               <X aria-hidden className="size-4" strokeWidth={1.75} />
             </Button>
           </header>
+
+          <FinalImageDownload run={run} />
 
           {run.sourceTweet ? <SourcePostReference sourceTweet={run.sourceTweet} /> : null}
 
