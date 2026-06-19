@@ -1,29 +1,58 @@
 import { describe, expect, test } from "vitest";
-import { isAllowlistedOperatorEmail, readOperatorAllowlistedEmail } from "./operator-allowlist";
+import {
+  isAllowlistedOperatorEmail,
+  readOperatorAllowlist,
+  readPrimaryOperatorEmail,
+} from "./operator-allowlist";
 
 describe("operator allowlist", () => {
-  test("admits the configured operator email regardless of case or surrounding space", () => {
-    const env = { OPERATOR_ALLOWLISTED_EMAIL: "Operator@Example.com" };
+  test("admits any email in the set, regardless of case or surrounding space", () => {
+    const env = {
+      OPERATOR_ALLOWLISTED_EMAILS: "Hugo@Example.com, adil@example.com,gabriel@example.com",
+    };
 
-    expect(isAllowlistedOperatorEmail("operator@example.com", env)).toBe(true);
-    expect(isAllowlistedOperatorEmail("  OPERATOR@EXAMPLE.COM  ", env)).toBe(true);
+    expect(isAllowlistedOperatorEmail("hugo@example.com", env)).toBe(true);
+    expect(isAllowlistedOperatorEmail("  ADIL@EXAMPLE.COM  ", env)).toBe(true);
+    expect(isAllowlistedOperatorEmail("gabriel@example.com", env)).toBe(true);
   });
 
-  test("rejects every other email", () => {
-    const env = { OPERATOR_ALLOWLISTED_EMAIL: "operator@example.com" };
+  test("rejects an email outside the set", () => {
+    const env = { OPERATOR_ALLOWLISTED_EMAILS: "hugo@example.com, adil@example.com" };
 
     expect(isAllowlistedOperatorEmail("intruder@example.com", env)).toBe(false);
   });
 
-  test("allows nobody when the allowlist is unconfigured", () => {
-    expect(isAllowlistedOperatorEmail("operator@example.com", {})).toBe(false);
-    expect(readOperatorAllowlistedEmail({})).toBeNull();
-    expect(readOperatorAllowlistedEmail({ OPERATOR_ALLOWLISTED_EMAIL: "   " })).toBeNull();
+  test("reads a normalized, de-duplicated, order-preserving set", () => {
+    const env = {
+      OPERATOR_ALLOWLISTED_EMAILS: " Hugo@Example.com , adil@example.com, HUGO@example.com ,, ",
+    };
+
+    // Trimmed + lower-cased, blanks dropped, the repeated Hugo collapsed once.
+    expect([...readOperatorAllowlist(env)]).toEqual(["hugo@example.com", "adil@example.com"]);
   });
 
-  test("normalizes the configured email", () => {
-    expect(readOperatorAllowlistedEmail({ OPERATOR_ALLOWLISTED_EMAIL: " Op@Example.COM " })).toBe(
-      "op@example.com",
-    );
+  test("allows nobody when the allowlist is unset or empty", () => {
+    expect(readOperatorAllowlist({}).size).toBe(0);
+    expect(readOperatorAllowlist({ OPERATOR_ALLOWLISTED_EMAILS: "   ,  , " }).size).toBe(0);
+    expect(isAllowlistedOperatorEmail("hugo@example.com", {})).toBe(false);
+  });
+
+  describe("primary operator", () => {
+    test("resolves to the first allowlist entry, normalized", () => {
+      const env = { OPERATOR_ALLOWLISTED_EMAILS: " Hugo@Example.com , adil@example.com" };
+
+      expect(readPrimaryOperatorEmail(env)).toBe("hugo@example.com");
+    });
+
+    test("is unaffected by a single trailing duplicate or blank entry", () => {
+      const env = { OPERATOR_ALLOWLISTED_EMAILS: "hugo@example.com" };
+
+      expect(readPrimaryOperatorEmail(env)).toBe("hugo@example.com");
+    });
+
+    test("is null when the allowlist is empty", () => {
+      expect(readPrimaryOperatorEmail({})).toBeNull();
+      expect(readPrimaryOperatorEmail({ OPERATOR_ALLOWLISTED_EMAILS: "  " })).toBeNull();
+    });
   });
 });

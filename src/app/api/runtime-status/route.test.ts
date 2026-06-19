@@ -56,7 +56,7 @@ describe("runtime status route", () => {
         AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
         AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
-        OPERATOR_ALLOWLISTED_EMAIL: "operator@example.test",
+        OPERATOR_ALLOWLISTED_EMAILS: "operator@example.test",
         OUTSIDE_X_ENRICHMENT_API_KEY: "enrichment-secret",
         OUTSIDE_X_ENRICHMENT_ENDPOINT: "https://enrichment.example.test/enrich",
         SUPABASE_ANON_KEY: "anon-secret",
@@ -169,7 +169,7 @@ describe("runtime status route", () => {
         AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
         AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
-        OPERATOR_ALLOWLISTED_EMAIL: "operator@example.test",
+        OPERATOR_ALLOWLISTED_EMAILS: "operator@example.test",
         SUPABASE_ANON_KEY: "anon-secret",
         SUPABASE_SERVICE_ROLE_KEY: "service-role-secret",
         SUPABASE_URL: "https://project.supabase.test",
@@ -198,7 +198,7 @@ describe("runtime status route", () => {
   test("reports the Supabase persistence boundary as off when its credentials are missing", async () => {
     const response = await runtimeStatus({
       env: {
-        OPERATOR_ALLOWLISTED_EMAIL: "operator@example.test",
+        OPERATOR_ALLOWLISTED_EMAILS: "operator@example.test",
         SUPABASE_URL: "https://project.supabase.test",
       },
       fetcher: buildModelCatalogFetcher([]),

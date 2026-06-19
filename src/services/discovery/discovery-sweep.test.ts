@@ -169,6 +169,9 @@ function buildHarness(depOverrides: Partial<DiscoverySweepDependencies> = {}) {
         logger: (entry) => capDrops.push(entry),
         now: () => new Date(fixedNowIso),
         createClusterId: nextClusterId,
+        // No allowlist by default so the per-sweep Primary Operator log stays silent;
+        // the dedicated test below configures one to exercise it.
+        env: {},
         ...depOverrides,
         ...overrides,
       },
@@ -344,5 +347,20 @@ describe("runDiscoverySweep", () => {
 
     expect(result.status).toBe("unauthorized");
     expect(harness.composeCalls).toEqual([]);
+  });
+
+  test("logs the Primary Operator (the first allowlist entry, normalized) it anchors under", async () => {
+    const harness = buildHarness();
+
+    // Two allowlisted operators: the sweep anchors under — and logs — the first,
+    // normalized to lower-case so config drift in the load-bearing entry is visible.
+    await harness.runSweep([], {
+      env: { OPERATOR_ALLOWLISTED_EMAILS: "Primary@Example.com, second@example.com" },
+    });
+
+    expect(harness.capDrops).toContainEqual({
+      event: "primary-operator",
+      email: "primary@example.com",
+    });
   });
 });

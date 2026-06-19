@@ -11,7 +11,7 @@ import {
 } from "./image-bytes-store";
 
 const configuredEnv = {
-  OPERATOR_ALLOWLISTED_EMAIL: "operator@example.com",
+  OPERATOR_ALLOWLISTED_EMAILS: "operator@example.com",
   SUPABASE_ANON_KEY: "anon-key",
   SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
   SUPABASE_URL: "https://project.supabase.co",

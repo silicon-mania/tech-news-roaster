@@ -21,8 +21,16 @@ The rule by which an automated run makes, without human input, the choices a man
 _Avoid_: Auto-publish, locked choice, final pick
 
 **Operator Account**:
-The single authenticated account that owns every manual and automated run.
+An authenticated account that owns its operator's manual and automated runs. The tool admits a small Operator Allowlist of these independent accounts rather than one; each owns its runs in isolation (automated runs are copied per account, never shared), so this is still not a shared workspace.
 _Avoid_: Multi-user workspace, team account, admin role
+
+**Operator Allowlist**:
+The normalized set of emails (parsed from the comma-separated `OPERATOR_ALLOWLISTED_EMAILS`) allowed to sign in, each provisioning its own Operator Account through the email-OTP flow. Membership — not equality against one address — decides admission; an unset or empty value admits nobody.
+_Avoid_: Whitelist, user table, team roster
+
+**Primary Operator**:
+The first email in the Operator Allowlist. The unattended Discovery Sweep anchors its dedup state (seen tweets, News Coverage Clusters, author baselines) and the single expensive composition under this account before fanning each finished automated run out to the others. The first entry is therefore load-bearing — reordering or removing it re-anchors discovery under empty state and can start duplicate runs.
+_Avoid_: Admin, owner, default operator
 
 **Viral Tweet**:
 A tweet from the discovery source that has crossed the system's virality bar and therefore qualifies to start an automated run, regardless of whether it carries images, videos, or text only.

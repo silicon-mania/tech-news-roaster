@@ -1,5 +1,6 @@
 import "server-only";
 
+import { readPrimaryOperatorEmail } from "@/services/auth";
 import { composeAutomatedRun } from "@/services/automated-run/compose-automated-run";
 import { isDiscoverySweepReady, readRuntimeStatus } from "@/services/runtime-status";
 import { resolveHeadlessOperatorSession } from "@/services/saved-runs/resolve-headless-operator";
@@ -65,11 +66,14 @@ type CapDroppedCluster = {
   authorRelativeScore: number;
 };
 
-/** A structured log entry the sweep emits; the only event today is a cap drop. */
-export type DiscoverySweepLogEntry = CapDroppedCluster & {
-  event: "cap-drop";
-  cap: number;
-};
+/**
+ * A structured log entry the sweep emits: a `cap-drop` (a newsworthy cluster the
+ * per-sweep cap dropped) or the `primary-operator` it anchored under this sweep — the
+ * latter logged so config drift in the load-bearing first allowlist entry is visible.
+ */
+export type DiscoverySweepLogEntry =
+  | (CapDroppedCluster & { event: "cap-drop"; cap: number })
+  | { event: "primary-operator"; email: string };
 
 type DiscoverySweepLogger = (entry: DiscoverySweepLogEntry) => void;
 
@@ -160,6 +164,15 @@ export async function runDiscoverySweep(
   // The Runtime Readiness Gate. A not-ready sweep starts nothing this cycle.
   if (!(await isReady())) {
     return { status: "not-ready" };
+  }
+
+  // Log the Primary Operator this sweep anchors under (the first allowlist entry) so
+  // config drift — a reordered or removed first entry re-anchoring discovery under
+  // empty seen-tweet/cluster/baseline state — is visible in cron logs (ADR-0024).
+  const primaryOperatorEmail = readPrimaryOperatorEmail(env);
+
+  if (primaryOperatorEmail) {
+    logger({ event: "primary-operator", email: primaryOperatorEmail });
   }
 
   // Resolve the Operator Account's owner-scoped stores. A sweep that cannot resolve
@@ -384,6 +397,12 @@ function compareByVirality(
 }
 
 const defaultLogger: DiscoverySweepLogger = (entry) => {
+  if (entry.event === "primary-operator") {
+    console.info(`[discovery-sweep] primary-operator: anchoring under ${entry.email}.`);
+
+    return;
+  }
+
   console.warn(
     `[discovery-sweep] cap-drop: tweet ${entry.sourceTweetId} (score ${entry.authorRelativeScore.toFixed(
       2,

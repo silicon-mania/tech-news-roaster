@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { readOperatorAllowlistedEmail } from "@/services/auth";
+import { readOperatorAllowlist } from "@/services/auth";
 import { type GenerationProviderId, generationProviderIds } from "@/services/generation";
 import {
   readConfiguredAiGatewayImageModel,
@@ -87,7 +87,7 @@ export async function readRuntimeStatus({
   const supabaseUrl = hasEnvValue(env.SUPABASE_URL);
   const supabaseAnonKey = hasEnvValue(env.SUPABASE_ANON_KEY);
   const supabaseServiceRoleKey = hasEnvValue(env.SUPABASE_SERVICE_ROLE_KEY);
-  const operatorAllowlistedEmail = Boolean(readOperatorAllowlistedEmail(env));
+  const operatorAllowlistedEmail = readOperatorAllowlist(env).size > 0;
   const persistenceReady =
     supabaseUrl && supabaseAnonKey && supabaseServiceRoleKey && operatorAllowlistedEmail;
   const configuredModelIds = readConfiguredAiGatewayModels(env);
