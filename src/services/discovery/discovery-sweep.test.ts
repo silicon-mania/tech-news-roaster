@@ -130,12 +130,32 @@ function buildHarness(depOverrides: Partial<DiscoverySweepDependencies> = {}) {
   const newsCoverageCluster = createInMemoryNewsCoverageClusterRepository(owner, new Map());
   const composeCalls: ComposeAutomatedRunInput[] = [];
   const capDrops: DiscoverySweepLogEntry[] = [];
+  const fanOutCalls: { runId: string; anchorOwnerId: string; targetUserIds: string[] }[] = [];
   let clusterSeq = 0;
 
   const composeRun: typeof composeAutomatedRun = async (input) => {
     composeCalls.push(input);
 
     return { run: fakeRun(`run-${input.newsCoverageClusterId}`) };
+  };
+
+  // Records each fan-out and reports one successful copy per non-anchor target — the
+  // happy path. Tests that exercise failures or targets override this and/or the
+  // resolver; by default no operators are configured, so fan-out is a no-op.
+  const fanOutRun: NonNullable<DiscoverySweepDependencies["fanOutRun"]> = async ({
+    run,
+    anchorOwnerId,
+    targets,
+  }) => {
+    fanOutCalls.push({
+      runId: run.id,
+      anchorOwnerId,
+      targetUserIds: targets.map((target) => target.userId),
+    });
+
+    return targets
+      .filter((target) => target.userId !== anchorOwnerId)
+      .map((target) => ({ email: target.email, userId: target.userId, status: "copied" as const }));
   };
 
   function nextClusterId() {
@@ -161,8 +181,13 @@ function buildHarness(depOverrides: Partial<DiscoverySweepDependencies> = {}) {
           tweets,
         }),
         resolveRepositories: async () => ({
+          ownerId: owner,
           repositories: { seenTweet, authorBaseline, newsCoverageCluster },
         }),
+        // No fan-out targets by default — a single-operator sweep copies nothing; the
+        // dedicated tests below configure targets and skips to exercise fan-out.
+        resolveFanOutTargets: async () => ({ targets: [], skipped: [] }),
+        fanOutRun,
         sampler: async () => [],
         composeRun,
         newsworthinessJudge: createLocalNewsworthinessJudge("local-test"),
@@ -178,7 +203,15 @@ function buildHarness(depOverrides: Partial<DiscoverySweepDependencies> = {}) {
     );
   }
 
-  return { seenTweet, authorBaseline, newsCoverageCluster, composeCalls, capDrops, runSweep };
+  return {
+    seenTweet,
+    authorBaseline,
+    newsCoverageCluster,
+    composeCalls,
+    capDrops,
+    fanOutCalls,
+    runSweep,
+  };
 }
 
 function expectCompleted(result: Awaited<ReturnType<typeof runDiscoverySweep>>) {
@@ -361,6 +394,110 @@ describe("runDiscoverySweep", () => {
     expect(harness.capDrops).toContainEqual({
       event: "primary-operator",
       email: "primary@example.com",
+    });
+  });
+
+  // The anchor target shares the sweep's owner id, so fan-out filters it out; the other
+  // two are the teammates each finished run is copied to.
+  const anchorTarget = { email: "primary@example.com", userId: owner };
+  const teammateB = { email: "b@example.com", userId: "user-b" };
+  const teammateC = { email: "c@example.com", userId: "user-c" };
+
+  describe("fan-out to signed-in operators", () => {
+    test("copies each started run to every operator other than the anchor, reporting per-operator counts", async () => {
+      const harness = buildHarness({
+        resolveFanOutTargets: async () => ({
+          targets: [anchorTarget, teammateB, teammateC],
+          skipped: [],
+        }),
+      });
+
+      await seedBaseline(harness.authorBaseline, "acme", 0.5);
+      await seedBaseline(harness.authorBaseline, "bravo", 0.5);
+
+      const result = expectCompleted(await harness.runSweep([acmeTweet, bravoTweet]));
+
+      // Two runs started, so each teammate received two copies; the anchor holds the
+      // originals and is excluded from the per-operator report.
+      expect(result.fanOut).toEqual({
+        perOperator: [
+          { email: "b@example.com", userId: "user-b", copied: 2, failed: 0 },
+          { email: "c@example.com", userId: "user-c", copied: 2, failed: 0 },
+        ],
+        skippedUnprovisioned: [],
+      });
+
+      // Fan-out ran once per started run, each handed the anchor and the full target set.
+      expect(harness.fanOutCalls).toEqual([
+        {
+          runId: "run-cluster-1",
+          anchorOwnerId: owner,
+          targetUserIds: [owner, "user-b", "user-c"],
+        },
+        {
+          runId: "run-cluster-2",
+          anchorOwnerId: owner,
+          targetUserIds: [owner, "user-b", "user-c"],
+        },
+      ]);
+    });
+
+    test("skips and logs allowlisted operators that have no account yet", async () => {
+      const harness = buildHarness({
+        resolveFanOutTargets: async () => ({
+          targets: [anchorTarget, teammateB],
+          skipped: ["unprovisioned@example.com"],
+        }),
+      });
+
+      await seedBaseline(harness.authorBaseline, "acme", 0.5);
+
+      const result = expectCompleted(await harness.runSweep([acmeTweet]));
+
+      expect(result.fanOut.skippedUnprovisioned).toEqual(["unprovisioned@example.com"]);
+      expect(harness.capDrops).toContainEqual({
+        event: "fan-out-skip-unprovisioned",
+        email: "unprovisioned@example.com",
+      });
+    });
+
+    test("isolates and logs a failed copy while still reporting the other operators' copies", async () => {
+      const harness = buildHarness({
+        resolveFanOutTargets: async () => ({
+          targets: [anchorTarget, teammateB, teammateC],
+          skipped: [],
+        }),
+        // Teammate C's copy fails; teammate B's succeeds.
+        fanOutRun: async ({ targets }) =>
+          targets
+            .filter((target) => target.userId !== owner)
+            .map((target) =>
+              target.userId === teammateC.userId
+                ? {
+                    email: target.email,
+                    userId: target.userId,
+                    status: "failed" as const,
+                    error: "storage down",
+                  }
+                : { email: target.email, userId: target.userId, status: "copied" as const },
+            ),
+      });
+
+      await seedBaseline(harness.authorBaseline, "acme", 0.5);
+
+      const result = expectCompleted(await harness.runSweep([acmeTweet]));
+
+      expect(result.fanOut.perOperator).toEqual([
+        { email: "b@example.com", userId: "user-b", copied: 1, failed: 0 },
+        { email: "c@example.com", userId: "user-c", copied: 0, failed: 1 },
+      ]);
+      // The failed copy is logged; the anchor's run and teammate B's copy are unaffected.
+      expect(harness.capDrops).toContainEqual({
+        event: "fan-out-copy-failed",
+        email: "c@example.com",
+        runId: "run-cluster-1",
+        error: "storage down",
+      });
     });
   });
 });

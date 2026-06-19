@@ -24,9 +24,10 @@ const localOperatorId = "local-operator";
  * Builds an owner-scoped {@link RunRepository}. With Supabase configured it is
  * the Postgres-backed store reached with the service-role key; otherwise it is
  * the in-memory fallback so local fixture development works without an auth
- * backend.
+ * backend. Exported so the Automated Run fan-out can build a repository for an
+ * explicit target owner id (not just the session/headless operator).
  */
-function createRunRepository(
+export function createRunRepository(
   ownerId: string,
   env: SupabaseEnvironment = process.env,
 ): RunRepository {

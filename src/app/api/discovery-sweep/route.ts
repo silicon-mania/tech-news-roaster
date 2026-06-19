@@ -140,12 +140,21 @@ function parseLookbackHours(raw: string | undefined): number {
 /**
  * A compact JSON summary for cron logs. Run ids are included so the operator can open
  * the started runs in the unified runs list; the full per-run detail stays in the
- * persisted runs themselves.
+ * persisted runs themselves. The fan-out block reports how many runs were copied to each
+ * signed-in operator and which allowlisted operators were skipped for lack of an account.
  */
 function summarizeSweep(result: DiscoverySweepResult) {
   if (result.status === "completed") {
     return {
       droppedByCap: result.droppedByCap.length,
+      fanOut: {
+        copiesPerOperator: result.fanOut.perOperator.map((operator) => ({
+          email: operator.email,
+          copied: operator.copied,
+          failed: operator.failed,
+        })),
+        skippedUnprovisioned: result.fanOut.skippedUnprovisioned,
+      },
       joinedExistingClusters: result.joinedExistingClusters,
       runIds: result.startedRuns.map((run) => run.runId),
       startedRuns: result.startedRuns.length,

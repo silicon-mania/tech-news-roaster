@@ -22,6 +22,13 @@ function buildRequest(authorization?: string) {
 
 const completed: DiscoverySweepResult = {
   droppedByCap: [{ authorRelativeScore: 4, sourceText: "dropped", sourceTweetId: "t-dropped" }],
+  fanOut: {
+    perOperator: [
+      { email: "second@example.com", userId: "user-second", copied: 1, failed: 0 },
+      { email: "third@example.com", userId: "user-third", copied: 0, failed: 1 },
+    ],
+    skippedUnprovisioned: ["fourth@example.com"],
+  },
   joinedExistingClusters: 2,
   startedRuns: [
     {
@@ -122,6 +129,13 @@ describe("discovery sweep route", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       droppedByCap: 1,
+      fanOut: {
+        copiesPerOperator: [
+          { email: "second@example.com", copied: 1, failed: 0 },
+          { email: "third@example.com", copied: 0, failed: 1 },
+        ],
+        skippedUnprovisioned: ["fourth@example.com"],
+      },
       joinedExistingClusters: 2,
       runIds: ["run-1"],
       startedRuns: 1,

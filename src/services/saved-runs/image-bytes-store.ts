@@ -115,7 +115,12 @@ export function createInMemoryImageBytesStore(
   };
 }
 
-function createImageBytesStore(
+/**
+ * Builds an owner-scoped {@link ImageBytesStore}: the Supabase-backed store when
+ * configured, otherwise the in-memory fallback. Exported so the Automated Run
+ * fan-out can read the anchor's bytes and write a copy under a target owner id.
+ */
+export function createImageBytesStore(
   ownerId: string,
   env: SupabaseEnvironment = process.env,
 ): ImageBytesStore {
