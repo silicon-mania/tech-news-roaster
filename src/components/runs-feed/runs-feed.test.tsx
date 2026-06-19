@@ -1,6 +1,8 @@
 import "@testing-library/jest-dom/vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { Toaster } from "@/components/ui/sonner";
 import type { GenerationRun } from "@/services/workspace";
 import {
   buildCompletedRun,
@@ -232,5 +234,106 @@ describe("Runs Feed", () => {
     expect(
       screen.queryByRole("navigation", { name: /discovery source lists/i }),
     ).not.toBeInTheDocument();
+  });
+});
+
+// The Refresh flow toasts, so these renders also mount the Toaster (mounted once
+// at the app root in production).
+function renderFeedWithToaster(runs: GenerationRun[]) {
+  const savedRunStore = createMemorySavedRunStore(runs);
+
+  render(
+    <>
+      <RunsFeed savedRunStore={savedRunStore} />
+      <Toaster />
+    </>,
+  );
+
+  return savedRunStore;
+}
+
+describe("Runs Feed — Refresh", () => {
+  test("renders an icon-only Refresh action beside the New Manual Run button", async () => {
+    const savedRunStore = createMemorySavedRunStore([buildCompleteRun(1)]);
+
+    render(<RunsFeed savedRunStore={savedRunStore} />);
+
+    const refresh = await screen.findByRole("button", { name: "Refresh" });
+    // Icon-only: the action carries no visible text label.
+    expect(refresh).toHaveTextContent("");
+
+    // It lives in the feed header right next to the New Manual Run action.
+    const header = refresh.closest("header");
+    if (!header) {
+      throw new Error("Expected the Refresh action to live inside the feed header.");
+    }
+    expect(within(header).getByRole("link", { name: /new manual run/i })).toBeInTheDocument();
+  });
+
+  test("re-fetches the first page and merges new Complete Runs to the top, toasting the count", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = renderFeedWithToaster([buildCompleteRun(1), buildCompleteRun(2)]);
+
+    await waitFor(() => expect(feedCardLabels()).toEqual(["Complete run 2", "Complete run 1"]));
+    expect(savedRunStore.listPaginated).toHaveBeenCalledTimes(1);
+
+    // Two runs finish after the page loaded — a newer savedAt puts them at the top
+    // of the first page (finished Manual Runs / background Automated Runs).
+    await savedRunStore.save(buildCompleteRun(3));
+    await savedRunStore.save(buildCompleteRun(4));
+
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+    // The two new Complete Runs land at the top, newest-first, above the existing.
+    await waitFor(() =>
+      expect(feedCardLabels()).toEqual([
+        "Complete run 4",
+        "Complete run 3",
+        "Complete run 2",
+        "Complete run 1",
+      ]),
+    );
+    // Refresh re-runs the first page at the null cursor.
+    expect(savedRunStore.listPaginated).toHaveBeenLastCalledWith({
+      cursor: null,
+      limit: feedPageSize,
+    });
+    // A quiet toast reports how many arrived.
+    expect(await screen.findByText("2 new runs")).toBeInTheDocument();
+  });
+
+  test("reports when no new runs arrived and leaves the feed unchanged", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = renderFeedWithToaster([buildCompleteRun(1), buildCompleteRun(2)]);
+
+    await waitFor(() => expect(feedCardLabels()).toEqual(["Complete run 2", "Complete run 1"]));
+
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => expect(savedRunStore.listPaginated).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("No new runs")).toBeInTheDocument();
+    expect(feedCardLabels()).toEqual(["Complete run 2", "Complete run 1"]);
+  });
+
+  test("merges only newly-arrived Complete Runs, skipping incomplete ones", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = renderFeedWithToaster([buildCompleteRun(1)]);
+
+    await waitFor(() => expect(feedCardLabels()).toEqual(["Complete run 1"]));
+
+    // A newer-but-incomplete run and a newer Complete Run both arrive.
+    await savedRunStore.save(buildIncompleteRun(2));
+    await savedRunStore.save(buildCompleteRun(3));
+
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+    // Only the Complete Run is merged in; the incomplete arrival never becomes a card.
+    await waitFor(() => expect(feedCardLabels()).toEqual(["Complete run 3", "Complete run 1"]));
+    expect(
+      within(screen.getByRole("region", { name: "Runs" })).queryByRole("article", {
+        name: "Incomplete run 2",
+      }),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText("1 new run")).toBeInTheDocument();
   });
 });
