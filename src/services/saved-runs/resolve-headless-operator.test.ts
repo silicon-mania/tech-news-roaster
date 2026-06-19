@@ -5,7 +5,7 @@ import {
 } from "./resolve-headless-operator";
 
 const configuredEnv = {
-  OPERATOR_ALLOWLISTED_EMAIL: "Operator@Example.com",
+  OPERATOR_ALLOWLISTED_EMAILS: "Operator@Example.com",
   SUPABASE_ANON_KEY: "anon",
   SUPABASE_SERVICE_ROLE_KEY: "service-role",
   SUPABASE_URL: "https://project.supabase.co",
@@ -16,7 +16,7 @@ function buildLookup(result: Awaited<ReturnType<OperatorUserLookup>> = null) {
 }
 
 describe("resolveHeadlessOperatorSession", () => {
-  test("resolves the operator by the allowlisted email via the admin lookup", async () => {
+  test("resolves the Primary Operator by the allowlisted email via the admin lookup", async () => {
     const lookup = buildLookup({ email: "operator@example.com", userId: "user-1" });
 
     const session = await resolveHeadlessOperatorSession(configuredEnv, lookup);
@@ -30,6 +30,17 @@ describe("resolveHeadlessOperatorSession", () => {
     );
   });
 
+  test("looks up the first allowlist entry (the Primary Operator), not the others", async () => {
+    const lookup = buildLookup({ email: "primary@example.com", userId: "user-1" });
+
+    await resolveHeadlessOperatorSession(
+      { ...configuredEnv, OPERATOR_ALLOWLISTED_EMAILS: "Primary@Example.com, second@example.com" },
+      lookup,
+    );
+
+    expect(lookup).toHaveBeenCalledWith(expect.anything(), "primary@example.com");
+  });
+
   test("returns null when Supabase is unconfigured (never reaches the admin lookup)", async () => {
     const lookup = buildLookup({ email: "operator@example.com", userId: "user-1" });
 
@@ -39,9 +50,9 @@ describe("resolveHeadlessOperatorSession", () => {
     expect(lookup).not.toHaveBeenCalled();
   });
 
-  test("returns null when no operator email is allowlisted", async () => {
+  test("returns null when the allowlist is empty", async () => {
     const lookup = buildLookup({ email: "operator@example.com", userId: "user-1" });
-    const { OPERATOR_ALLOWLISTED_EMAIL: _omitted, ...envWithoutEmail } = configuredEnv;
+    const { OPERATOR_ALLOWLISTED_EMAILS: _omitted, ...envWithoutEmail } = configuredEnv;
 
     const session = await resolveHeadlessOperatorSession(envWithoutEmail, lookup);
 

@@ -37,8 +37,10 @@ these variables with `NEXT_PUBLIC_`.
    - Enable email auth. Authentication -> Providers -> **Email** on; the operator signs in with an
      email OTP. For reliable delivery configure SMTP (Authentication -> Emails); the built-in
      sender is heavily rate-limited and is the most common cause of "code could not be sent".
-   - Decide the single operator email for `OPERATOR_ALLOWLISTED_EMAIL`. Only this address can
-     receive a code or create the account.
+   - Decide the operator emails for `OPERATOR_ALLOWLISTED_EMAILS` (comma-separated). Only these
+     addresses can receive a code or create an account; each provisions its own Operator Account
+     on first sign-in. The **first entry is the Primary Operator** and is load-bearing (see the
+     Discovery Sweep notes below) — always append new teammates, never reorder or drop the first.
 
 ## 2. Configure Vercel environment variables
 
@@ -59,7 +61,7 @@ SERPER_API_KEY=<serper key, if using this repo's /enrich route>
 SUPABASE_URL=<supabase project url>
 SUPABASE_ANON_KEY=<supabase anon key>
 SUPABASE_SERVICE_ROLE_KEY=<supabase service_role key>
-OPERATOR_ALLOWLISTED_EMAIL=<the single operator email>
+OPERATOR_ALLOWLISTED_EMAILS=<comma-separated operator emails; first is the Primary Operator>
 APP_BASE_URL=https://<your-production-domain>
 DISCOVERY_SOURCE_LIST_IDS=<comma-separated operator-owned X List ids>
 CRON_SECRET=<long random secret protecting the sweep route>
@@ -147,12 +149,15 @@ The sweep runs unattended as a **Vercel Cron job** that hits the secured
   outright in production.
 - **Discovery Source.** Set `DISCOVERY_SOURCE_LIST_IDS` to your operator-owned X List
   ids (comma-separated). With none set the route returns 503 and sweeps nothing.
-- **The Operator Account must exist first.** A cron request has no session cookie, so the
-  sweep resolves the single operator by `OPERATOR_ALLOWLISTED_EMAIL` through the
-  service-role admin API. That auth user only exists once you have **signed in to the app
-  at least once** with the allowlisted email (email OTP). Until then the sweep returns
-  `{ "status": "unauthorized" }` (HTTP 500) and starts nothing. So: deploy → sign in once →
-  then rely on the cron.
+- **The Primary Operator's account must exist first.** A cron request has no session cookie, so
+  the sweep resolves the **Primary Operator** — the first entry of `OPERATOR_ALLOWLISTED_EMAILS` —
+  through the service-role admin API, and logs the resolved primary each sweep so config drift is
+  visible. That auth user only exists once the Primary Operator has **signed in to the app at
+  least once** (email OTP). Until then the sweep returns `{ "status": "unauthorized" }` (HTTP 500)
+  and starts nothing. So: deploy → have the Primary Operator sign in once → then rely on the cron.
+  The first entry is **load-bearing**: reordering or removing it re-anchors discovery under an
+  owner with empty seen-tweet/cluster/baseline state and can start duplicate runs — always append
+  new teammates rather than changing the first.
 - **Readiness gate.** A sweep that finds the Runtime Readiness Gate not ready starts
   nothing that cycle and returns `{ "status": "not-ready" }` (HTTP 200). Confirm
   `/api/runtime-status` reports `retrieval.mode: live`, `persistence.mode: live`, and

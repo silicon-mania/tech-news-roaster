@@ -3,7 +3,7 @@ import type { OperatorAuthClient } from "@/services/auth/operator-auth";
 import { requestOperatorCode } from "./route";
 
 const configuredEnv = {
-  OPERATOR_ALLOWLISTED_EMAIL: "operator@example.com",
+  OPERATOR_ALLOWLISTED_EMAILS: "hugo@example.com, adil@example.com, gabriel@example.com",
   SUPABASE_ANON_KEY: "anon",
   SUPABASE_SERVICE_ROLE_KEY: "service-role",
   SUPABASE_URL: "https://project.supabase.co",
@@ -30,17 +30,30 @@ function buildAuthClient(overrides: Partial<OperatorAuthClient> = {}) {
 }
 
 describe("request operator code route", () => {
-  test("sends a code to the allowlisted operator email", async () => {
+  test("sends a code to the Primary Operator (first allowlist entry)", async () => {
     const { client, requestCode } = buildAuthClient();
     const createAuthClient = vi.fn(async () => client);
 
-    const response = await requestOperatorCode(buildRequest({ email: "operator@example.com" }), {
+    const response = await requestOperatorCode(buildRequest({ email: "hugo@example.com" }), {
       createAuthClient,
       env: configuredEnv,
     });
 
     expect(response.status).toBe(200);
-    expect(requestCode).toHaveBeenCalledWith("operator@example.com");
+    expect(requestCode).toHaveBeenCalledWith("hugo@example.com");
+  });
+
+  test("sends a code to any teammate in the allowlist, not just the first", async () => {
+    const { client, requestCode } = buildAuthClient();
+
+    // A non-first allowlisted teammate: membership, not equality, decides admission.
+    const response = await requestOperatorCode(buildRequest({ email: "gabriel@example.com" }), {
+      createAuthClient: vi.fn(async () => client),
+      env: configuredEnv,
+    });
+
+    expect(response.status).toBe(200);
+    expect(requestCode).toHaveBeenCalledWith("gabriel@example.com");
   });
 
   test("refuses a non-allowlisted email without ever calling Supabase", async () => {
@@ -65,7 +78,7 @@ describe("request operator code route", () => {
   });
 
   test("reports 503 when Supabase is not configured", async () => {
-    const response = await requestOperatorCode(buildRequest({ email: "operator@example.com" }), {
+    const response = await requestOperatorCode(buildRequest({ email: "hugo@example.com" }), {
       createAuthClient: vi.fn(async () => buildAuthClient().client),
       env: {},
     });
@@ -78,7 +91,7 @@ describe("request operator code route", () => {
       requestCode: vi.fn(async () => ({ error: { message: "rate limited" } })),
     });
 
-    const response = await requestOperatorCode(buildRequest({ email: "operator@example.com" }), {
+    const response = await requestOperatorCode(buildRequest({ email: "hugo@example.com" }), {
       createAuthClient: vi.fn(async () => client),
       env: configuredEnv,
     });

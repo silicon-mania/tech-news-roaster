@@ -2,7 +2,7 @@
 
 This guide covers the **human-in-the-loop** steps for issue
 `010-supabase-foundation-email-otp-operator-auth`: provisioning the Supabase
-project, choosing the allowlisted operator email, configuring the secrets, and
+project, choosing the operator allowlist, configuring the secrets, and
 verifying the auth gate end to end.
 
 All Supabase variables are **server-only**. Do **not** prefix any of them with
@@ -36,9 +36,9 @@ The product signs in with a **6-digit one-time code**, not a magic link.
 
 1. **Auth → Providers → Email**: make sure the **Email** provider is **enabled**.
 2. **Auth → Sign In / Providers (Email)**: keep **"Allow new users to sign up"
-   enabled** for the first sign-in — the operator account is created the first
-   time the allowlisted email signs in. (You may disable it again afterward for
-   belt-and-suspenders; our route-level allowlist already guarantees no other
+   enabled** for the first sign-in — each operator's account is created the first
+   time their allowlisted email signs in. (You may disable it again once every
+   teammate has signed in; our route-level allowlist already guarantees no other
    email is ever sent to Supabase.)
 3. **Set up a custom SMTP sender (required on the Free plan).** The built-in
    Supabase email service is rate-limited and **does not let you customise the
@@ -113,14 +113,21 @@ In **Project Settings → API**:
 | `SUPABASE_ANON_KEY` | "Project API keys" → `anon` `public` |
 | `SUPABASE_SERVICE_ROLE_KEY` | "Project API keys" → `service_role` `secret` |
 
-## 4. Choose the allowlisted operator email
+## 4. Choose the operator allowlist
 
-Pick the single email that owns the tool. Signup is restricted to this one
-address — every other email is refused a code.
+Pick the **set** of emails that own the tool, comma-separated. Signup is
+restricted to these addresses — every other email is refused a code — and each
+provisions its own Operator Account on first sign-in. Values are normalized
+(trimmed + lower-cased) and de-duplicated; unset/empty means nobody is allowed.
+
+The **first entry is the Primary Operator** and is load-bearing: the unattended
+Discovery Sweep anchors its dedup state and the single expensive composition under
+it. Always **append** new teammates — reordering or removing the first entry
+re-anchors discovery under empty state and can start duplicate runs.
 
 | Variable | Value |
 | --- | --- |
-| `OPERATOR_ALLOWLISTED_EMAIL` | the one operator email (e.g. `you@example.com`) |
+| `OPERATOR_ALLOWLISTED_EMAILS` | comma-separated operator emails; the first is the Primary Operator (e.g. `you@example.com,teammate@example.com`) |
 
 ## 5. Set the environment variables
 
@@ -130,7 +137,7 @@ address — every other email is refused a code.
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_ANON_KEY=<anon key>
 SUPABASE_SERVICE_ROLE_KEY=<service role key>
-OPERATOR_ALLOWLISTED_EMAIL=you@example.com
+OPERATOR_ALLOWLISTED_EMAILS=you@example.com,teammate@example.com
 ```
 
 Then **restart `npm run dev`** so the new env is loaded.
@@ -162,7 +169,9 @@ Run through these once the variables are set and the server is restarted:
    sent.
 6. **Cross-device continuity.** Sign in from a second browser/device with the
    same allowlisted email + a fresh code → you reach the **same** Operator
-   Account. (Shared run history lands in issue `011`.)
+   Account. (A second *teammate* signs in with their own allowlisted email and
+   gets their own account; automated-run fan-out across operators lands in
+   ADR-0024 / issue `012`.)
 
 > ⚠️ Heads-up for local verification: the dev server uses your **live, paid**
 > generation/retrieval APIs. Signing in is free, but do not start a real
