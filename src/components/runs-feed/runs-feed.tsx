@@ -48,6 +48,7 @@ export function RunsFeed({
     updateSelectedVisualJoke,
     updateVisualJokeTitle,
     updateSelectedGeneratedImage,
+    deleteSelectedRun,
   } = useSelectedRun({ runs, savedRunStore, setRuns });
   const isInitialLoading = isLoading && runs.length === 0;
   const isEmpty = !isLoading && runs.length === 0;
@@ -121,6 +122,7 @@ export function RunsFeed({
 
       <SelectedRunSidebar
         onClose={closeSelectedRun}
+        onDelete={deleteSelectedRun}
         onDraftTextChange={updateDraftText}
         onSelectedDraftChange={updateSelectedDraft}
         onSelectedGeneratedImageChange={updateSelectedGeneratedImage}

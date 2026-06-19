@@ -1,8 +1,23 @@
 "use client";
 
-import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { toast } from "sonner";
 import { useRunAutosave } from "@/components/workspace/use-run-autosave";
 import type { GenerationRun, SavedRunStore } from "@/services/workspace";
+
+/**
+ * How long a deleted run is held before the delete actually reaches the store.
+ * The Run Card vanishes immediately; within this window the Undo toast can
+ * cancel the delete outright, so an undone run is never persisted as deleted.
+ */
+export const undoDeleteWindowMs = 5000;
 
 type UseSelectedRunArgs = {
   /** The feed's loaded runs — the Selected Run is resolved from this list. */
@@ -29,6 +44,11 @@ type SelectedRun = {
   updateVisualJokeTitle: (visualJokeId: string, title: string) => void;
   /** Switch the Selected Generated Image variation — updates the card and saves immediately. */
   updateSelectedGeneratedImage: (imageOptionId: string | null) => void;
+  /**
+   * Delete the Selected Run — drops its card and closes the sidebar at once, then
+   * commits the delete after an undo window the quiet toast's Undo action cancels.
+   */
+  deleteSelectedRun: () => void;
 };
 
 /**
@@ -43,6 +63,9 @@ type SelectedRun = {
 export function useSelectedRun({ runs, setRuns, savedRunStore }: UseSelectedRunArgs): SelectedRun {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const { saveRunNow, scheduleRunAutosave } = useRunAutosave(savedRunStore);
+  // Deferred deletes still inside their undo window, keyed by run id so several
+  // can be pending at once.
+  const pendingDeleteTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const selectedRun = runs.find((run) => run.id === selectedRunId) ?? null;
   const selectedRunSeenAt = selectedRun?.seenAt;
@@ -69,6 +92,21 @@ export function useSelectedRun({ runs, setRuns, savedRunStore }: UseSelectedRunA
     );
     void savedRunStore.markSeen(selectedRunId).catch(() => undefined);
   }, [selectedRunId, selectedRunSeenAt, selectedRunStatus, setRuns, savedRunStore]);
+
+  // On unmount, commit any deletes still inside their undo window rather than
+  // dropping them — the operator asked to delete; the window just hadn't elapsed.
+  useEffect(() => {
+    const timers = pendingDeleteTimers.current;
+
+    return () => {
+      for (const [runId, timer] of timers) {
+        clearTimeout(timer);
+        void savedRunStore.delete(runId).catch(() => undefined);
+      }
+
+      timers.clear();
+    };
+  }, [savedRunStore]);
 
   function updateSelectedDraft(draftId: string | null) {
     if (!selectedRun) {
@@ -188,6 +226,60 @@ export function useSelectedRun({ runs, setRuns, savedRunStore }: UseSelectedRunA
     saveRunNow(updatedRun);
   }
 
+  function deleteSelectedRun() {
+    if (!selectedRun) {
+      return;
+    }
+
+    const run = selectedRun;
+    const originalIndex = runs.findIndex((candidate) => candidate.id === run.id);
+
+    // Drop the card and close the sidebar at once, but hold the actual
+    // store.delete for an undo window so Undo can cancel it outright — an undone
+    // delete never touches the store. Delete lives only here, not on the Run
+    // Card, so a run can't be removed by accident while scrolling to select.
+    setRuns((currentRuns) => currentRuns.filter((candidate) => candidate.id !== run.id));
+    setSelectedRunId(null);
+
+    const commitDelete = () => {
+      pendingDeleteTimers.current.delete(run.id);
+      void savedRunStore.delete(run.id).catch(() => toast.error("Couldn't delete the run"));
+    };
+
+    const undoDelete = () => {
+      const timer = pendingDeleteTimers.current.get(run.id);
+
+      // Already committed (or undone) — nothing to cancel, and we must not
+      // resurrect a card for a run the store has already deleted.
+      if (!timer) {
+        return;
+      }
+
+      clearTimeout(timer);
+      pendingDeleteTimers.current.delete(run.id);
+
+      // Put the card back where it was — Undo restores from memory, no re-fetch.
+      setRuns((currentRuns) => {
+        if (currentRuns.some((candidate) => candidate.id === run.id)) {
+          return currentRuns;
+        }
+
+        const restored = [...currentRuns];
+        restored.splice(originalIndex < 0 ? currentRuns.length : originalIndex, 0, run);
+
+        return restored;
+      });
+    };
+
+    pendingDeleteTimers.current.set(run.id, setTimeout(commitDelete, undoDeleteWindowMs));
+
+    // A quiet toast confirms (no blocking dialog) and carries the Undo action.
+    toast.success("Run deleted", {
+      action: { label: "Undo", onClick: undoDelete },
+      duration: undoDeleteWindowMs,
+    });
+  }
+
   return {
     selectedRun,
     selectRun,
@@ -197,5 +289,6 @@ export function useSelectedRun({ runs, setRuns, savedRunStore }: UseSelectedRunA
     updateSelectedVisualJoke,
     updateVisualJokeTitle,
     updateSelectedGeneratedImage,
+    deleteSelectedRun,
   };
 }

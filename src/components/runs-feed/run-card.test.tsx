@@ -101,4 +101,16 @@ describe("RunCard", () => {
     expect(screen.getByText(firstTopPickJokeTitle)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: firstVariationAlt })).toBeInTheDocument();
   });
+
+  test("has no delete control on the card itself — only the open-sidebar target", () => {
+    render(<RunCard run={buildCardRun()} onSelect={vi.fn()} />);
+
+    const card = screen.getByRole("article", { name: "Saved run" });
+
+    // Delete lives only in the Selected Run sidebar, never on the card, so a run
+    // can't be removed by accident while scrolling and clicking to select.
+    expect(within(card).queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+    // The whole card is a single click target: it opens the sidebar, nothing else.
+    expect(within(card).getByRole("button", { name: /open saved run/i })).toBeInTheDocument();
+  });
 });
