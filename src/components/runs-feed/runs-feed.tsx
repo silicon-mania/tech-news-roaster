@@ -1,9 +1,9 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,8 @@ export function RunsFeed({
   savedRunStore = httpSavedRunStore,
   discoverySourceListIds = [],
 }: RunsFeedProps) {
-  const { runs, setRuns, hasMore, isLoading, setSentinel } = useRunsFeed(savedRunStore);
+  const { runs, setRuns, hasMore, isLoading, isRefreshing, refresh, setSentinel } =
+    useRunsFeed(savedRunStore);
   const {
     selectedRun,
     selectRun,
@@ -76,22 +77,46 @@ export function RunsFeed({
               <h1 className="title-serif text-2xl text-foreground sm:text-3xl">Auto-news</h1>
             </div>
 
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Link
-                    href="/workspace"
-                    aria-label="New Manual Run"
-                    className={cn(
-                      buttonVariants({ size: "icon", variant: "ghost" }),
-                      "text-muted-foreground",
-                    )}
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Refresh"
+                      onClick={refresh}
+                      disabled={isRefreshing}
+                      className="text-muted-foreground"
+                    />
+                  }>
+                  <RefreshCw
+                    aria-hidden
+                    className={cn("size-4", isRefreshing && "animate-spin")}
+                    strokeWidth={1.75}
                   />
-                }>
-                <Plus aria-hidden className="size-4" strokeWidth={1.75} />
-              </TooltipTrigger>
-              <TooltipContent>New Manual Run</TooltipContent>
-            </Tooltip>
+                </TooltipTrigger>
+                <TooltipContent>Refresh</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Link
+                      href="/workspace"
+                      aria-label="New Manual Run"
+                      className={cn(
+                        buttonVariants({ size: "icon", variant: "ghost" }),
+                        "text-muted-foreground",
+                      )}
+                    />
+                  }>
+                  <Plus aria-hidden className="size-4" strokeWidth={1.75} />
+                </TooltipTrigger>
+                <TooltipContent>New Manual Run</TooltipContent>
+              </Tooltip>
+            </div>
           </header>
 
           {isInitialLoading ? (

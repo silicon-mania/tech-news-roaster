@@ -134,22 +134,26 @@ export function RunCard({ run, onSelect }: RunCardProps) {
  */
 function EmbeddedSourceTweet({ sourceTweet }: { sourceTweet: RetrievedSourceTweet }) {
   return (
-    <div className="grid gap-1.5 rounded-xl border border-border px-3.5 py-3">
-      <div className="flex min-w-0 items-center gap-1.5">
+    <div className="grid gap-0.5 rounded-xl border border-border px-3 py-2.5">
+      <div className="flex min-w-0 items-center gap-1">
         <span className="truncate font-medium text-foreground text-sm">
           {sourceTweet.author.displayName}
         </span>
         <span className="truncate text-muted-foreground text-xs">
           @{sourceTweet.author.username}
         </span>
-        <span aria-hidden className="text-muted-foreground text-xs">
+        <span aria-hidden className="shrink-0 text-muted-foreground text-xs">
           ·
         </span>
         <span className="shrink-0 text-muted-foreground text-xs">
           {formatRelativeTime(sourceTweet.createdAt)}
         </span>
       </div>
-      <p className="whitespace-pre-line text-foreground/90 text-sm leading-6">{sourceTweet.text}</p>
+      {/* Like X's quoted tweet, the original is a compact preview: whitespace is
+          collapsed and the text clamps to a few lines, so a long source post can't
+          stretch the card into a tall vertical strip. The full text stays in the
+          DOM (clamped via CSS) and the operator opens the real post from the sidebar. */}
+      <p className="line-clamp-3 text-foreground/90 text-sm leading-snug">{sourceTweet.text}</p>
     </div>
   );
 }

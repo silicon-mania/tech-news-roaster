@@ -75,6 +75,16 @@ describe("RunCard", () => {
     expect(within(card).queryByRole("link")).not.toBeInTheDocument();
   });
 
+  test("renders the embedded Source Tweet as a compact, clamped preview like X's quoted tweet", () => {
+    render(<RunCard run={buildCardRun()} />);
+
+    const card = screen.getByRole("article", { name: "Saved run" });
+
+    // The quoted original is line-clamped so a long source post can't stretch the
+    // card into a vertical strip; the full text remains in the DOM (clamped via CSS).
+    expect(within(card).getByText(sourceTweetText)).toHaveClass("line-clamp-3");
+  });
+
   test("renders two relative timestamps beneath the card", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-06T12:00:00.000Z"));
