@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, X } from "lucide-react";
+import { ArrowUpRight, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ type SelectedRunSidebarProps = {
   onSelectedVisualJokeChange: (visualJokeId: string | null) => void;
   onVisualJokeTitleChange: (visualJokeId: string, title: string) => void;
   onSelectedGeneratedImageChange: (imageOptionId: string | null) => void;
+  onDelete: () => void;
 };
 
 /**
@@ -36,8 +37,9 @@ type SelectedRunSidebarProps = {
  * uses, so both behave identically; and an Image section — the run's image set
  * with the four generated variations switchable — built from the same
  * {@link ImageResultsArea} the workspace uses, so switching a variation re-derives
- * the card's Final Quote Tweet Image. The panel scrolls. A later slice adds the
- * delete region.
+ * the card's Final Quote Tweet Image. The panel scrolls. At the bottom sits the
+ * delete region — the run's only delete affordance (kept off the Run Card so it
+ * can't be triggered by accident) — which removes the run and quietly toasts.
  */
 export function SelectedRunSidebar({
   run,
@@ -47,6 +49,7 @@ export function SelectedRunSidebar({
   onSelectedVisualJokeChange,
   onVisualJokeTitleChange,
   onSelectedGeneratedImageChange,
+  onDelete,
 }: SelectedRunSidebarProps) {
   const isOpen = run !== null;
 
@@ -126,6 +129,16 @@ export function SelectedRunSidebar({
               />
             </section>
           ) : null}
+
+          {/* The delete region sits last, below the editing controls, so removing
+              a run is a deliberate scroll-to-the-bottom action — there's no
+              blocking confirm dialog, just a quiet toast (PRD). */}
+          <section aria-label="Delete run" className="mt-auto flex pt-2">
+            <Button className="gap-2" onClick={onDelete} type="button" variant="destructive">
+              <Trash2 aria-hidden className="size-4" strokeWidth={1.75} />
+              Delete run
+            </Button>
+          </section>
         </>
       ) : null}
     </aside>

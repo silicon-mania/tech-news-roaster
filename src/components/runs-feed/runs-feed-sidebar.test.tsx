@@ -1,10 +1,12 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { Toaster } from "@/components/ui/sonner";
 import type { GenerationRun } from "@/services/workspace";
 import { buildCompletedV3Run, createMemorySavedRunStore } from "../workspace/workspace-test-utils";
 import { RunsFeed } from "./runs-feed";
+import { undoDeleteWindowMs } from "./use-selected-run";
 
 // jsdom has no IntersectionObserver; the feed wires one for append-on-scroll. A
 // no-op stub is enough here — these tests never page past the first load.
@@ -43,6 +45,20 @@ function renderFeed(runs: GenerationRun[]) {
   render(<RunsFeed savedRunStore={savedRunStore} />);
 
   return savedRunStore;
+}
+
+// The delete flow toasts, so these renders also mount the Toaster (mounted once
+// at the app root in production). Returns the render result too, for unmount.
+function renderFeedWithToaster(runs: GenerationRun[]) {
+  const savedRunStore = createMemorySavedRunStore(runs);
+  const view = render(
+    <>
+      <RunsFeed savedRunStore={savedRunStore} />
+      <Toaster />
+    </>,
+  );
+
+  return { savedRunStore, view };
 }
 
 function getSidebar() {
@@ -307,5 +323,87 @@ describe("Selected Run sidebar", () => {
       ).not.toBeInTheDocument(),
     );
     expect(savedRunStore.save).not.toHaveBeenCalled();
+  });
+
+  test("deleting a run removes its card and shows a quiet Undo toast — no blocking dialog", async () => {
+    const user = userEvent.setup();
+    const { savedRunStore } = renderFeedWithToaster([buildCompleteRun()]);
+
+    await openSidebar(user);
+    // The run's card is in the feed before deletion.
+    expect(getFeedCard()).toBeInTheDocument();
+
+    await user.click(within(getSidebar()).getByRole("button", { name: /delete run/i }));
+
+    // The card leaves the feed and the sidebar closes with it.
+    await waitFor(() =>
+      expect(screen.queryByRole("article", { name: "Complete run 1" })).not.toBeInTheDocument(),
+    );
+    // A quiet toast confirms — no blocking dialog — and carries an Undo action.
+    expect(await screen.findByText("Run deleted")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Undo" })).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    // The delete is deferred — nothing is persisted during the undo window.
+    expect(savedRunStore.delete).not.toHaveBeenCalled();
+  });
+
+  test("Undo restores the card and never deletes the run", async () => {
+    const user = userEvent.setup();
+    const { savedRunStore } = renderFeedWithToaster([buildCompleteRun()]);
+
+    await openSidebar(user);
+    await user.click(within(getSidebar()).getByRole("button", { name: /delete run/i }));
+    await waitFor(() =>
+      expect(screen.queryByRole("article", { name: "Complete run 1" })).not.toBeInTheDocument(),
+    );
+
+    // Undo brings the card back...
+    await user.click(await screen.findByRole("button", { name: "Undo" }));
+    expect(await screen.findByRole("article", { name: "Complete run 1" })).toBeInTheDocument();
+    // ...and the delete never reached the store.
+    expect(savedRunStore.delete).not.toHaveBeenCalled();
+  });
+
+  test("commits the delete to the store once the undo window passes", async () => {
+    const user = userEvent.setup();
+    const { savedRunStore } = renderFeedWithToaster([buildCompleteRun()]);
+
+    // Open the sidebar under real timers — the feed's async load and findBy
+    // queries don't advance under a fake clock — then fake only the undo window.
+    await openSidebar(user);
+
+    vi.useFakeTimers();
+
+    try {
+      // fireEvent is synchronous, so it needs no userEvent timer advancing here.
+      fireEvent.click(within(getSidebar()).getByRole("button", { name: /delete run/i }));
+
+      // Deferred — nothing persisted yet.
+      expect(savedRunStore.delete).not.toHaveBeenCalled();
+
+      // Let the undo window elapse; the delete now commits exactly once.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(undoDeleteWindowMs);
+      });
+
+      expect(savedRunStore.delete).toHaveBeenCalledWith("complete-run-1");
+      expect(savedRunStore.delete).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("commits a still-pending delete when the feed unmounts", async () => {
+    const user = userEvent.setup();
+    const { savedRunStore, view } = renderFeedWithToaster([buildCompleteRun()]);
+
+    await openSidebar(user);
+    await user.click(within(getSidebar()).getByRole("button", { name: /delete run/i }));
+    // Deferred — still inside the undo window.
+    expect(savedRunStore.delete).not.toHaveBeenCalled();
+
+    // Tearing down the feed commits the pending delete rather than dropping it.
+    view.unmount();
+    expect(savedRunStore.delete).toHaveBeenCalledWith("complete-run-1");
   });
 });
