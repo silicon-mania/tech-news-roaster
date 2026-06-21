@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * pipeline (three-provider text generation + four image generations) composed
  * sequentially, so a sweep's wall-clock ≈ cap × per-run time. Elevate the serverless
  * duration so a full sweep finishes inside one invocation; the launch cap (3) is sized
- * to fit. Vercel clamps this to the plan/Fluid-compute maximum. See docs/deployment-v3.md.
+ * to fit. Vercel clamps this to the plan/Fluid-compute maximum. See docs/deployment.md.
  */
 export const maxDuration = 800;
 

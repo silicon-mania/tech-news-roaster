@@ -2,9 +2,9 @@
  * Configuration for the Discovery Sweep (issue 020). The coarse pre-filter floors
  * (`minFaves`/`minReposts`) remain deliberately permissive starting values; the
  * per-sweep cap was settled in issue 021 against the serverless cost/duration
- * envelope (see below and docs/deployment-v3.md). All three stay operator-tunable
+ * envelope (see below and docs/deployment.md). All three stay operator-tunable
  * against live behavior — see the "Tuning the discovery configuration" guide in
- * docs/deployment-v3.md. The sweep itself still hard-codes no schedule or interval;
+ * docs/deployment.md. The sweep itself still hard-codes no schedule or interval;
  * those live in the cron config and the sweep route (issue 021).
  */
 
@@ -21,7 +21,7 @@ export type DiscoverySweepConfig = {
    * a sweep's duration ≈ cap × per-run time, and a Vercel-Cron-triggered sweep must
    * finish inside the route's serverless duration limit. The launch value (3) was
    * chosen in issue 021 to fit comfortably; raise it once real volume and the
-   * deployment's duration headroom are known (docs/deployment-v3.md).
+   * deployment's duration headroom are known (docs/deployment.md).
    */
   maxRunsPerSweep: number;
   /**

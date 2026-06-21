@@ -1,4 +1,4 @@
-Status: Historical v2 wording. ADR-0015 supersedes the combined outside-X search and image-discovery boundary; Serper may remain an implementation choice for provider-agnostic News-Linked Image Discovery.
+Status: The combined search-and-image-discovery boundary framing is superseded by ADR-0015, but this decision still ships — Serper remains the live provider for News-Linked Image Discovery (the `/enrich` route calls `google.serper.dev`).
 
 # Serper for Outside-X Search and Image Discovery
 
