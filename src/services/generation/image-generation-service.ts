@@ -11,9 +11,11 @@ import {
   type SavedGenerationRun,
   type SelectedImageOriginal,
   selectedImageOriginalFromCandidate,
+  selectedImageOriginalFromUpload,
 } from "@/services/generation";
 import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 import { readConfiguredAiGatewayImageModel, readEnvValue } from "./ai-gateway-models";
+import { defaultImagePrompt } from "./default-image-prompt";
 import { describeErrorDetail, summarizeErrorMessage } from "./error-detail";
 
 const generatedVariationTarget = 4;
@@ -255,6 +257,245 @@ export async function prepareSelectedImageOriginal({
     mediaType,
     selectedImageOriginal,
   };
+}
+
+export type UploadedImageOriginalInput = {
+  bytes: Buffer;
+  mediaType: string;
+};
+
+export type UploadedImageOriginalPreparer = (input: {
+  now: () => Date;
+  upload: UploadedImageOriginalInput;
+  uploadId: string;
+}) => Promise<PreparedSelectedImageOriginal>;
+
+/**
+ * Streams an Uploaded Image Set (ADR-0025). It prepares the Selected Image
+ * Original directly from the uploaded bytes — no remote `fetch` (contrast
+ * ADR-0009) — then generates four variations through the same provider seam,
+ * always with the Default Image Prompt (never the run's stored prompt). The
+ * completed/failed event contract matches {@link streamImageSetForRun}; byte
+ * persistence and URL rewriting stay the caller's job, exactly as for the
+ * source-derived path.
+ */
+export async function* streamUploadedImageSetForRun(
+  {
+    upload,
+    uploadId,
+  }: {
+    upload: UploadedImageOriginalInput;
+    uploadId: string;
+  },
+  options: {
+    now?: () => Date;
+    prepareUploadedImageOriginal?: UploadedImageOriginalPreparer;
+    provider?: ImageVariationProvider;
+  } = {},
+): AsyncGenerator<ImageGenerationServiceStreamEvent> {
+  const now = options.now ?? (() => new Date());
+  const prepare = options.prepareUploadedImageOriginal ?? prepareUploadedImageOriginal;
+  const provider = options.provider ?? createDefaultImageVariationProvider();
+
+  let preparedOriginal: PreparedSelectedImageOriginal | undefined;
+  // Which step we are in, so a failure names where it broke (preparing the
+  // uploaded original vs. calling the image model).
+  let step = "prepare-uploaded-original";
+
+  try {
+    preparedOriginal = await prepare({ now, upload, uploadId });
+
+    step = "generate-variations";
+    const variations = await provider.generateVariations({
+      original: preparedOriginal,
+      // Always the Default Image Prompt — the uploaded path never reads a run's
+      // stored prompt, so manual and automated runs behave identically.
+      userImagePrompt: defaultImagePrompt,
+      variationCount: generatedVariationTarget,
+    });
+
+    yield {
+      type: "image-set-completed",
+      imageModelProvenance: provider.imageModelProvenance,
+      imageSet: buildUploadedImageSet({
+        imageModelProvenance: provider.imageModelProvenance,
+        now,
+        selectedImageOriginal: preparedOriginal.selectedImageOriginal,
+        uploadId,
+        variations,
+      }),
+      selectedImageOriginal: preparedOriginal.selectedImageOriginal,
+    };
+  } catch (error) {
+    const message = normalizeFailureMessage(error);
+    const debugLog = [
+      ...describeErrorDetail(error),
+      `Step: ${step}`,
+      `Uploaded original: ${uploadId} (user-uploaded)`,
+      `Image model: ${provider.imageModelProvenance.provider}/${provider.imageModelProvenance.model}`,
+      `Default Image Prompt length: ${defaultImagePrompt.length}`,
+    ];
+
+    console.error("[image-generation] uploaded image set failed", { debugLog, message, step });
+
+    yield {
+      type: "image-set-failed",
+      failedImageSet: buildUploadedFailedImageSet({
+        debugLog,
+        message,
+        now,
+        selectedImageOriginal: preparedOriginal?.selectedImageOriginal,
+        uploadId,
+      }),
+      imageModelProvenance: provider.imageModelProvenance,
+      selectedImageOriginal: preparedOriginal?.selectedImageOriginal,
+    };
+  }
+}
+
+/**
+ * Collected form of {@link streamUploadedImageSetForRun} for callers (and tests)
+ * that want the terminal result rather than the event stream.
+ */
+export async function generateUploadedImageSetForRun(
+  {
+    upload,
+    uploadId,
+  }: {
+    upload: UploadedImageOriginalInput;
+    uploadId: string;
+  },
+  options: {
+    now?: () => Date;
+    prepareUploadedImageOriginal?: UploadedImageOriginalPreparer;
+    provider?: ImageVariationProvider;
+  } = {},
+): Promise<ImageGenerationServiceResult> {
+  const provider = options.provider ?? createDefaultImageVariationProvider();
+  const result: ImageGenerationServiceResult = {
+    imageModelProvenance: provider.imageModelProvenance,
+  };
+
+  for await (const event of streamUploadedImageSetForRun(
+    { upload, uploadId },
+    { ...options, provider },
+  )) {
+    if (event.type === "image-set-completed") {
+      result.imageSet = event.imageSet;
+      result.selectedImageOriginal = event.selectedImageOriginal;
+    } else {
+      result.failedImageSet = event.failedImageSet;
+
+      if (event.selectedImageOriginal) {
+        result.selectedImageOriginal = event.selectedImageOriginal;
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Prepares an uploaded image's Selected Image Original entirely from its bytes —
+ * the data URL fed to the image model, its media type, and the `user-uploaded`
+ * Selected Image Original metadata. No network: the bytes are already in hand
+ * (contrast {@link prepareSelectedImageOriginal}, which fetches a remote
+ * candidate URL).
+ */
+async function prepareUploadedImageOriginal({
+  now,
+  upload,
+  uploadId,
+}: {
+  now: () => Date;
+  upload: UploadedImageOriginalInput;
+  uploadId: string;
+}): Promise<PreparedSelectedImageOriginal> {
+  if (upload.bytes.byteLength === 0) {
+    throw new Error("Uploaded image was empty.");
+  }
+
+  const dataUrl = `data:${upload.mediaType};base64,${upload.bytes.toString("base64")}`;
+  const selectedImageOriginal = selectedImageOriginalFromUpload({
+    preparedAt: now().toISOString(),
+    uploadId,
+    url: dataUrl,
+  });
+
+  return {
+    dataUrl,
+    mediaType: upload.mediaType,
+    selectedImageOriginal,
+  };
+}
+
+function buildUploadedImageSet({
+  imageModelProvenance,
+  now,
+  selectedImageOriginal,
+  uploadId,
+  variations,
+}: {
+  imageModelProvenance: ImageModelProvenance;
+  now: () => Date;
+  selectedImageOriginal: SelectedImageOriginal;
+  uploadId: string;
+  variations: GeneratedImageVariation[];
+}) {
+  if (variations.length !== generatedVariationTarget) {
+    throw new Error("Image provider must return exactly four variations.");
+  }
+
+  // Keyed off the upload, so an uploaded set's option ids never collide with the
+  // source-derived set (`image-set-<candidate>`) or with another upload on the
+  // same run.
+  const imageSetId = `uploaded-image-set-${uploadId}`;
+
+  return parseImageSet({
+    completedAt: now().toISOString(),
+    id: imageSetId,
+    imageModelProvenance,
+    options: [
+      {
+        altText: selectedImageOriginal.altText,
+        id: `${imageSetId}-original`,
+        kind: "original",
+        label: "Original",
+        url: selectedImageOriginal.url,
+      },
+      ...variations.map((variation, index) => ({
+        altText: variation.altText,
+        id: `${imageSetId}-variation-${index + 1}`,
+        kind: "variation" as const,
+        label: `Variation ${index + 1}`,
+        url: variation.url,
+      })),
+    ],
+    selectedImageOriginal,
+  });
+}
+
+function buildUploadedFailedImageSet({
+  debugLog,
+  message,
+  now,
+  selectedImageOriginal,
+  uploadId,
+}: {
+  debugLog?: string[];
+  message: string;
+  now: () => Date;
+  selectedImageOriginal?: SelectedImageOriginal;
+  uploadId: string;
+}) {
+  return parseFailedImageSet({
+    debugLog,
+    failedAt: now().toISOString(),
+    id: `failed-uploaded-image-set-${uploadId}`,
+    message,
+    selectedImageId: `uploaded-original-${uploadId}`,
+    selectedImageOriginal,
+  });
 }
 
 function createDefaultImageVariationProvider(

@@ -1,8 +1,8 @@
 import "server-only";
 
-import type { ImageSet } from "@/services/generation";
+import type { ImageOption, ImageSet } from "@/services/generation";
 import { resolveImageBytesStore } from "./image-bytes-store";
-import { persistImageSetBytes } from "./persist-image-set-bytes";
+import { persistImageOptionsBytes, persistImageSetBytes } from "./persist-image-set-bytes";
 import type { OperatorSessionReader } from "./run-repository";
 
 type SupabaseEnvironment = Readonly<Record<string, string | undefined>>;
@@ -43,4 +43,34 @@ export async function persistImageSetToOwnerStorage({
   }
 
   return persistImageSetBytes({ imageSet, origin, runId, store: resolution.store });
+}
+
+/**
+ * The option-granular sibling of {@link persistImageSetToOwnerStorage}: resolves
+ * the signed-in Operator Account's object storage and moves a list of Image
+ * Options' bytes into it, returning them with their URLs rewritten to owner-scoped
+ * serving routes. The uploaded-image route persists the uploaded original through
+ * this up front (so it survives a variation failure) and the four variations once
+ * they generate — both under the same owner gate as the source-derived path.
+ */
+export async function persistImageOptionsToOwnerStorage({
+  options,
+  origin,
+  runId,
+  env,
+  getSession,
+}: {
+  options: readonly ImageOption[];
+  origin: string;
+  runId: string;
+  env?: SupabaseEnvironment;
+  getSession?: OperatorSessionReader;
+}): Promise<ImageOption[]> {
+  const resolution = await resolveImageBytesStore(env, getSession);
+
+  if ("unauthorized" in resolution) {
+    throw new Error("Operator authentication required.");
+  }
+
+  return persistImageOptionsBytes({ options, origin, runId, store: resolution.store });
 }

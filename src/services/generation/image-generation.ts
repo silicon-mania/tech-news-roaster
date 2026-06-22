@@ -193,6 +193,7 @@ export type FailedImageSet = z.infer<typeof failedImageSetSchema>;
 export type ImageGenerationInput = z.infer<typeof imageGenerationInputSchema>;
 export type ImageGenerationParentRun = z.infer<typeof imageGenerationParentRunSchema>;
 export type ImageModelProvenance = z.infer<typeof imageModelProvenanceSchema>;
+export type ImageOption = z.infer<typeof imageOptionSchema>;
 export type ImageSet = z.infer<typeof imageSetSchema>;
 export type SelectedGeneratedImage = z.infer<typeof selectedGeneratedImageSchema> | null;
 export type SelectedImageOriginal = z.infer<typeof selectedImageOriginalSchema>;
@@ -232,6 +233,37 @@ export function selectedImageOriginalFromCandidate(
     sourceUrl: candidate.sourceUrl,
     title: candidate.title,
     url: candidate.url,
+  });
+}
+
+/**
+ * Builds the Selected Image Original for an Uploaded Image Set (ADR-0025). Unlike
+ * {@link selectedImageOriginalFromCandidate} there is no Image Original Candidate
+ * — the operator supplies the bytes directly — so the origin is `'user-uploaded'`
+ * and the ids are keyed off the upload. The `url` begins as the inline upload (a
+ * `data:` URL) and is repointed at the stored original once its bytes are
+ * persisted to owner storage.
+ */
+export function selectedImageOriginalFromUpload({
+  altText,
+  preparedAt,
+  uploadId,
+  url,
+}: {
+  altText?: string;
+  preparedAt: string;
+  uploadId: string;
+  url: string;
+}): SelectedImageOriginal {
+  const candidateId = `uploaded-original-${uploadId}`;
+
+  return parseSelectedImageOriginal({
+    altText,
+    candidateId,
+    id: `selected-original-${candidateId}`,
+    origin: "user-uploaded",
+    preparedAt,
+    url,
   });
 }
 

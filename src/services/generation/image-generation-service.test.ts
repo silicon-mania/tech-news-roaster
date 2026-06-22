@@ -1,7 +1,11 @@
+import { Buffer } from "node:buffer";
 import { describe, expect, test, vi } from "vitest";
 import type { ImageOriginalCandidate } from "@/services/generation";
+import { defaultImagePrompt } from "./default-image-prompt";
 import {
   generateImageSetForRun,
+  generateUploadedImageSetForRun,
+  type ImageVariationProvider,
   type PreparedSelectedImageOriginal,
   prepareSelectedImageOriginal,
 } from "./image-generation-service";
@@ -302,6 +306,139 @@ describe("image generation service", () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+});
+
+describe("uploaded image generation service", () => {
+  test("prepares the original from uploaded bytes and generates four variations with the Default Image Prompt, with no remote fetch", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetch = vi.fn();
+    const generateVariations = vi.fn<ImageVariationProvider["generateVariations"]>(
+      async ({ original, variationCount }) =>
+        Array.from({ length: variationCount }, (_, index) => ({
+          altText: `Uploaded visual variation ${index + 1}.`,
+          url: `https://example.com/${original.selectedImageOriginal.candidateId}-variation-${
+            index + 1
+          }.png`,
+        })),
+    );
+
+    globalThis.fetch = fetch;
+
+    try {
+      const result = await generateUploadedImageSetForRun(
+        {
+          upload: {
+            bytes: Buffer.from("uploaded-bytes"),
+            mediaType: "image/png",
+          },
+          uploadId: "upload-1",
+        },
+        {
+          now: () => new Date("2026-06-05T10:20:00.000Z"),
+          provider: {
+            generateVariations,
+            imageModelProvenance: {
+              model: "image-model-v1",
+              provider: "test-provider",
+            },
+          },
+        },
+      );
+
+      // The uploaded path prepares the original from the bytes in hand — no fetch.
+      expect(fetch).not.toHaveBeenCalled();
+      expect(generateVariations).toHaveBeenCalledTimes(1);
+      expect(generateVariations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userImagePrompt: defaultImagePrompt,
+          variationCount: 4,
+        }),
+      );
+
+      const preparedOriginal = generateVariations.mock.calls[0]?.[0]?.original;
+
+      expect(preparedOriginal?.dataUrl).toBe(
+        `data:image/png;base64,${Buffer.from("uploaded-bytes").toString("base64")}`,
+      );
+      expect(preparedOriginal?.selectedImageOriginal.origin).toBe("user-uploaded");
+
+      expect(result.failedImageSet).toBeUndefined();
+      expect(result.selectedImageOriginal).toEqual(
+        expect.objectContaining({
+          candidateId: "uploaded-original-upload-1",
+          id: "selected-original-uploaded-original-upload-1",
+          origin: "user-uploaded",
+        }),
+      );
+      expect(result.imageSet).toEqual(
+        expect.objectContaining({
+          id: "uploaded-image-set-upload-1",
+          options: [
+            expect.objectContaining({
+              id: "uploaded-image-set-upload-1-original",
+              kind: "original",
+              label: "Original",
+            }),
+            expect.objectContaining({
+              id: "uploaded-image-set-upload-1-variation-1",
+              kind: "variation",
+              label: "Variation 1",
+            }),
+            expect.objectContaining({ kind: "variation", label: "Variation 2" }),
+            expect.objectContaining({ kind: "variation", label: "Variation 3" }),
+            expect.objectContaining({ kind: "variation", label: "Variation 4" }),
+          ],
+        }),
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("captures a failed uploaded set with a debug log when the provider throws", async () => {
+    const generateVariations = vi
+      .fn<ImageVariationProvider["generateVariations"]>()
+      .mockRejectedValueOnce(new Error("The configured image model failed."));
+
+    const result = await generateUploadedImageSetForRun(
+      {
+        upload: {
+          bytes: Buffer.from("uploaded-bytes"),
+          mediaType: "image/png",
+        },
+        uploadId: "upload-2",
+      },
+      {
+        now: () => new Date("2026-06-05T10:20:00.000Z"),
+        provider: {
+          generateVariations,
+          imageModelProvenance: {
+            model: "image-model-v1",
+            provider: "test-provider",
+          },
+        },
+      },
+    );
+
+    expect(generateVariations).toHaveBeenCalledTimes(1);
+    expect(result.imageSet).toBeUndefined();
+    expect(result.failedImageSet).toEqual(
+      expect.objectContaining({
+        id: "failed-uploaded-image-set-upload-2",
+        message: "The configured image model failed.",
+        selectedImageId: "uploaded-original-upload-2",
+        selectedImageOriginal: expect.objectContaining({
+          origin: "user-uploaded",
+        }),
+      }),
+    );
+    expect(result.failedImageSet?.debugLog).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("The configured image model failed."),
+        "Step: generate-variations",
+      ]),
+    );
   });
 });
 

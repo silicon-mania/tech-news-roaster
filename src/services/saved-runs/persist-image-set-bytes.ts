@@ -1,7 +1,7 @@
 import "server-only";
 
 import { Buffer } from "node:buffer";
-import { type ImageSet, parseImageSet } from "@/services/generation";
+import { type ImageOption, type ImageSet, parseImageSet } from "@/services/generation";
 import { type ImageBytesStore, imageStoragePath } from "./image-bytes-store";
 
 /**
@@ -21,6 +21,37 @@ export type ImageBytesFetcher = (url: string) => Promise<{ bytes: Buffer; conten
  * The Selected Image Original's URL is repointed at the stored original too, so
  * the Final Quote Tweet Image recomposes from stored bytes on reopen (ADR-0018).
  */
+/**
+ * Moves a list of Image Options' bytes into owner-scoped object storage and
+ * rewrites each URL to its `/api/runs/${runId}/images/${optionId}` server route.
+ * The granular building block shared by {@link persistImageSetBytes} (a whole
+ * source-derived or uploaded set) and the uploaded route, which persists the
+ * original up front — independent of whether its variations later succeed.
+ */
+export async function persistImageOptionsBytes({
+  fetchBytes = fetchImageBytes,
+  options,
+  origin,
+  runId,
+  store,
+}: {
+  fetchBytes?: ImageBytesFetcher;
+  options: readonly ImageOption[];
+  origin: string;
+  runId: string;
+  store: ImageBytesStore;
+}): Promise<ImageOption[]> {
+  return Promise.all(
+    options.map(async (option) => {
+      const { bytes, contentType } = await fetchBytes(option.url);
+
+      await store.put(imageStoragePath(runId, option.id), bytes, contentType);
+
+      return { ...option, url: servedImageUrl({ optionId: option.id, origin, runId }) };
+    }),
+  );
+}
+
 export async function persistImageSetBytes({
   fetchBytes = fetchImageBytes,
   imageSet,
@@ -34,15 +65,13 @@ export async function persistImageSetBytes({
   runId: string;
   store: ImageBytesStore;
 }): Promise<ImageSet> {
-  const rewrittenOptions = await Promise.all(
-    imageSet.options.map(async (option) => {
-      const { bytes, contentType } = await fetchBytes(option.url);
-
-      await store.put(imageStoragePath(runId, option.id), bytes, contentType);
-
-      return { ...option, url: servedImageUrl({ optionId: option.id, origin, runId }) };
-    }),
-  );
+  const rewrittenOptions = await persistImageOptionsBytes({
+    fetchBytes,
+    options: imageSet.options,
+    origin,
+    runId,
+    store,
+  });
 
   return parseImageSet({
     ...imageSet,
