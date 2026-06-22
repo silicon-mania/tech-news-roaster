@@ -23,6 +23,8 @@ type RunsFeedProps = {
    * the client bundle. The empty state renders one link per id.
    */
   discoverySourceListIds?: string[];
+  /** Injected for tests; defaults to the global `fetch` for the upload stream. */
+  uploadImageFetcher?: typeof fetch;
 };
 
 const LOGO_SRC = "/assets/logo/logo.png";
@@ -37,6 +39,7 @@ const LOGO_SRC = "/assets/logo/logo.png";
 export function RunsFeed({
   savedRunStore = httpSavedRunStore,
   discoverySourceListIds = [],
+  uploadImageFetcher,
 }: RunsFeedProps) {
   const { runs, setRuns, hasMore, isLoading, isRefreshing, refresh, setSentinel } =
     useRunsFeed(savedRunStore);
@@ -49,8 +52,10 @@ export function RunsFeed({
     updateSelectedVisualJoke,
     updateVisualJokeTitle,
     updateSelectedGeneratedImage,
+    uploadSelectedRunImage,
+    isUploadGenerating,
     deleteSelectedRun,
-  } = useSelectedRun({ runs, savedRunStore, setRuns });
+  } = useSelectedRun({ runs, savedRunStore, setRuns, uploadImageFetcher });
   const isInitialLoading = isLoading && runs.length === 0;
   const isEmpty = !isLoading && runs.length === 0;
 
@@ -146,12 +151,14 @@ export function RunsFeed({
       </main>
 
       <SelectedRunSidebar
+        isUploadGenerating={isUploadGenerating}
         onClose={closeSelectedRun}
         onDelete={deleteSelectedRun}
         onDraftTextChange={updateDraftText}
         onSelectedDraftChange={updateSelectedDraft}
         onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
         onSelectedVisualJokeChange={updateSelectedVisualJoke}
+        onUploadImage={uploadSelectedRunImage}
         onVisualJokeTitleChange={updateVisualJokeTitle}
         run={selectedRun}
       />

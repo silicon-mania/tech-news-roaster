@@ -3,9 +3,9 @@
 import { ArrowUpRight, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect } from "react";
+import { ImageSetStack, UploadImageButton } from "@/components/image-sets";
 import { Button } from "@/components/ui/button";
 import { DraftComparison } from "@/components/workspace/draft-comparison";
-import { ImageResultsArea } from "@/components/workspace/image-results-area";
 import { VisualJokeList } from "@/components/workspace/visual-joke-list";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
@@ -20,6 +20,10 @@ type SelectedRunSidebarProps = {
   onSelectedVisualJokeChange: (visualJokeId: string | null) => void;
   onVisualJokeTitleChange: (visualJokeId: string, title: string) => void;
   onSelectedGeneratedImageChange: (imageOptionId: string | null) => void;
+  /** Upload an image of the operator's own to generate a new Uploaded Image Set. */
+  onUploadImage: (file: File) => void;
+  /** Whether an upload generation is in flight (disables the trigger, shows skeleton). */
+  isUploadGenerating: boolean;
   onDelete: () => void;
 };
 
@@ -38,10 +42,11 @@ type SelectedRunSidebarProps = {
  * workspace uses; and a Visual jokes section — grouped Satire / Tech-positive /
  * Experimental with Top Picks flagged, the selected joke switchable and its Joke
  * Title inline-editable — built from the same {@link VisualJokeList} the workspace
- * uses, so both behave identically; and an Image section — the run's image set
- * with the four generated variations switchable — built from the same
- * {@link ImageResultsArea} the workspace uses, so switching a variation re-derives
- * the card's Final Quote Tweet Image. The panel scrolls. At the bottom sits the
+ * uses, so both behave identically; and an Image section — the run's stack of
+ * Image Sets with the four generated variations of each switchable, plus an
+ * "Upload your own image" trigger that generates a new Uploaded Image Set — built
+ * from the same {@link ImageSetStack} the workspace uses, so switching a variation
+ * re-derives the card's Final Quote Tweet Image. The panel scrolls. At the bottom sits the
  * delete region — the run's only delete affordance (kept off the Run Card so it
  * can't be triggered by accident) — which removes the run and quietly toasts.
  */
@@ -53,6 +58,8 @@ export function SelectedRunSidebar({
   onSelectedVisualJokeChange,
   onVisualJokeTitleChange,
   onSelectedGeneratedImageChange,
+  onUploadImage,
+  isUploadGenerating,
   onDelete,
 }: SelectedRunSidebarProps) {
   const isOpen = run !== null;
@@ -121,20 +128,24 @@ export function SelectedRunSidebar({
             </section>
           ) : null}
 
-          {run.imageSet ? (
-            <section aria-label="Image" className="grid min-w-0 gap-3">
+          {/* The Image section always shows so the upload trigger is reachable on
+              any run. The stack uses the same Image Set article the workspace does,
+              so only the four generated variations of each set are selectable — the
+              Selected Image Original stays display-only, and there is no
+              regeneration or prompt control here, keeping the sidebar a quick
+              editor. Uploading appends a new "Image set N" below the others. */}
+          <section aria-label="Image" className="grid min-w-0 gap-3">
+            <div className="flex items-center justify-between gap-2">
               <h3 className="title-serif text-foreground text-lg">Image</h3>
-              {/* The same switcher the workspace uses, so only the four generated
-                  variations are selectable — the Selected Image Original stays
-                  display-only and there is no regeneration or prompt control here,
-                  keeping the sidebar a quick editor. */}
-              <ImageResultsArea
-                imageSet={run.imageSet}
-                onSelectedGeneratedImageChange={onSelectedGeneratedImageChange}
-                selectedGeneratedImageOptionId={run.selectedGeneratedImage?.imageOptionId ?? null}
-              />
-            </section>
-          ) : null}
+              <UploadImageButton disabled={isUploadGenerating} onUpload={onUploadImage} />
+            </div>
+            <ImageSetStack
+              isGenerationPending={isUploadGenerating}
+              onSelectedGeneratedImageChange={onSelectedGeneratedImageChange}
+              run={run}
+              selectedGeneratedImageOptionId={run.selectedGeneratedImage?.imageOptionId ?? null}
+            />
+          </section>
 
           {/* The delete region sits last, below the editing controls, so removing
               a run is a deliberate scroll-to-the-bottom action — there's no

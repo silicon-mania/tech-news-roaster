@@ -9,7 +9,9 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { useUploadedImageGeneration } from "@/components/image-sets";
 import { useRunAutosave } from "@/components/workspace/use-run-autosave";
+import { collectCompletedImageSets } from "@/services/generation";
 import type { GenerationRun, SavedRunStore } from "@/services/workspace";
 
 /**
@@ -25,6 +27,8 @@ type UseSelectedRunArgs = {
   /** The feed's runs setter, so an edit updates the shared list (and the card). */
   setRuns: Dispatch<SetStateAction<GenerationRun[]>>;
   savedRunStore: SavedRunStore;
+  /** Injected for tests; defaults to the global `fetch` for the upload stream. */
+  uploadImageFetcher?: typeof fetch;
 };
 
 type SelectedRun = {
@@ -44,6 +48,10 @@ type SelectedRun = {
   updateVisualJokeTitle: (visualJokeId: string, title: string) => void;
   /** Switch the Selected Generated Image variation — updates the card and saves immediately. */
   updateSelectedGeneratedImage: (imageOptionId: string | null) => void;
+  /** Upload an image of the operator's own and generate a new Uploaded Image Set. */
+  uploadSelectedRunImage: (file: File) => void;
+  /** Whether an Uploaded Image Set generation is in flight (disables the trigger). */
+  isUploadGenerating: boolean;
   /**
    * Delete the Selected Run — drops its card and closes the sidebar at once, then
    * commits the delete after an undo window the quiet toast's Undo action cancels.
@@ -60,9 +68,21 @@ type SelectedRun = {
  * free-text edit rides the debounced autosave; there is no save button. Opening a
  * settled, still-unseen run marks it seen, preserving the workspace behavior.
  */
-export function useSelectedRun({ runs, setRuns, savedRunStore }: UseSelectedRunArgs): SelectedRun {
+export function useSelectedRun({
+  runs,
+  setRuns,
+  savedRunStore,
+  uploadImageFetcher,
+}: UseSelectedRunArgs): SelectedRun {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const { saveRunNow, scheduleRunAutosave } = useRunAutosave(savedRunStore);
+  // Uploading from the sidebar persists immediately (sidebar immediate save),
+  // through the same whole-payload save path every discrete selection uses.
+  const { generatingRunId, uploadImage } = useUploadedImageGeneration({
+    persistRun: saveRunNow,
+    setRuns,
+    uploadFetcher: uploadImageFetcher,
+  });
   // Deferred deletes still inside their undo window, keyed by run id so several
   // can be pending at once.
   const pendingDeleteTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -197,17 +217,20 @@ export function useSelectedRun({ runs, setRuns, savedRunStore }: UseSelectedRunA
   }
 
   function updateSelectedGeneratedImage(imageOptionId: string | null) {
-    if (!selectedRun?.imageSet) {
+    if (!selectedRun) {
       return;
     }
 
-    // Only the four generated variations are switchable — never the Selected Image
-    // Original — so a non-variation option (or a dangling id) is ignored, matching
-    // the workspace's image switch.
+    // Only the four generated variations are switchable — never an Image Original —
+    // and the option may live in any completed set (source-derived or uploaded),
+    // so resolution searches across every set (ADR-0025). A non-variation option
+    // or a dangling id is ignored, matching the workspace's image switch.
     if (
       imageOptionId &&
-      !selectedRun.imageSet.options.some(
-        (option) => option.id === imageOptionId && option.kind === "variation",
+      !collectCompletedImageSets(selectedRun).some((imageSet) =>
+        imageSet.options.some(
+          (option) => option.id === imageOptionId && option.kind === "variation",
+        ),
       )
     ) {
       return;
@@ -224,6 +247,14 @@ export function useSelectedRun({ runs, setRuns, savedRunStore }: UseSelectedRunA
       currentRuns.map((run) => (run.id === updatedRun.id ? updatedRun : run)),
     );
     saveRunNow(updatedRun);
+  }
+
+  function uploadSelectedRunImage(file: File) {
+    if (!selectedRun) {
+      return;
+    }
+
+    uploadImage(selectedRun.id, file);
   }
 
   function deleteSelectedRun() {
@@ -289,6 +320,8 @@ export function useSelectedRun({ runs, setRuns, savedRunStore }: UseSelectedRunA
     updateSelectedVisualJoke,
     updateVisualJokeTitle,
     updateSelectedGeneratedImage,
+    uploadSelectedRunImage,
+    isUploadGenerating: generatingRunId !== null,
     deleteSelectedRun,
   };
 }
