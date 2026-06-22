@@ -5,7 +5,6 @@ import { describe, expect, test, vi } from "vitest";
 import {
   buildCompletedRun,
   buildCompletedV3Run,
-  buildVisualJokeSet,
   createMemorySavedRunStore,
   renderWorkspace,
 } from "./workspace-test-utils";
@@ -110,13 +109,11 @@ describe("Workspace final quote tweet image overlay", () => {
   test("keeps the overlay hidden when no image set with variations exists", () => {
     renderWorkspace({
       initialActiveRunId: "saved-run",
-      initialRuns: [buildCompletedRun({ visualJokeSet: buildVisualJokeSet() })],
+      initialRuns: [buildCompletedRun()],
     });
 
-    // The visual joke area renders, so the run workspace grid is present...
-    expect(
-      screen.getByRole("region", { name: /visual joke creative result area/i }),
-    ).toBeInTheDocument();
+    // The run renders its drafts...
+    expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
     // ...but with no Image Set there is nothing to assemble, so the overlay stays hidden.
     expect(
       screen.queryByRole("region", { name: /final quote tweet image creative result area/i }),

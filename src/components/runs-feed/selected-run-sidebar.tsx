@@ -6,7 +6,6 @@ import { useEffect } from "react";
 import { ImageSetStack, UploadImageButton } from "@/components/image-sets";
 import { Button } from "@/components/ui/button";
 import { DraftComparison } from "@/components/workspace/draft-comparison";
-import { VisualJokeList } from "@/components/workspace/visual-joke-list";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
 import { FinalImageDownload } from "./final-image-download";
@@ -17,8 +16,6 @@ type SelectedRunSidebarProps = {
   onClose: () => void;
   onSelectedDraftChange: (draftId: string | null) => void;
   onDraftTextChange: (draftId: string, text: string) => void;
-  onSelectedVisualJokeChange: (visualJokeId: string | null) => void;
-  onVisualJokeTitleChange: (visualJokeId: string, title: string) => void;
   onSelectedGeneratedImageChange: (imageOptionId: string | null) => void;
   /** Upload an image of the operator's own to generate a new Uploaded Image Set. */
   onUploadImage: (file: File) => void;
@@ -39,10 +36,7 @@ type SelectedRunSidebarProps = {
  * Source post reference that opens the original tweet on X in a new tab; a Text
  * section — the run's drafts,
  * switchable and inline-editable — built from the same {@link DraftComparison} the
- * workspace uses; and a Visual jokes section — grouped Satire / Tech-positive /
- * Experimental with Top Picks flagged, the selected joke switchable and its Joke
- * Title inline-editable — built from the same {@link VisualJokeList} the workspace
- * uses, so both behave identically; and an Image section — the run's stack of
+ * workspace uses; and an Image section — the run's stack of
  * Image Sets with the four generated variations of each switchable, plus an
  * "Upload your own image" trigger that generates a new Uploaded Image Set — built
  * from the same {@link ImageSetStack} the workspace uses, so switching a variation
@@ -55,8 +49,6 @@ export function SelectedRunSidebar({
   onClose,
   onSelectedDraftChange,
   onDraftTextChange,
-  onSelectedVisualJokeChange,
-  onVisualJokeTitleChange,
   onSelectedGeneratedImageChange,
   onUploadImage,
   isUploadGenerating,
@@ -115,18 +107,6 @@ export function SelectedRunSidebar({
               onSelectedDraftChange={onSelectedDraftChange}
             />
           </section>
-
-          {run.visualJokeSet ? (
-            <section aria-label="Visual jokes" className="grid min-w-0 gap-3">
-              <h3 className="title-serif text-foreground text-lg">Visual jokes</h3>
-              <VisualJokeList
-                onSelectedVisualJokeChange={onSelectedVisualJokeChange}
-                onVisualJokeTitleChange={onVisualJokeTitleChange}
-                selectedVisualJokeId={run.selectedVisualJoke?.visualJokeId ?? null}
-                visualJokeSet={run.visualJokeSet}
-              />
-            </section>
-          ) : null}
 
           {/* The Image section always shows so the upload trigger is reachable on
               any run. The stack uses the same Image Set article the workspace does,

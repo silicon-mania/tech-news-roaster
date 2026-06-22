@@ -330,69 +330,6 @@ export function Workspace({
     scheduleRunAutosave(updatedRun);
   }
 
-  function updateSelectedVisualJoke(runId: string, visualJokeId: string | null) {
-    const run = runs.find((candidateRun) => candidateRun.id === runId);
-
-    if (!run?.visualJokeSet) {
-      return;
-    }
-
-    if (visualJokeId && !run.visualJokeSet.jokes.some((joke) => joke.id === visualJokeId)) {
-      return;
-    }
-
-    const updatedRun: GenerationRun = {
-      ...run,
-      selectedVisualJoke: visualJokeId
-        ? {
-            selectedAt: new Date().toISOString(),
-            visualJokeId,
-          }
-        : null,
-    };
-
-    setRuns((currentRuns) =>
-      currentRuns.map((currentRun) => {
-        if (currentRun.id !== runId) {
-          return currentRun;
-        }
-
-        return updatedRun;
-      }),
-    );
-    scheduleRunAutosave(updatedRun);
-  }
-
-  function updateVisualJokeText(runId: string, visualJokeId: string, title: string) {
-    const run = runs.find((candidateRun) => candidateRun.id === runId);
-
-    if (!run?.visualJokeSet) {
-      return;
-    }
-
-    if (!run.visualJokeSet.jokes.some((joke) => joke.id === visualJokeId)) {
-      return;
-    }
-
-    // Overwrite the Joke Title within the run's own visual joke set — the original
-    // generated title is not retained, exactly as an edited Draft overwrites its
-    // text. The Final Quote Tweet Image re-derives from this when it is selected.
-    const updatedRun: GenerationRun = {
-      ...run,
-      visualJokeSet: {
-        ...run.visualJokeSet,
-        jokes: run.visualJokeSet.jokes.map((joke) =>
-          joke.id === visualJokeId ? { ...joke, text: title } : joke,
-        ),
-      },
-    };
-
-    setRuns((currentRuns) =>
-      currentRuns.map((currentRun) => (currentRun.id === runId ? updatedRun : currentRun)),
-    );
-    scheduleRunAutosave(updatedRun);
-  }
-
   function updateSelectedGeneratedImage(runId: string, imageOptionId: string | null) {
     const run = runs.find((candidateRun) => candidateRun.id === runId);
 
@@ -544,10 +481,8 @@ export function Workspace({
               onDraftTextChange={updateDraftText}
               onSelectedDraftChange={updateSelectedDraft}
               onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
-              onSelectedVisualJokeChange={updateSelectedVisualJoke}
               onStartImageGeneration={startImageGeneration}
               onUploadImage={uploadImage}
-              onVisualJokeTitleChange={updateVisualJokeText}
             />
           </div>
         ) : (
