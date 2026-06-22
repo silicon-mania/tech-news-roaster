@@ -35,8 +35,10 @@ const iconButtonClassName =
  * Sticky bottom-right overlay that renders the run's Final Quote Tweet Image.
  * It owns no selection state — it derives the composite from the active run's
  * two picks and re-renders instantly as they change. It mounts only once the run
- * has both a generated image set and visual jokes; total image failure (no sets)
- * leaves it hidden and the Image work area carries that failure instead.
+ * has at least one completed Image Set — source-derived or uploaded (ADR-0025), so
+ * an upload-only run still gets its Final Quote Tweet Image — and visual jokes;
+ * total image failure (no completed sets) leaves it hidden and the Image work area
+ * carries that failure instead.
  */
 export function FinalQuoteTweetImageOverlay({
   rasterizeComposite = rasterizeCompositeToPng,
@@ -53,9 +55,9 @@ export function FinalQuoteTweetImageOverlay({
     selectedVisualJokeId: run?.selectedVisualJoke?.visualJokeId ?? null,
   });
 
-  const imageSet = run?.imageSet;
   const jokes = run?.visualJokeSet?.jokes ?? [];
-  const isAvailable = Boolean(run) && Boolean(imageSet) && jokes.length > 0;
+  const hasCompletedImageSet = run ? collectCompletedImageSets(run).length > 0 : false;
+  const isAvailable = Boolean(run) && hasCompletedImageSet && jokes.length > 0;
 
   if (!run || !isAvailable) {
     return null;

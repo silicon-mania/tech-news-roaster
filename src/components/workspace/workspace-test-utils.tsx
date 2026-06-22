@@ -59,6 +59,7 @@ export function renderWorkspace({
   imageGenerationStreamFetcher = vi.fn(
     async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(""),
   ),
+  uploadImageFetcher,
   isDesktop = false,
   initialActiveRunId,
   initialRuns,
@@ -73,6 +74,7 @@ export function renderWorkspace({
 }: {
   generationEventSources?: FakeGenerationEventSource[];
   imageGenerationStreamFetcher?: typeof fetch;
+  uploadImageFetcher?: typeof fetch;
   isDesktop?: boolean;
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
@@ -102,6 +104,7 @@ export function renderWorkspace({
           return eventSource;
         }}
         imageGenerationStreamFetcher={imageGenerationStreamFetcher}
+        uploadImageFetcher={uploadImageFetcher}
         initialActiveRunId={initialActiveRunId}
         initialRuns={initialRuns}
         initialRuntimeStatus={initialRuntimeStatus}

@@ -19,22 +19,26 @@ import { VisualJokeSkeleton } from "./visual-joke-skeleton";
 
 type ActiveRunPanelProps = {
   activeRun: GenerationRun | null;
+  isUploadGenerating: boolean;
   onDraftTextChange: (draftId: string, text: string) => void;
   onSelectedDraftChange: (draftId: string | null) => void;
   onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onSelectedVisualJokeChange: (runId: string, visualJokeId: string | null) => void;
   onVisualJokeTitleChange: (runId: string, visualJokeId: string, title: string) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
+  onUploadImage: (runId: string, file: File) => void;
 };
 
 export function ActiveRunPanel({
   activeRun,
+  isUploadGenerating,
   onDraftTextChange,
   onSelectedDraftChange,
   onSelectedGeneratedImageChange,
   onSelectedVisualJokeChange,
   onVisualJokeTitleChange,
   onStartImageGeneration,
+  onUploadImage,
 }: ActiveRunPanelProps) {
   if (!activeRun) {
     return <section aria-label="Empty draft canvas" className="min-h-72 sm:min-h-88" />;
@@ -55,8 +59,18 @@ export function ActiveRunPanel({
   // otherwise its failure (if that stage failed), otherwise a skeleton while the
   // run is still in flight. This lets text reveal before visual jokes, images
   // reveal before text, etc., rather than gating every section on the whole run.
+  // The Image work area (which carries the uploader trigger) surfaces as soon as
+  // there is anything image-related to act on — Image Original Candidates to pick
+  // from, the source-derived set or its failure, or any Uploaded Image Set. It is
+  // deliberately not gated by the base-set phase, so on a manual run the operator
+  // can upload before (or instead of) generating the candidate-based set while
+  // `imageSet` is still absent and candidates are unselected (ADR-0025).
   const hasImageGenerationContent = Boolean(
-    activeRun.newsLinkedImages?.length || activeRun.imageSet || activeRun.failedImageSet,
+    activeRun.imageOriginalCandidates?.length ||
+      activeRun.newsLinkedImages?.length ||
+      activeRun.imageSet ||
+      activeRun.failedImageSet ||
+      activeRun.uploadedImageSets?.length,
   );
   const imageDiscoveryFailure = getStageFailure(
     activeRun.generationResultStates?.newsLinkedImageDiscovery,
@@ -65,8 +79,10 @@ export function ActiveRunPanel({
     <ImageGenerationArea
       parentRunId={activeRun.id}
       run={activeRun}
+      isUploadGenerating={isUploadGenerating}
       onSelectedGeneratedImageChange={onSelectedGeneratedImageChange}
       onStartImageGeneration={onStartImageGeneration}
+      onUploadImage={onUploadImage}
     />
   ) : imageDiscoveryFailure ? (
     <CreativeFailureArea

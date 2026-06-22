@@ -52,7 +52,7 @@ describe("Workspace image generation", () => {
     expect(imageGenerationArea).toHaveTextContent(imageSet.imageModelProvenance.model);
 
     const imageSetArticle = within(imageResultsArea).getByRole("article", {
-      name: /^image set$/i,
+      name: /^image set 1$/i,
     });
 
     expect(imageSetArticle).toHaveTextContent("Original");
@@ -144,20 +144,19 @@ describe("Workspace image generation", () => {
     const imageResultsArea = screen.getByRole("region", {
       name: /image results area/i,
     });
+    // The source-derived failure takes the first stack position, uniformly labeled
+    // "Image set 1" like the sidebar — no completed set article is rendered.
     const failedState = within(imageResultsArea).getByRole("article", {
-      name: /^failed image set$/i,
+      name: /^image set 1$/i,
     });
 
     expect(failedState).toHaveTextContent("This image set could not be generated.");
     expect(failedState).not.toHaveTextContent("The configured image model failed.");
     expect(within(failedState).queryByRole("link")).not.toBeInTheDocument();
-    expect(
-      within(imageResultsArea).queryByRole("article", { name: /^image set$/i }),
-    ).not.toBeInTheDocument();
 
     await user.click(
       within(failedState).getByRole("button", {
-        name: /open quiet failure details for failed image set/i,
+        name: /open quiet failure details for image set 1/i,
       }),
     );
 
@@ -570,5 +569,245 @@ describe("Workspace image generation", () => {
     );
     // Read-only: the prompt is shown, not editable.
     expect(within(imageDirectionPanel).queryByRole("textbox")).not.toBeInTheDocument();
+  });
+});
+
+const uploadStreamUrl = "/api/generation-runs/image-generation/upload";
+
+function pngFile() {
+  return new File(["uploaded-bytes"], "photo.png", { type: "image/png" });
+}
+
+// A completed run carrying only the source-derived set ("Image set 1"), so the
+// uploader's appended set lands as "Image set 2".
+function buildSourceOnlyRun() {
+  const newsLinkedImages = buildNewsLinkedImages();
+  const imageSet = buildImageSet(newsLinkedImages[0]);
+
+  return buildCompletedRun({
+    imageGenerationState: {
+      completedAt: "2026-06-05T10:23:00.000Z",
+      selectedImageId: newsLinkedImages[0].id,
+      startedAt: "2026-06-05T10:20:00.000Z",
+      status: "completed",
+      userImagePrompt: "Make it feel like a serious product launch image.",
+    },
+    imageModelProvenance: imageSet.imageModelProvenance,
+    imageSet,
+    newsLinkedImages: newsLinkedImages.slice(0, 1),
+    phase: "image-generation-complete",
+    selectedImageOriginal: imageSet.selectedImageOriginal,
+  });
+}
+
+// A manual run still at candidate selection: the News-Linked Images offer Image
+// Original Candidates, but no source-derived set has been generated yet (`imageSet`
+// absent, image generation not-started). The uploader must be reachable here —
+// uploading before the base set is a first-class path (ADR-0025).
+function buildCandidateSelectionRun() {
+  return buildCompletedRun({
+    imageGenerationState: { status: "not-started" },
+    newsLinkedImages: buildNewsLinkedImages(),
+    phase: "waiting-for-image-selection",
+    visualJokeSet: buildVisualJokeSet(),
+  });
+}
+
+describe("Workspace uploader surface", () => {
+  test("shows the upload trigger beside the Image direction icon in the section header", () => {
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [buildSourceOnlyRun()],
+    });
+
+    // Icon-only ghost trigger (no visible text) alongside the Image direction toggle.
+    const trigger = screen.getByRole("button", { name: "Upload your own image" });
+    expect(trigger).toHaveTextContent("");
+    expect(trigger).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: /open image direction/i })).toBeInTheDocument();
+
+    const picker = screen.getByLabelText("Upload your own image file");
+    expect(picker).toHaveAttribute("accept", ".jpg,.jpeg,.png,.webp");
+    expect(picker).not.toHaveAttribute("multiple");
+  });
+
+  test("uploading appends a completed Image set 2 and persists via the workspace autosave path", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore();
+    const uploadedSet = buildImageSet(buildNewsLinkedImages()[1]);
+    const uploadImageFetcher = vi.fn(async () =>
+      buildImageGenerationStreamResponse([
+        { imageSet: uploadedSet, type: "image-set-completed" },
+        {
+          state: {
+            completedAt: "2026-06-06T11:05:00.000Z",
+            imageSet: uploadedSet,
+            status: "completed",
+          },
+          type: "image-generation-completed",
+        },
+      ]),
+    );
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [buildSourceOnlyRun()],
+      savedRunStore,
+      uploadImageFetcher,
+    });
+
+    const imageResultsArea = screen.getByRole("region", { name: /image results area/i });
+    // Only the source-derived set ("Image set 1") exists before uploading.
+    expect(within(imageResultsArea).getByRole("article", { name: "Image set 1" })).toBeVisible();
+    expect(
+      within(imageResultsArea).queryByRole("article", { name: "Image set 2" }),
+    ).not.toBeInTheDocument();
+
+    await user.upload(screen.getByLabelText("Upload your own image file"), pngFile());
+
+    // It posts the file to the shared upload stream route (reused, not reimplemented).
+    expect(uploadImageFetcher).toHaveBeenCalledWith(
+      uploadStreamUrl,
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    // The completed Uploaded Image Set lands as "Image set 2" with four variations.
+    const set2 = await within(imageResultsArea).findByRole("article", { name: "Image set 2" });
+    expect(within(set2).getByText("Variation 1")).toBeInTheDocument();
+    expect(within(set2).getByText("Variation 4")).toBeInTheDocument();
+
+    // Newest set is at the bottom (after the source-derived set in the DOM).
+    const set1 = within(imageResultsArea).getByRole("article", { name: "Image set 1" });
+    expect(set1.compareDocumentPosition(set2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // The fold-in persists through the workspace's existing debounced autosave path.
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "saved-run",
+          uploadedImageSets: [{ imageSet: uploadedSet, status: "completed" }],
+        }),
+      ),
+    );
+  });
+
+  test("offers the uploader before the base set on a manual run and appends Image set 1", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore();
+    const uploadedSet = buildImageSet(buildNewsLinkedImages()[1]);
+    const uploadImageFetcher = vi.fn(async () =>
+      buildImageGenerationStreamResponse([
+        { imageSet: uploadedSet, type: "image-set-completed" },
+        {
+          state: {
+            completedAt: "2026-06-06T11:05:00.000Z",
+            imageSet: uploadedSet,
+            status: "completed",
+          },
+          type: "image-generation-completed",
+        },
+      ]),
+    );
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [buildCandidateSelectionRun()],
+      savedRunStore,
+      uploadImageFetcher,
+    });
+
+    const imageGenerationArea = screen.getByRole("complementary", {
+      name: /image generation area/i,
+    });
+
+    // The candidate grid (and its Start action) is still available — uploading is
+    // additive, never gating the candidate-based path.
+    expect(
+      within(imageGenerationArea).getByRole("button", { name: /^start image generation$/i }),
+    ).toBeInTheDocument();
+    // No source-derived set has been generated yet.
+    expect(
+      within(imageGenerationArea).queryByRole("article", { name: "Image set 1" }),
+    ).not.toBeInTheDocument();
+
+    // The uploader is reachable during candidate selection, not gated by the base set.
+    await user.upload(screen.getByLabelText("Upload your own image file"), pngFile());
+
+    expect(uploadImageFetcher).toHaveBeenCalledWith(
+      uploadStreamUrl,
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    // With no source-derived set, the uploaded set takes the first stack position.
+    const set1 = await within(imageGenerationArea).findByRole("article", { name: "Image set 1" });
+    expect(within(set1).getByText("Variation 1")).toBeInTheDocument();
+    expect(within(set1).getByText("Variation 4")).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "saved-run",
+          uploadedImageSets: [{ imageSet: uploadedSet, status: "completed" }],
+        }),
+      ),
+    );
+  });
+
+  test("disables the trigger and shows a pending skeleton while an upload is in flight", async () => {
+    const user = userEvent.setup();
+    let streamController: ReadableStreamDefaultController<Uint8Array> | undefined;
+    const encoder = new TextEncoder();
+    const uploadImageFetcher = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              streamController = controller;
+            },
+          }),
+          { headers: { "Content-Type": "text/event-stream" } },
+        ),
+    );
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [buildSourceOnlyRun()],
+      uploadImageFetcher,
+    });
+
+    await user.upload(screen.getByLabelText("Upload your own image file"), pngFile());
+
+    const imageResultsArea = screen.getByRole("region", { name: /image results area/i });
+    // Mid-flight: the trigger is disabled and a pending skeleton set is shown.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Upload your own image" })).toBeDisabled(),
+    );
+    expect(within(imageResultsArea).getByLabelText(/pending image set/i)).toBeInTheDocument();
+
+    const uploadedSet = buildImageSet(buildNewsLinkedImages()[1]);
+
+    act(() => {
+      streamController?.enqueue(
+        encoder.encode(
+          `event: image-generation-completed\ndata: ${JSON.stringify({
+            state: {
+              completedAt: "2026-06-06T11:05:00.000Z",
+              imageSet: uploadedSet,
+              status: "completed",
+            },
+            type: "image-generation-completed",
+          })}\n\n`,
+        ),
+      );
+      streamController?.close();
+    });
+
+    // Once it resolves, the skeleton is gone and the trigger is enabled again.
+    await waitFor(() =>
+      expect(
+        within(imageResultsArea).queryByLabelText(/pending image set/i),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Upload your own image" })).not.toBeDisabled();
   });
 });

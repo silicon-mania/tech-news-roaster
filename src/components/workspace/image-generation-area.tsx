@@ -4,6 +4,7 @@ import { Check, X } from "lucide-react";
 import Image from "next/image";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
+import { ImageSetStack, UploadImageButton } from "@/components/image-sets";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { ImageGenerationInput } from "@/services/generation";
@@ -13,7 +14,6 @@ import { getRunPhaseLabel } from "@/services/workspace";
 import { DirectionPanel } from "./direction-panel";
 import { useDirectionPanel } from "./direction-panel-context";
 import { formatImageModelProvenance, getDisplayImageUrl, getImageTitle } from "./image-helpers";
-import { ImageResultsArea } from "./image-results-area";
 import { SectionHeader } from "./section-header";
 
 type ImageGenerationAreaStatusKind = "loading" | "success" | "failed";
@@ -75,20 +75,33 @@ function ImageGenerationAreaStatus({ run }: { run: GenerationRun }) {
 export function ImageGenerationArea({
   parentRunId,
   run,
+  isUploadGenerating,
   onSelectedGeneratedImageChange,
   onStartImageGeneration,
+  onUploadImage,
 }: {
   parentRunId: string;
   run: GenerationRun;
+  /** Whether an Uploaded Image Set generation is in flight (disables the trigger, shows skeleton). */
+  isUploadGenerating: boolean;
   onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
+  /** Upload an image of the operator's own to generate a new Uploaded Image Set. */
+  onUploadImage: (runId: string, file: File) => void;
 }) {
   const candidates = run.imageOriginalCandidates ?? [];
   const imageSet = run.imageSet;
   const failedImageSet = run.failedImageSet;
+  const uploadedImageSets = run.uploadedImageSets ?? [];
   const imageGenerationState = run.imageGenerationState;
   const imageGenerationStatus = imageGenerationState?.status;
   const isGenerationPending = imageGenerationStatus === "running" && !imageSet && !failedImageSet;
+  // One pending placeholder covers either generation path — the candidate-based
+  // source-derived set or an Uploaded Image Set — at the bottom of the stack.
+  const isStackPending = isGenerationPending || isUploadGenerating;
+  const hasImageResults = Boolean(
+    imageSet || failedImageSet || uploadedImageSets.length > 0 || isStackPending,
+  );
   const canSelectCandidate =
     candidates.length > 0 && (!imageGenerationStatus || imageGenerationStatus === "not-started");
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
@@ -142,6 +155,12 @@ export function ImageGenerationArea({
   return (
     <>
       <SectionHeader
+        actions={
+          <UploadImageButton
+            disabled={isUploadGenerating}
+            onUpload={(file) => onUploadImage(parentRunId, file)}
+          />
+        }
         directionLabel="Image direction"
         directionPanelId={panelId}
         isDirectionOpen={isDirectionOpen}
@@ -155,11 +174,10 @@ export function ImageGenerationArea({
           </p>
           <ImageGenerationAreaStatus run={run} />
         </div>
-        {imageSet || failedImageSet || isGenerationPending ? (
-          <ImageResultsArea
-            failedImageSet={failedImageSet}
-            imageSet={imageSet}
-            isGenerationPending={isGenerationPending}
+        {hasImageResults ? (
+          <ImageSetStack
+            isGenerationPending={isStackPending}
+            run={run}
             selectedGeneratedImageOptionId={run.selectedGeneratedImage?.imageOptionId ?? null}
             onSelectedGeneratedImageChange={(imageOptionId) =>
               onSelectedGeneratedImageChange(parentRunId, imageOptionId)

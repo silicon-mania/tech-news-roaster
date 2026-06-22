@@ -1,11 +1,16 @@
 import { describe, expect, test } from "vitest";
 import { parseFailedImageSet, parseImageSet, parseVisualJokeSet } from "@/services/generation";
-import { buildImageSet, buildVisualJokeSet } from "@/services/generation/test-fixtures";
+import {
+  buildImageSet,
+  buildUploadedImageSet,
+  buildVisualJokeSet,
+} from "@/services/generation/test-fixtures";
 import { isCompleteRun } from "./run-phase";
 import type { GenerationRun } from "./types";
 
 const visualJokeSet = parseVisualJokeSet(buildVisualJokeSet());
 const imageSet = parseImageSet(buildImageSet());
+const uploadedImageSet = parseImageSet(buildUploadedImageSet());
 const failedImageSet = parseFailedImageSet({
   id: "failed-image-set-1",
   failedAt: "2026-06-05T10:22:00.000Z",
@@ -66,5 +71,27 @@ describe("isCompleteRun", () => {
 
   test("returns false when the run has no image set at all", () => {
     expect(isCompleteRun(buildRun({ imageSet: undefined }))).toBe(false);
+  });
+
+  test("returns true for an upload-only run — no source-derived set, a completed uploaded set", () => {
+    expect(
+      isCompleteRun(
+        buildRun({
+          imageSet: undefined,
+          uploadedImageSets: [{ imageSet: uploadedImageSet, status: "completed" }],
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  test("returns false when the only uploaded set failed (no variations anywhere)", () => {
+    expect(
+      isCompleteRun(
+        buildRun({
+          imageSet: undefined,
+          uploadedImageSets: [{ failedImageSet, status: "failed" }],
+        }),
+      ),
+    ).toBe(false);
   });
 });

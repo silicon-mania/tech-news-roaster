@@ -2,8 +2,13 @@
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useUploadedImageGeneration } from "@/components/image-sets";
 import type { CompositeRasterizer } from "@/services/final-quote-tweet-image";
-import { draftTarget, type ImageGenerationInput } from "@/services/generation";
+import {
+  collectCompletedImageSets,
+  draftTarget,
+  type ImageGenerationInput,
+} from "@/services/generation";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { httpSavedRunStore } from "@/services/saved-runs";
 import type {
@@ -34,6 +39,7 @@ type WorkspaceProps = {
   initialRuns?: GenerationRun[];
   generationEventSourceFactory?: GenerationEventSourceFactory;
   imageGenerationStreamFetcher?: typeof fetch;
+  uploadImageFetcher?: typeof fetch;
   initialRuntimeStatus?: RuntimeStatus;
   onStartGenerationRun?: (runInput: GenerationRunInput) => void | Promise<void>;
   onStartImageGeneration?: (input: ImageGenerationInput) => void | Promise<void>;
@@ -55,6 +61,7 @@ function createGenerationEventSource(url: string) {
 export function Workspace({
   generationEventSourceFactory = createGenerationEventSource,
   imageGenerationStreamFetcher = fetch,
+  uploadImageFetcher = fetch,
   initialActiveRunId,
   initialRuns = [],
   initialRuntimeStatus,
@@ -95,6 +102,14 @@ export function Workspace({
     scheduleRunAutosave,
     setRuns,
     streamFetcher: imageGenerationStreamFetcher,
+  });
+  // Same shared uploader hook the sidebar drives — but the workspace folds the new
+  // Uploaded Image Set in through its existing debounced autosave path rather than
+  // the sidebar's immediate save.
+  const { generatingRunId, uploadImage } = useUploadedImageGeneration({
+    persistRun: scheduleRunAutosave,
+    setRuns,
+    uploadFetcher: uploadImageFetcher,
   });
   const { enrichedRunState, subscribeToGenerationRun } = useGenerationRunStream({
     generationEventSourceFactory,
@@ -381,14 +396,20 @@ export function Workspace({
   function updateSelectedGeneratedImage(runId: string, imageOptionId: string | null) {
     const run = runs.find((candidateRun) => candidateRun.id === runId);
 
-    if (!run?.imageSet) {
+    if (!run) {
       return;
     }
 
+    // Only the four generated variations are switchable — never an Image Original —
+    // and the option may live in any completed set (source-derived or uploaded), so
+    // resolution searches across every set (ADR-0025). A non-variation option or a
+    // dangling id is ignored.
     if (
       imageOptionId &&
-      !run.imageSet.options.some(
-        (option) => option.id === imageOptionId && option.kind === "variation",
+      !collectCompletedImageSets(run).some((imageSet) =>
+        imageSet.options.some(
+          (option) => option.id === imageOptionId && option.kind === "variation",
+        ),
       )
     ) {
       return;
@@ -519,11 +540,13 @@ export function Workspace({
 
             <ActiveRunPanel
               activeRun={activeRun}
+              isUploadGenerating={generatingRunId !== null}
               onDraftTextChange={updateDraftText}
               onSelectedDraftChange={updateSelectedDraft}
               onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
               onSelectedVisualJokeChange={updateSelectedVisualJoke}
               onStartImageGeneration={startImageGeneration}
+              onUploadImage={uploadImage}
               onVisualJokeTitleChange={updateVisualJokeText}
             />
           </div>

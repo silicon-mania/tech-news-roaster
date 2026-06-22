@@ -4,7 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
 import { FinalQuoteTweetImageOverlay } from "./final-quote-tweet-image-overlay";
-import { buildCompletedRun, buildCompletedV3Run } from "./workspace-test-utils";
+import {
+  buildCompletedRun,
+  buildCompletedV3Run,
+  buildImageSet,
+  buildNewsLinkedImages,
+} from "./workspace-test-utils";
 
 const selectedGeneratedImageFixture = {
   imageOptionId: "image-option-news-linked-image-1-variation-1",
@@ -86,6 +91,30 @@ describe("FinalQuoteTweetImageOverlay", () => {
     expect(
       screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
     ).toBeInTheDocument();
+  });
+
+  test("renders the composite for an upload-only run (no source-derived set)", () => {
+    // The run reached its image through uploads alone — `imageSet` is absent and the
+    // selected variation lives in a completed Uploaded Image Set (ADR-0025).
+    const uploadedSet = buildImageSet(buildNewsLinkedImages()[1]);
+
+    render(
+      <FinalQuoteTweetImageOverlay
+        run={buildCompletedV3Run({
+          imageSet: undefined,
+          selectedGeneratedImage: {
+            imageOptionId: "image-option-news-linked-image-2-variation-1",
+            selectedAt: "2026-06-06T11:30:00.000Z",
+          },
+          uploadedImageSets: [{ imageSet: uploadedSet, status: "completed" }],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Platform visual variation 1." })).toBeInTheDocument();
   });
 
   test("collapses to the rainbow strip and expands again on demand", async () => {
