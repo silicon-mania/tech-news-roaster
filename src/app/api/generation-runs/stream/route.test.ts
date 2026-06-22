@@ -84,6 +84,10 @@ describe("generation stream route", () => {
         textGeneration: {
           status: "completed",
         },
+        // Visual Joke Generation never runs; the stage stays "not-started".
+        visualJokeGeneration: {
+          status: "not-started",
+        },
       },
     });
     expect(events[7]).toMatchObject({
@@ -127,6 +131,8 @@ describe("generation stream route", () => {
     for (const event of events) {
       if (event.type === "completed") {
         expect(event.run).not.toHaveProperty("replies");
+        // No visual-joke result data streams: the completed run carries no set.
+        expect(event.run).not.toHaveProperty("visualJokeSet");
       } else if (event.type === "run-state") {
         expect(event).not.toHaveProperty("replies");
       } else if (event.type === "progress") {
@@ -384,93 +390,11 @@ describe("generation stream route", () => {
         textGeneration: {
           status: "not-started",
         },
-        visualJokeGeneration: {
-          status: "not-started",
-        },
       },
     });
     expect(events[2]).toEqual({
       type: "failed",
       message: "Joke context gathering could not form usable context.",
-    });
-  });
-
-  test("keeps the run successful when text fails but visual jokes succeed", async () => {
-    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/4242");
-    const visualJokeSet = buildVisualJokeSet();
-    const response = await streamGenerationRun(
-      new Request(
-        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F4242",
-      ),
-      {
-        discoverNewsLinkedImages: async () => ({
-          discoveredAt: "2026-06-05T10:20:00.000Z",
-          newsLinkedImages: [],
-        }),
-        gatherJokeContext: async () => buildJokeContextSnapshot("4242"),
-        orchestrateGeneration: async () => ({
-          label: "Drafts for 4242",
-          sourceTweet: tweetContext.sourceTweet,
-          drafts: [],
-          generationResultStates: {
-            contextGathering: {
-              completedAt: "2026-06-06T10:10:00.000Z",
-              jokeContextSnapshot: buildJokeContextSnapshot("4242"),
-              startedAt: "2026-06-06T10:08:00.000Z",
-              status: "completed",
-            },
-            imageGeneration: {
-              status: "not-started",
-            },
-            newsLinkedImageDiscovery: {
-              failedAt: "2026-06-06T10:10:25.000Z",
-              message: "No qualifying news-linked images were found.",
-              startedAt: "2026-06-06T10:10:02.000Z",
-              status: "failed",
-            },
-            textGeneration: {
-              failedAt: "2026-06-06T10:10:30.000Z",
-              message: "Text generation could not produce a usable draft set.",
-              startedAt: "2026-06-06T10:10:01.000Z",
-              status: "failed",
-            },
-            visualJokeGeneration: {
-              completedAt: "2026-06-06T10:10:40.000Z",
-              startedAt: "2026-06-06T10:10:03.000Z",
-              status: "completed",
-              visualJokeSet,
-            },
-          },
-          visualJokeSet,
-        }),
-        retrieveTweetContext: async () => tweetContext,
-      },
-    );
-    const events = await readStreamEvents(response);
-
-    expect(events.some((event) => event.type === "progress")).toBe(false);
-    expect(events.at(-1)).toMatchObject({
-      type: "completed",
-      run: {
-        drafts: [],
-        generationResultStates: {
-          contextGathering: {
-            status: "completed",
-          },
-          textGeneration: {
-            message: "Text generation could not produce a usable draft set.",
-            status: "failed",
-          },
-          visualJokeGeneration: {
-            status: "completed",
-          },
-        },
-        visualJokeSet: {
-          topPicks: expect.arrayContaining([
-            expect.objectContaining({ visualJokeId: "visual-joke-1" }),
-          ]),
-        },
-      },
     });
   });
 
@@ -854,22 +778,5 @@ function buildNewsLinkedImageDiscoveryResult() {
         title: "News-linked product image",
       },
     ],
-  };
-}
-
-function buildVisualJokeSet() {
-  const sections = ["satire", "tech-positive", "experimental"] as const;
-
-  return {
-    generatedAt: "2026-06-06T10:12:00.000Z",
-    id: "visual-joke-set-1",
-    jokes: Array.from({ length: 5 }, (_, index) => ({
-      id: `visual-joke-${index + 1}`,
-      order: Math.floor(index / sections.length) + 1,
-      section: sections[index % sections.length],
-      text: `Visual joke ${index + 1}`,
-    })),
-    targetPerSection: 7,
-    topPicks: [{ reason: "Sharpest satire angle.", visualJokeId: "visual-joke-1" }],
   };
 }

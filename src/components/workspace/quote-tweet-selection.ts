@@ -1,16 +1,10 @@
-import type {
-  ImageSet,
-  SelectedGeneratedImage,
-  SelectedVisualJoke,
-  VisualJoke,
-  VisualJokeSet,
-} from "@/services/generation";
+import type { ImageSet, SelectedGeneratedImage } from "@/services/generation";
 
 /**
- * Resolves the run's two picks against its generated content. The Final Quote
- * Tweet Image is derived purely from these — only a Selected Generated Image
- * that is a `variation` (never the original) and a Selected Visual Joke can
- * assemble the composite. Shared by the overlay and its tests.
+ * Resolves the run's Selected Generated Image against its generated content. The
+ * Final Quote Tweet Image is derived purely from this — only a Selected Generated
+ * Image that is a `variation` (never the original) can assemble the composite.
+ * Shared by the overlay and its tests.
  *
  * The variation is searched across every completed Image Set in resolution order
  * (`collectCompletedImageSets`: source-derived first, then uploaded sets), so an
@@ -35,15 +29,4 @@ export function findSelectedVariation(
   }
 
   return null;
-}
-
-export function findSelectedVisualJoke(
-  visualJokeSet: VisualJokeSet | undefined,
-  selection: SelectedVisualJoke,
-): VisualJoke | null {
-  if (!visualJokeSet || !selection) {
-    return null;
-  }
-
-  return visualJokeSet.jokes.find((joke) => joke.id === selection.visualJokeId) ?? null;
 }

@@ -5,16 +5,9 @@ import {
   type ImageOriginalCandidate,
   imageOriginalCandidateSchema,
   parseImageSet,
-  parseVisualJokeSet,
   type QuoteTweetDraft,
-  type VisualJokeSet,
 } from "@/services/generation";
-import {
-  buildImageSet,
-  buildUploadedImageSet,
-  buildVisualJokeSet,
-  buildVisualJokes,
-} from "./test-fixtures";
+import { buildImageSet, buildUploadedImageSet } from "./test-fixtures";
 
 const fixedNow = () => new Date("2026-06-16T12:00:00.000Z");
 const selectedAt = "2026-06-16T12:00:00.000Z";
@@ -65,24 +58,18 @@ const candidates: ImageOriginalCandidate[] = [
 function buildFullResults(): AutomatedSelectionResults {
   return {
     drafts,
-    visualJokeSet: parseVisualJokeSet(buildVisualJokeSet()),
     imageOriginalCandidates: candidates,
     imageSet: parseImageSet(buildImageSet()),
   };
 }
 
 describe("deriveAutomatedSelection", () => {
-  test("maps a fully generated run to the four Manual-Run selection fields", () => {
+  test("maps a fully generated run to the Manual-Run selection fields", () => {
     const selection = deriveAutomatedSelection(buildFullResults(), { now: fixedNow });
 
     expect(selection).toEqual({
       // First text draft as Selected Draft.
       selectedDraftId: "draft-openai",
-      // First Top Pick as Selected Visual Joke.
-      selectedVisualJoke: {
-        selectedAt,
-        visualJokeId: "visual-joke-1",
-      },
       // The original the Image Set was generated from, read straight from the set.
       selectedImageOriginal: parseImageSet(buildImageSet()).selectedImageOriginal,
       // First generated variation (never the original) as Selected Generated Image.
@@ -91,6 +78,8 @@ describe("deriveAutomatedSelection", () => {
         selectedAt,
       },
     });
+    // Automated Selection never picks a visual joke.
+    expect(selection).not.toHaveProperty("selectedVisualJoke");
   });
 
   test("is deterministic for identical inputs and clock", () => {
@@ -100,47 +89,23 @@ describe("deriveAutomatedSelection", () => {
     expect(first).toEqual(second);
   });
 
-  test("stamps every selection with a single clock read", () => {
-    const selection = deriveAutomatedSelection(buildFullResults(), { now: fixedNow });
+  test("stamps every clock-derived selection with a single clock read", () => {
+    // With no base Image Set the Selected Image Original derives from the first
+    // candidate and the Selected Generated Image from the uploaded set, so both are
+    // stamped from the clock — proving one `now()` read feeds every selection.
+    const selection = deriveAutomatedSelection(
+      {
+        drafts,
+        imageOriginalCandidates: candidates,
+        uploadedImageSets: [
+          { status: "completed", imageSet: parseImageSet(buildUploadedImageSet()) },
+        ],
+      },
+      { now: fixedNow },
+    );
 
-    expect(selection.selectedVisualJoke?.selectedAt).toBe(selectedAt);
+    expect(selection.selectedImageOriginal?.preparedAt).toBe(selectedAt);
     expect(selection.selectedGeneratedImage?.selectedAt).toBe(selectedAt);
-  });
-
-  test("selects the first Top Pick even when it is not the first joke", () => {
-    const topPickThird: VisualJokeSet = {
-      generatedAt: "2026-06-06T10:12:00.000Z",
-      id: "visual-joke-set-top-pick-third",
-      targetPerSection: 7,
-      jokes: buildVisualJokes(5),
-      topPicks: [{ reason: "The third joke is the sharpest.", visualJokeId: "visual-joke-3" }],
-    };
-
-    const selection = deriveAutomatedSelection(
-      { drafts, visualJokeSet: topPickThird },
-      { now: fixedNow },
-    );
-
-    expect(selection.selectedVisualJoke?.visualJokeId).toBe("visual-joke-3");
-  });
-
-  test("falls back to the first joke when the set carries no top picks", () => {
-    const noTopPicks: VisualJokeSet = {
-      generatedAt: "2026-06-06T10:12:00.000Z",
-      id: "visual-joke-set-no-top-picks",
-      targetPerSection: 7,
-      jokes: buildVisualJokes(5),
-      // Defensive: the schema guarantees at least one Top Pick, but a hand-built or
-      // degraded set must still degrade to a sensible pick rather than none.
-      topPicks: [],
-    };
-
-    const selection = deriveAutomatedSelection(
-      { drafts, visualJokeSet: noTopPicks },
-      { now: fixedNow },
-    );
-
-    expect(selection.selectedVisualJoke?.visualJokeId).toBe("visual-joke-1");
   });
 
   test("derives Selected Image Original from the first candidate before an Image Set exists", () => {
@@ -216,7 +181,9 @@ describe("deriveAutomatedSelection", () => {
     const selection = deriveAutomatedSelection(buildFullResults());
 
     expect(selection.selectedDraftId).toBe("draft-openai");
-    expect(() => new Date(selection.selectedVisualJoke?.selectedAt ?? "")).not.toThrow();
-    expect(Number.isNaN(Date.parse(selection.selectedVisualJoke?.selectedAt ?? ""))).toBe(false);
+    expect(() => new Date(selection.selectedGeneratedImage?.selectedAt ?? "")).not.toThrow();
+    expect(Number.isNaN(Date.parse(selection.selectedGeneratedImage?.selectedAt ?? ""))).toBe(
+      false,
+    );
   });
 });

@@ -207,9 +207,9 @@ export async function composeAutomatedRun(
   const sourceTweet = tweetContext.sourceTweet;
 
   // 2. Joke context gathering. A failure short-circuits the creative branches —
-  //    no Text Generation, Visual Joke Generation, discovery, or Image
-  //    Generation is attempted — and persists a failed run carrying the Quiet
-  //    Failure Details (the gathering debug log).
+  //    no Text Generation, discovery, or Image Generation is attempted — and
+  //    persists a failed run carrying the Quiet Failure Details (the gathering
+  //    debug log).
   const contextStartedAt = now().toISOString();
   let jokeContextSnapshot: JokeContextSnapshot;
 
@@ -279,8 +279,6 @@ export async function composeAutomatedRun(
     failedAt: now().toISOString(),
     message: "Text generation could not produce a usable draft set.",
   };
-  const visualJokeGenerationState: GenerationResultStates["visualJokeGeneration"] = completedRun
-    ?.generationResultStates?.visualJokeGeneration ?? { status: "not-started" };
 
   // 4. Image Original Candidates: Source Tweet media first, topped up by
   //    News-Linked Images only when the tweet supplies fewer than four.
@@ -341,13 +339,12 @@ export async function composeAutomatedRun(
     }
   }
 
-  // 6. Automated Selection over the generated outputs: first draft, first Top Pick
-  //    visual joke, first candidate as original, first variation. Read from the
-  //    persisted Image Set so the Selected Image Original's URL is the stored one.
+  // 6. Automated Selection over the generated outputs: first draft, first candidate
+  //    as original, first variation. Read from the persisted Image Set so the
+  //    Selected Image Original's URL is the stored one.
   const selection = deriveAutomatedSelection(
     {
       drafts,
-      visualJokeSet: completedRun?.visualJokeSet,
       imageOriginalCandidates,
       imageSet,
     },
@@ -363,7 +360,9 @@ export async function composeAutomatedRun(
     },
     textGeneration: textGenerationState,
     newsLinkedImageDiscovery: discoveryResult.state,
-    visualJokeGeneration: visualJokeGenerationState,
+    // Visual Joke Generation no longer runs; the stage stays "not-started" (the
+    // contract field is removed in a later slice).
+    visualJokeGeneration: { status: "not-started" },
     imageGeneration: imageGenerationState,
   });
   const isSuccessful = isSuccessfulRun(generationResultStates);
@@ -390,12 +389,7 @@ export async function composeAutomatedRun(
     ...(discoveryResult.status === "available"
       ? { newsLinkedImages: discoveryResult.newsLinkedImages }
       : {}),
-    ...(completedRun?.visualJokeSet ? { visualJokeSet: completedRun.visualJokeSet } : {}),
-    ...(completedRun?.visualJokeDirection
-      ? { visualJokeDirection: completedRun.visualJokeDirection }
-      : {}),
     ...(selection.selectedDraftId ? { selectedDraftId: selection.selectedDraftId } : {}),
-    ...(selection.selectedVisualJoke ? { selectedVisualJoke: selection.selectedVisualJoke } : {}),
     ...(selection.selectedGeneratedImage
       ? { selectedGeneratedImage: selection.selectedGeneratedImage }
       : {}),
@@ -469,8 +463,8 @@ async function runNewsLinkedImageDiscovery({
 /**
  * Successful Run: Joke Context Gathering succeeded and at least one creative
  * result area succeeded. Mirrors the rule the saved-run schema enforces (Text
- * Generation, News-Linked Image Discovery, and Visual Joke Generation are the
- * counted areas) so the composition never builds a run the schema rejects.
+ * Generation and News-Linked Image Discovery are the counted areas) so the
+ * composition never builds a run the schema rejects.
  */
 function isSuccessfulRun(states: GenerationResultStates): boolean {
   if (states.contextGathering.status !== "completed") {
@@ -480,7 +474,6 @@ function isSuccessfulRun(states: GenerationResultStates): boolean {
   const completedCreativeAreas = [
     states.textGeneration.status === "completed",
     states.newsLinkedImageDiscovery.status === "completed",
-    states.visualJokeGeneration.status === "completed",
   ].filter(Boolean).length;
 
   return completedCreativeAreas > 0;

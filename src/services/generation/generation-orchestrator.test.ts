@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { defaultVisualJokeDirection, parseJokeContextSnapshot } from "@/services/generation";
+import { parseJokeContextSnapshot } from "@/services/generation";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import {
   createLocalGenerationProviders,
@@ -20,7 +20,6 @@ describe("generation orchestrator", () => {
       },
       {
         providers: [buildProvider("openai"), buildProvider("anthropic"), buildProvider("google")],
-        visualJokeProvider: buildVisualJokeProvider(),
       },
     );
 
@@ -31,16 +30,14 @@ describe("generation orchestrator", () => {
         expect.objectContaining({ provider: "anthropic" }),
         expect.objectContaining({ provider: "google" }),
       ],
-      visualJokeDirection: defaultVisualJokeDirection,
-      visualJokeSet: {
-        topPicks: expect.arrayContaining([
-          expect.objectContaining({ visualJokeId: "visual-joke-1" }),
-        ]),
-      },
     });
     expect(run.drafts).toHaveLength(3);
     expect(new Set(run.drafts.map((draft) => draft.angle)).size).toBe(3);
     expect(run.fallbackDisclosure).toBeUndefined();
+    // The orchestrator no longer runs Visual Joke Generation: the run carries no
+    // Visual Joke Set and the stage stays "not-started".
+    expect(run.visualJokeSet).toBeUndefined();
+    expect(run.generationResultStates?.visualJokeGeneration).toEqual({ status: "not-started" });
   });
 
   test("uses configured AI Gateway model IDs as completed draft provenance", async () => {
@@ -80,17 +77,12 @@ describe("generation orchestrator", () => {
     globalThis.fetch = fetcher;
 
     try {
-      const run = await orchestrateThreeProviderGeneration(
-        {
-          jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
-          sourceTweet: tweetContext.sourceTweet,
-          sourceTweetUrl: tweetContext.sourceTweet.url,
-          usersDirection: "",
-        },
-        {
-          visualJokeProvider: buildVisualJokeProvider(),
-        },
-      );
+      const run = await orchestrateThreeProviderGeneration({
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
+        sourceTweet: tweetContext.sourceTweet,
+        sourceTweetUrl: tweetContext.sourceTweet.url,
+        usersDirection: "",
+      });
 
       expect(run.drafts.map((draft) => draft.modelProvenance)).toEqual([
         "openai/launch",
@@ -153,17 +145,12 @@ describe("generation orchestrator", () => {
     globalThis.fetch = fetcher;
 
     try {
-      await orchestrateThreeProviderGeneration(
-        {
-          jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
-          sourceTweet: tweetContext.sourceTweet,
-          sourceTweetUrl: tweetContext.sourceTweet.url,
-          usersDirection: "Make the platform-risk angle sharper.",
-        },
-        {
-          visualJokeProvider: buildVisualJokeProvider(),
-        },
-      );
+      await orchestrateThreeProviderGeneration({
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
+        sourceTweet: tweetContext.sourceTweet,
+        sourceTweetUrl: tweetContext.sourceTweet.url,
+        usersDirection: "Make the platform-risk angle sharper.",
+      });
 
       expect(gatewayPrompts).toHaveLength(3);
       expect(gatewayPrompts).toEqual(
@@ -215,17 +202,12 @@ describe("generation orchestrator", () => {
     globalThis.fetch = fetcher;
 
     try {
-      const run = await orchestrateThreeProviderGeneration(
-        {
-          jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
-          sourceTweet: tweetContext.sourceTweet,
-          sourceTweetUrl: tweetContext.sourceTweet.url,
-          usersDirection: "",
-        },
-        {
-          visualJokeProvider: buildVisualJokeProvider(),
-        },
-      );
+      const run = await orchestrateThreeProviderGeneration({
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
+        sourceTweet: tweetContext.sourceTweet,
+        sourceTweetUrl: tweetContext.sourceTweet.url,
+        usersDirection: "",
+      });
 
       expect(run.drafts).toHaveLength(3);
       expect(run.drafts.every((draft) => draft.text.length <= 280)).toBe(true);
@@ -251,7 +233,6 @@ describe("generation orchestrator", () => {
       },
       {
         providers: createLocalGenerationProviders(),
-        visualJokeProvider: buildVisualJokeProvider(),
       },
     );
 
@@ -277,7 +258,6 @@ describe("generation orchestrator", () => {
           buildProvider("anthropic", { shouldFail: true }),
           buildProvider("google"),
         ],
-        visualJokeProvider: buildVisualJokeProvider(),
       },
     );
 
@@ -340,17 +320,12 @@ describe("generation orchestrator", () => {
     globalThis.fetch = fetcher;
 
     try {
-      const run = await orchestrateThreeProviderGeneration(
-        {
-          jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
-          sourceTweet: tweetContext.sourceTweet,
-          sourceTweetUrl: tweetContext.sourceTweet.url,
-          usersDirection: "",
-        },
-        {
-          visualJokeProvider: buildVisualJokeProvider(),
-        },
-      );
+      const run = await orchestrateThreeProviderGeneration({
+        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
+        sourceTweet: tweetContext.sourceTweet,
+        sourceTweetUrl: tweetContext.sourceTweet.url,
+        usersDirection: "",
+      });
 
       expect(run.drafts).toHaveLength(3);
       expect(run.drafts[1]).toMatchObject({
@@ -370,71 +345,29 @@ describe("generation orchestrator", () => {
     }
   });
 
-  test("keeps the run successful when text generation fails but visual jokes succeed", async () => {
+  test("rejects when every text provider fails, since there is no other creative area", async () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
-    const run = await orchestrateThreeProviderGeneration(
-      {
-        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
-        sourceTweet: tweetContext.sourceTweet,
-        sourceTweetUrl: tweetContext.sourceTweet.url,
-        usersDirection: "",
-      },
-      {
-        providers: [
-          buildProvider("openai", { shouldFail: true }),
-          buildProvider("anthropic", { shouldFail: true }),
-          buildProvider("google", { shouldFail: true }),
-        ],
-        visualJokeProvider: buildVisualJokeProvider(),
-      },
-    );
 
-    expect(run.drafts).toEqual([]);
-    expect(run.generationResultStates).toMatchObject({
-      textGeneration: {
-        message: "Text generation could not produce a usable draft set.",
-        status: "failed",
-      },
-      visualJokeGeneration: {
-        status: "completed",
-      },
-    });
-    expect(run.visualJokeSet?.jokes).toHaveLength(5);
-  });
-
-  test("keeps the run successful when visual joke generation fails but text succeeds", async () => {
-    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
-    const run = await orchestrateThreeProviderGeneration(
-      {
-        jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
-        sourceTweet: tweetContext.sourceTweet,
-        sourceTweetUrl: tweetContext.sourceTweet.url,
-        usersDirection: "",
-      },
-      {
-        providers: [buildProvider("openai"), buildProvider("anthropic"), buildProvider("google")],
-        visualJokeProvider: {
-          model: "test-model",
-          provider: "test",
-          async generateCandidates() {
-            throw new Error("Visual joke provider failed.");
-          },
+    // With Visual Joke Generation removed, Text Generation is the orchestrator's
+    // only Creative Result Area — a total text failure has no joke set to fall back
+    // on, so it rejects and the stream/composition handle the failed run.
+    await expect(
+      orchestrateThreeProviderGeneration(
+        {
+          jokeContextSnapshot: buildJokeContextSnapshot(tweetContext.sourceTweet.id),
+          sourceTweet: tweetContext.sourceTweet,
+          sourceTweetUrl: tweetContext.sourceTweet.url,
+          usersDirection: "",
         },
-      },
-    );
-
-    expect(run.drafts).toHaveLength(3);
-    expect(run.generationResultStates).toMatchObject({
-      textGeneration: {
-        status: "completed",
-      },
-      visualJokeGeneration: {
-        debugLog: expect.arrayContaining([expect.stringContaining("Visual joke provider failed.")]),
-        message: "Visual joke provider failed.",
-        status: "failed",
-      },
-    });
-    expect(run.visualJokeSet).toBeUndefined();
+        {
+          providers: [
+            buildProvider("openai", { shouldFail: true }),
+            buildProvider("anthropic", { shouldFail: true }),
+            buildProvider("google", { shouldFail: true }),
+          ],
+        },
+      ),
+    ).rejects.toThrow();
   });
 });
 
@@ -474,34 +407,6 @@ function restoreEnvValue(name: string, value: string | undefined) {
   }
 
   process.env[name] = value;
-}
-
-function buildVisualJokeProvider() {
-  return {
-    model: "test-visual-joke-model",
-    provider: "test" as const,
-    async generateCandidates() {
-      return {
-        jokes: [
-          { section: "satire" as const, text: "OpenAI Ships The Pricing Shortcut" },
-          { section: "satire" as const, text: "Every Launch Is A Billing Event" },
-          { section: "tech-positive" as const, text: "The Haters Discover The Roadmap Was Real" },
-          {
-            section: "tech-positive" as const,
-            text: "Analysts Quietly Revise Their Price Targets",
-          },
-          { section: "experimental" as const, text: "2037: the bottleneck files for emancipation" },
-        ],
-        topPicks: [
-          {
-            reason: "Names the actor and the incentive in one line.",
-            section: "satire" as const,
-            text: "OpenAI Ships The Pricing Shortcut",
-          },
-        ],
-      };
-    },
-  };
 }
 
 function buildJokeContextSnapshot(sourceTweetId: string) {

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import {
   type CompletedGenerationRunPayload,
-  defaultVisualJokeDirection,
   draftTarget,
   type GenerationProviderId,
   type GenerationResultStates,
@@ -13,13 +12,6 @@ import {
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
-import { describeErrorDetail, summarizeErrorMessage } from "./error-detail";
-import {
-  generateVisualJokeSet,
-  type VisualJokeCandidateProvider,
-  VisualJokeGenerationError,
-  type VisualJokeServiceResult,
-} from "./visual-joke-service";
 
 type GenerationProviderOutput = {
   angle: string;
@@ -58,7 +50,6 @@ export type GenerationOrchestrator = (
 type GenerationOrchestratorOptions = {
   now?: () => Date;
   providers?: GenerationProvider[];
-  visualJokeProvider?: VisualJokeCandidateProvider;
 };
 
 // Each Text Generation provider call (and the Provider Fallback call, which
@@ -115,59 +106,25 @@ export async function orchestrateThreeProviderGeneration(
 ): Promise<CompletedGenerationRunPayload> {
   const now = options.now ?? (() => new Date());
   const textGenerationStartedAt = now().toISOString();
-  const visualJokeGenerationStartedAt = now().toISOString();
-  const textGenerationPromise = generateDrafts(input, options.providers);
-  const visualJokePromise = generateVisualJokeSet(
-    {
-      jokeContextSnapshot: input.jokeContextSnapshot,
-      visualJokeDirection: defaultVisualJokeDirection,
-    },
-    {
-      now,
-      provider: options.visualJokeProvider,
-    },
-  );
-  const [textGenerationResult, visualJokeResult] = await Promise.all([
-    textGenerationPromise
-      .then((result) => ({ result, status: "fulfilled" as const }))
-      .catch((error: unknown) => ({ error, status: "rejected" as const })),
-    visualJokePromise
-      .then((result) => ({ result, status: "fulfilled" as const }))
-      .catch((error: unknown) => ({ error, status: "rejected" as const })),
-  ]);
 
-  if (textGenerationResult.status === "rejected" && visualJokeResult.status === "rejected") {
-    throw textGenerationResult.error;
-  }
-
+  // Text Generation is the orchestrator's only Creative Result Area: it runs the
+  // three providers (with Provider Fallback) and rejects only when no provider
+  // completes, which surfaces as a failed run to the caller. The stream route and
+  // the Automated Run composition fold in News-Linked Image Discovery and Image
+  // Generation around this call.
+  const { drafts, fallbackDisclosure } = await generateDrafts(input, options.providers);
   const label = buildRunLabel(input.sourceTweetUrl);
-  const drafts =
-    textGenerationResult.status === "fulfilled" ? textGenerationResult.result.drafts : [];
-  const fallbackDisclosure =
-    textGenerationResult.status === "fulfilled"
-      ? textGenerationResult.result.fallbackDisclosure
-      : undefined;
-  const generationResultStates = buildCreativeResultStates({
-    input,
-    now,
-    textGenerationResult,
-    textGenerationStartedAt,
-    visualJokeGenerationStartedAt,
-    visualJokeResult,
-  });
 
   return parseCompletedGenerationRunPayload({
     drafts,
     fallbackDisclosure,
-    generationResultStates,
+    generationResultStates: buildCreativeResultStates({
+      input,
+      now,
+      textGenerationStartedAt,
+    }),
     label,
     sourceTweet: input.sourceTweet,
-    visualJokeDirection:
-      visualJokeResult.status === "fulfilled"
-        ? visualJokeResult.result.visualJokeDirection
-        : defaultVisualJokeDirection,
-    visualJokeSet:
-      visualJokeResult.status === "fulfilled" ? visualJokeResult.result.visualJokeSet : undefined,
   });
 }
 
@@ -269,36 +226,18 @@ async function generateDrafts(
   };
 }
 
+// Text Generation is the orchestrator's only Creative Result Area; News-Linked
+// Image Discovery and Image Generation are filled in by the stream route and the
+// Automated Run composition, so they start "not-started" here. Text Generation is
+// always "completed" because a total text failure rejects before this runs.
 function buildCreativeResultStates({
   input,
   now,
-  textGenerationResult,
   textGenerationStartedAt,
-  visualJokeGenerationStartedAt,
-  visualJokeResult,
 }: {
   input: GenerationOrchestratorInput;
   now: () => Date;
-  textGenerationResult:
-    | {
-        result: Awaited<ReturnType<typeof generateDrafts>>;
-        status: "fulfilled";
-      }
-    | {
-        error: unknown;
-        status: "rejected";
-      };
   textGenerationStartedAt: string;
-  visualJokeGenerationStartedAt: string;
-  visualJokeResult:
-    | {
-        result: VisualJokeServiceResult;
-        status: "fulfilled";
-      }
-    | {
-        error: unknown;
-        status: "rejected";
-      };
 }): GenerationResultStates {
   const completedAt = now().toISOString();
 
@@ -315,67 +254,15 @@ function buildCreativeResultStates({
     newsLinkedImageDiscovery: {
       status: "not-started",
     },
-    textGeneration:
-      textGenerationResult.status === "fulfilled"
-        ? {
-            completedAt,
-            draftCount: draftTarget,
-            startedAt: textGenerationStartedAt,
-            status: "completed",
-          }
-        : {
-            failedAt: completedAt,
-            message: "Text generation could not produce a usable draft set.",
-            startedAt: textGenerationStartedAt,
-            status: "failed",
-          },
-    visualJokeGeneration:
-      visualJokeResult.status === "fulfilled"
-        ? {
-            completedAt,
-            startedAt: visualJokeGenerationStartedAt,
-            status: "completed",
-            visualJokeSet: visualJokeResult.result.visualJokeSet,
-          }
-        : buildVisualJokeFailureState({
-            error: visualJokeResult.error,
-            failedAt: completedAt,
-            startedAt: visualJokeGenerationStartedAt,
-          }),
-  };
-}
-
-// Surfaces the real Visual Joke failure on the Quiet Failure Details surface,
-// mirroring the Image Generation failure path: the summarized error becomes the
-// message, and the flat error/cause chain plus any domain debugLog (e.g. the
-// critic's rejection breakdown) become the numbered debug lines. Without this the
-// failure collapses to one generic, undiagnosable line.
-function buildVisualJokeFailureState({
-  error,
-  failedAt,
-  startedAt,
-}: {
-  error: unknown;
-  failedAt: string;
-  startedAt: string;
-}): Extract<GenerationResultStates["visualJokeGeneration"], { status: "failed" }> {
-  const debugLog = [
-    ...describeErrorDetail(error),
-    ...(error instanceof VisualJokeGenerationError && error.debugLog ? error.debugLog : []),
-  ];
-  const message = summarizeErrorMessage(
-    error,
-    "Visual joke generation could not produce a publishable joke set.",
-  );
-
-  console.error("[visual-joke] generation failed", { debugLog, message });
-
-  return {
-    debugLog: debugLog.length > 0 ? debugLog : undefined,
-    failedAt,
-    message,
-    startedAt,
-    status: "failed",
+    textGeneration: {
+      completedAt,
+      draftCount: draftTarget,
+      startedAt: textGenerationStartedAt,
+      status: "completed",
+    },
+    visualJokeGeneration: {
+      status: "not-started",
+    },
   };
 }
 

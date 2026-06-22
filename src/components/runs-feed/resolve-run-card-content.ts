@@ -34,7 +34,6 @@ export function resolveRunCardContent(run: GenerationRun): ResolvedRunCardConten
     drafts: run.drafts,
     imageSet: run.imageSet,
     uploadedImageSets: run.uploadedImageSets,
-    visualJokeSet: run.visualJokeSet,
   });
 
   const imageSets = collectCompletedImageSets(run);

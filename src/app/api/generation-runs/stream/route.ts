@@ -189,17 +189,14 @@ async function* streamGenerationRunEvents({
     .then((run) => ({ run, status: "fulfilled" as const }))
     .catch((error: unknown) => ({ error, status: "rejected" as const }));
 
-  // Both creative branches and discovery are now in flight. Emit the "running"
-  // state before awaiting them so the workspace shows the live creative skeletons
-  // during the run's longest phase instead of freezing. The orchestrator always
-  // attempts the Visual Joke Set alongside Text Generation, so all three branches
-  // are reported running.
+  // Text Generation and News-Linked Image Discovery are now in flight. Emit the
+  // "running" state before awaiting them so the workspace shows the live creative
+  // skeletons during the run's longest phase instead of freezing.
   yield buildGenerationRunStateEvent({
     generationResultStates: buildCreativeBranchesRunningStates({
       jokeContextResult,
       newsLinkedImageDiscoveryStartedAt,
       textGenerationStartedAt,
-      visualJokeStartedAt: textGenerationStartedAt,
     }),
     label: runLabel,
     sourceTweet: tweetContext.sourceTweet,
@@ -238,9 +235,6 @@ async function* streamGenerationRunEvents({
         message: "Text generation could not produce a usable draft set.",
         startedAt: textGenerationStartedAt,
         status: "failed",
-      },
-      visualJokeGeneration: {
-        status: "not-started",
       },
     });
 
@@ -499,7 +493,6 @@ function buildCreativeBranchesRunningStates({
   jokeContextResult,
   newsLinkedImageDiscoveryStartedAt,
   textGenerationStartedAt,
-  visualJokeStartedAt,
 }: {
   jokeContextResult: Extract<
     Awaited<ReturnType<typeof retrieveJokeContextSnapshot>>,
@@ -507,7 +500,6 @@ function buildCreativeBranchesRunningStates({
   >;
   newsLinkedImageDiscoveryStartedAt: string;
   textGenerationStartedAt: string;
-  visualJokeStartedAt?: string;
 }): GenerationResultStates {
   return {
     contextGathering: {
@@ -527,14 +519,9 @@ function buildCreativeBranchesRunningStates({
       startedAt: textGenerationStartedAt,
       status: "running",
     },
-    visualJokeGeneration: visualJokeStartedAt
-      ? {
-          startedAt: visualJokeStartedAt,
-          status: "running",
-        }
-      : {
-          status: "not-started",
-        },
+    visualJokeGeneration: {
+      status: "not-started",
+    },
   };
 }
 
@@ -542,7 +529,6 @@ function buildTerminalGenerationResultStates({
   jokeContextResult,
   newsLinkedImageDiscoveryResult,
   textGeneration,
-  visualJokeGeneration,
 }: {
   jokeContextResult: Extract<
     Awaited<ReturnType<typeof retrieveJokeContextSnapshot>>,
@@ -550,7 +536,6 @@ function buildTerminalGenerationResultStates({
   >;
   newsLinkedImageDiscoveryResult: Awaited<ReturnType<typeof retrieveNewsLinkedImageDiscovery>>;
   textGeneration: GenerationResultStates["textGeneration"];
-  visualJokeGeneration: GenerationResultStates["visualJokeGeneration"];
 }): GenerationResultStates {
   return {
     contextGathering: {
@@ -577,7 +562,11 @@ function buildTerminalGenerationResultStates({
             status: "failed",
           },
     textGeneration,
-    visualJokeGeneration,
+    // Visual Joke Generation no longer runs; the stage stays "not-started" on
+    // every terminal run (the contract field is removed in a later slice).
+    visualJokeGeneration: {
+      status: "not-started",
+    },
   };
 }
 
@@ -605,9 +594,6 @@ function buildCompletedGenerationResultStates({
       draftCount: draftTarget,
       startedAt: textGenerationStartedAt,
       status: "completed",
-    },
-    visualJokeGeneration: completedRun.generationResultStates?.visualJokeGeneration ?? {
-      status: "not-started",
     },
   });
 }

@@ -197,7 +197,7 @@ export function buildVisualJoke(index: number, overrides: Partial<VisualJokeFixt
   };
 }
 
-export function buildVisualJokes(count: number) {
+function buildVisualJokes(count: number) {
   return Array.from({ length: count }, (_, index) => buildVisualJoke(index));
 }
 
