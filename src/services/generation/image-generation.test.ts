@@ -5,7 +5,7 @@ import {
   parseImageSet,
   parseSelectedGeneratedImage,
 } from "@/services/generation";
-import { buildImageSet } from "./test-fixtures";
+import { buildImageSet, buildUploadedImageSet } from "./test-fixtures";
 
 describe("image generation contracts", () => {
   test("validates image-generation input and rejects raw URL submission", () => {
@@ -54,6 +54,9 @@ describe("image generation contracts", () => {
 
 describe("selected generated image validator", () => {
   const imageSet: ImageSet = parseImageSet(buildImageSet());
+  // A second, completed Uploaded Image Set with its own globally-unique option
+  // ids — the cross-set resolution case (ADR-0025).
+  const uploadedImageSet: ImageSet = parseImageSet(buildUploadedImageSet());
 
   test("accepts a variation id that exists in the run's Image Set", () => {
     const selection = {
@@ -61,7 +64,7 @@ describe("selected generated image validator", () => {
       selectedAt: "2026-06-06T10:14:00.000Z",
     };
 
-    expect(parseSelectedGeneratedImage(selection, imageSet)).toEqual(selection);
+    expect(parseSelectedGeneratedImage(selection, [imageSet])).toEqual(selection);
   });
 
   test("accepts the fourth variation id", () => {
@@ -70,7 +73,25 @@ describe("selected generated image validator", () => {
       selectedAt: "2026-06-06T10:14:00.000Z",
     };
 
-    expect(parseSelectedGeneratedImage(selection, imageSet)).toEqual(selection);
+    expect(parseSelectedGeneratedImage(selection, [imageSet])).toEqual(selection);
+  });
+
+  test("accepts a variation from an uploaded set when searching across all sets", () => {
+    const selection = {
+      imageOptionId: "uploaded-option-variation-2",
+      selectedAt: "2026-06-06T10:14:00.000Z",
+    };
+
+    expect(parseSelectedGeneratedImage(selection, [imageSet, uploadedImageSet])).toEqual(selection);
+  });
+
+  test("resolves an uploaded variation even when the run has no source-derived set", () => {
+    const selection = {
+      imageOptionId: "uploaded-option-variation-1",
+      selectedAt: "2026-06-06T10:14:00.000Z",
+    };
+
+    expect(parseSelectedGeneratedImage(selection, [uploadedImageSet])).toEqual(selection);
   });
 
   test("rejects the original Image Option id by degrading to none", () => {
@@ -80,7 +101,19 @@ describe("selected generated image validator", () => {
           imageOptionId: "image-option-original-1",
           selectedAt: "2026-06-06T10:14:00.000Z",
         },
-        imageSet,
+        [imageSet],
+      ),
+    ).toBeNull();
+  });
+
+  test("rejects an uploaded set's original across sets by degrading to none", () => {
+    expect(
+      parseSelectedGeneratedImage(
+        {
+          imageOptionId: "uploaded-option-original",
+          selectedAt: "2026-06-06T10:14:00.000Z",
+        },
+        [imageSet, uploadedImageSet],
       ),
     ).toBeNull();
   });
@@ -92,7 +125,7 @@ describe("selected generated image validator", () => {
           imageOptionId: "image-option-missing",
           selectedAt: "2026-06-06T10:14:00.000Z",
         },
-        imageSet,
+        [imageSet, uploadedImageSet],
       ),
     ).toBeNull();
   });
@@ -105,7 +138,7 @@ describe("selected generated image validator", () => {
             imageOptionId: "image-option-missing",
             selectedAt: "2026-06-06T10:14:00.000Z",
           },
-          imageSet,
+          [imageSet],
         ),
       ).toBeNull(),
     ).not.toThrow();

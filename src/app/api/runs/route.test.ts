@@ -163,6 +163,7 @@ function buildRun(overrides: Partial<GenerationRun> = {}): GenerationRun {
     ],
     savedAt: timestamp(1),
     ...overrides,
+    uploadedImageSets: overrides.uploadedImageSets ?? [],
   };
 }
 

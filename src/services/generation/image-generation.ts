@@ -97,6 +97,30 @@ export const failedImageSetSchema = z
   })
   .strict();
 
+/**
+ * One attempt in a run's ordered stack of Uploaded Image Sets (ADR-0025): the
+ * operator uploads a single image and the server generates four variations from
+ * it with the Default Image Prompt. Every attempt is retained — a completed set,
+ * or a failure keeping its own Quiet Failure Details — so a run accumulates a
+ * growing "Image set N" gallery. Reuses the `ImageSet` / `FailedImageSet` shapes
+ * verbatim; an uploaded set's Selected Image Original carries origin
+ * `'user-uploaded'` and is never an Image Original Candidate.
+ */
+export const uploadedImageSetEntrySchema = z.discriminatedUnion("status", [
+  z
+    .object({
+      status: z.literal("completed"),
+      imageSet: imageSetSchema,
+    })
+    .strict(),
+  z
+    .object({
+      status: z.literal("failed"),
+      failedImageSet: failedImageSetSchema,
+    })
+    .strict(),
+]);
+
 const imageGenerationInputSchema = z
   .object({
     parentRunId: runLocalIdSchema,
@@ -172,6 +196,7 @@ export type ImageModelProvenance = z.infer<typeof imageModelProvenanceSchema>;
 export type ImageSet = z.infer<typeof imageSetSchema>;
 export type SelectedGeneratedImage = z.infer<typeof selectedGeneratedImageSchema> | null;
 export type SelectedImageOriginal = z.infer<typeof selectedImageOriginalSchema>;
+export type UploadedImageSetEntry = z.infer<typeof uploadedImageSetEntrySchema>;
 
 export function parseImageGenerationInput(input: unknown): ImageGenerationInput {
   return imageGenerationInputSchema.parse(input);
@@ -218,18 +243,48 @@ export function parseFailedImageSet(failedImageSet: unknown): FailedImageSet {
   return failedImageSetSchema.parse(failedImageSet);
 }
 
+/**
+ * A run's completed Image Sets in resolution order: the source-derived
+ * `imageSet` first (when present), then each completed Uploaded Image Set in
+ * upload order (ADR-0025). Selected Generated Image resolution and the "first
+ * variation" default both walk this list, so any uploaded variation is
+ * selectable and a run with only uploaded sets still resolves a default. For a
+ * run carrying only the source-derived set this is `[imageSet]` — byte-for-byte
+ * the prior behavior.
+ */
+export function collectCompletedImageSets(run: {
+  imageSet?: ImageSet;
+  uploadedImageSets?: readonly UploadedImageSetEntry[];
+}): ImageSet[] {
+  const imageSets: ImageSet[] = [];
+
+  if (run.imageSet) {
+    imageSets.push(run.imageSet);
+  }
+
+  for (const entry of run.uploadedImageSets ?? []) {
+    if (entry.status === "completed") {
+      imageSets.push(entry.imageSet);
+    }
+  }
+
+  return imageSets;
+}
+
 export function parseSelectedGeneratedImage(
   selectedGeneratedImage: unknown,
-  imageSet?: ImageSet,
+  imageSets: readonly ImageSet[] = [],
 ): SelectedGeneratedImage {
   const selection = z.nullable(selectedGeneratedImageSchema).parse(selectedGeneratedImage);
 
-  if (!selection || !imageSet) {
+  if (!selection || imageSets.length === 0) {
     return selection;
   }
 
-  const isSelectableVariation = imageSet.options.some(
-    (option) => option.id === selection.imageOptionId && option.kind === "variation",
+  const isSelectableVariation = imageSets.some((imageSet) =>
+    imageSet.options.some(
+      (option) => option.id === selection.imageOptionId && option.kind === "variation",
+    ),
   );
 
   return isSelectableVariation ? selection : null;

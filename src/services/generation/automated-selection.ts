@@ -1,8 +1,10 @@
 import {
+  collectCompletedImageSets,
   type ImageSet,
   type SelectedGeneratedImage,
   type SelectedImageOriginal,
   selectedImageOriginalFromCandidate,
+  type UploadedImageSetEntry,
 } from "./image-generation";
 import type { ImageOriginalCandidate } from "./image-original-candidate";
 import type { QuoteTweetDraft } from "./quote-tweet-draft";
@@ -18,6 +20,7 @@ export type AutomatedSelectionResults = {
   visualJokeSet?: VisualJokeSet;
   imageOriginalCandidates?: readonly ImageOriginalCandidate[];
   imageSet?: ImageSet;
+  uploadedImageSets?: readonly UploadedImageSetEntry[];
 };
 
 /**
@@ -70,7 +73,12 @@ export function deriveAutomatedSelection(
     selection.selectedImageOriginal = selectedImageOriginal;
   }
 
-  const firstVariation = results.imageSet?.options.find((option) => option.kind === "variation");
+  // The default Selected Generated Image is the first variation across every
+  // completed set in order (ADR-0025) — the source-derived set's first variation
+  // when present, otherwise the first uploaded set's. Originals are never picked.
+  const firstVariation = collectCompletedImageSets(results)
+    .flatMap((imageSet) => imageSet.options)
+    .find((option) => option.kind === "variation");
   if (firstVariation) {
     selection.selectedGeneratedImage = {
       imageOptionId: firstVariation.id,

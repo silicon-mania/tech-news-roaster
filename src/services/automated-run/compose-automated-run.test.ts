@@ -4,6 +4,7 @@ import {
   findSelectedVisualJoke,
 } from "@/components/workspace/quote-tweet-selection";
 import {
+  collectCompletedImageSets,
   defaultImagePrompt,
   type ImageSet,
   parseCompletedGenerationRunPayload,
@@ -170,7 +171,9 @@ describe("composeAutomatedRun", () => {
 
     // The Final Quote Tweet Image is composable from the two derived picks
     // (ADR-0018) — the same resolution the overlay uses.
-    expect(findSelectedVariation(run.imageSet, run.selectedGeneratedImage ?? null)).not.toBeNull();
+    expect(
+      findSelectedVariation(collectCompletedImageSets(run), run.selectedGeneratedImage ?? null),
+    ).not.toBeNull();
     expect(
       findSelectedVisualJoke(run.visualJokeSet, run.selectedVisualJoke ?? null),
     ).not.toBeNull();
@@ -278,7 +281,9 @@ describe("composeAutomatedRun", () => {
     expect(persistImageSet).not.toHaveBeenCalled();
 
     // The Final Quote Tweet Image is not composable without a generated variation.
-    expect(findSelectedVariation(run.imageSet, run.selectedGeneratedImage ?? null)).toBeNull();
+    expect(
+      findSelectedVariation(collectCompletedImageSets(run), run.selectedGeneratedImage ?? null),
+    ).toBeNull();
 
     // It is still in the unified list, unseen and automated.
     const persisted = await repository.loadById(run.id);

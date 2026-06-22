@@ -39,6 +39,7 @@ function buildRun(overrides: Partial<GenerationRun> = {}): GenerationRun {
     visualJokeSet,
     imageSet,
     ...overrides,
+    uploadedImageSets: overrides.uploadedImageSets ?? [],
   };
 }
 

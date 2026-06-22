@@ -7,6 +7,7 @@ import {
   imageSetSchema,
   selectedGeneratedImageSchema,
   selectedImageOriginalSchema,
+  uploadedImageSetEntrySchema,
 } from "./image-generation";
 import {
   imageOriginalCandidateSchema,
@@ -226,6 +227,11 @@ const savedGenerationRunSchema = z
       .max(imageOriginalCandidateTarget)
       .optional(),
     imageSet: imageSetSchema.optional(),
+    // The run's ordered stack of operator-uploaded image sets (ADR-0025), each a
+    // completed set or a retained failure. Additive over the single source-derived
+    // `imageSet`; absent on runs that predate the feature, so it defaults to an
+    // empty list with no migration.
+    uploadedImageSets: z.array(uploadedImageSetEntrySchema).default([]),
     newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5).optional(),
     phase: generationRunPhaseSchema.optional(),
     savedAt: z.string().datetime().optional(),

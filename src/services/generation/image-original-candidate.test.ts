@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { SourceTweetMediaReference } from "@/services/tweet-retrieval";
 import {
   assembleImageOriginalCandidates,
+  imageOriginalCandidateOriginSchema,
   imageOriginalCandidateTarget,
 } from "./image-original-candidate";
 import type { NewsLinkedImage } from "./news-linked-image";
@@ -25,6 +26,22 @@ function newsLinkedImage(index: number): NewsLinkedImage {
     title: `Headline ${index}`,
   };
 }
+
+describe("imageOriginalCandidateOriginSchema", () => {
+  test("accepts the user-uploaded origin alongside the existing candidate origins", () => {
+    expect(imageOriginalCandidateOriginSchema.options).toEqual([
+      "source-tweet-media",
+      "news-linked-image",
+      "user-uploaded",
+    ]);
+    expect(imageOriginalCandidateOriginSchema.parse("user-uploaded")).toBe("user-uploaded");
+    expect(imageOriginalCandidateOriginSchema.parse("source-tweet-media")).toBe(
+      "source-tweet-media",
+    );
+    expect(imageOriginalCandidateOriginSchema.parse("news-linked-image")).toBe("news-linked-image");
+    expect(() => imageOriginalCandidateOriginSchema.parse("operator-uploaded")).toThrow();
+  });
+});
 
 describe("assembleImageOriginalCandidates", () => {
   test("0 usable source images: all four candidates come from news-linked images, in order", () => {

@@ -221,6 +221,7 @@ export function Workspace({
       draftCount: 0,
       draftTarget,
       drafts: [],
+      uploadedImageSets: [],
       generationResultStates: {
         contextGathering: {
           startedAt: contextGatheringStartedAt,

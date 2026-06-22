@@ -58,6 +58,66 @@ export function buildImageSet() {
   };
 }
 
+// A completed Uploaded Image Set (ADR-0025): one operator-supplied original
+// (origin `user-uploaded`) plus four variations, with globally-unique option ids
+// distinct from the source-derived `buildImageSet` so cross-set resolution is
+// exercised without id collisions.
+export function buildUploadedImageSet() {
+  return {
+    id: "uploaded-image-set-1",
+    completedAt: "2026-06-05T11:21:00.000Z",
+    imageModelProvenance: {
+      model: "image-model-v1",
+      provider: "ai-gateway",
+    },
+    selectedImageOriginal: {
+      id: "selected-original-uploaded-1",
+      candidateId: "uploaded-original-1",
+      origin: "user-uploaded",
+      url: "https://example.com/uploaded-original.jpg",
+      altText: "Operator-uploaded image.",
+      preparedAt: "2026-06-05T11:20:00.000Z",
+    },
+    options: [
+      {
+        id: "uploaded-option-original",
+        kind: "original",
+        label: "Original",
+        url: "https://example.com/uploaded-original.jpg",
+        altText: "Operator-uploaded image.",
+      },
+      {
+        id: "uploaded-option-variation-1",
+        kind: "variation",
+        label: "Variation 1",
+        url: "https://example.com/uploaded-generated-1.jpg",
+        altText: "Uploaded visual variation 1.",
+      },
+      {
+        id: "uploaded-option-variation-2",
+        kind: "variation",
+        label: "Variation 2",
+        url: "https://example.com/uploaded-generated-2.jpg",
+        altText: "Uploaded visual variation 2.",
+      },
+      {
+        id: "uploaded-option-variation-3",
+        kind: "variation",
+        label: "Variation 3",
+        url: "https://example.com/uploaded-generated-3.jpg",
+        altText: "Uploaded visual variation 3.",
+      },
+      {
+        id: "uploaded-option-variation-4",
+        kind: "variation",
+        label: "Variation 4",
+        url: "https://example.com/uploaded-generated-4.jpg",
+        altText: "Uploaded visual variation 4.",
+      },
+    ],
+  };
+}
+
 export function buildStructuredJokeContext() {
   return {
     sourceTweetClaim: "The source tweet claims the launch removes the final workflow bottleneck.",

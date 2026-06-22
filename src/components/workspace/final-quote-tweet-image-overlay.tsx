@@ -11,6 +11,7 @@ import {
   quoteTweetRainbowStripe,
   rasterizeCompositeToPng,
 } from "@/services/final-quote-tweet-image";
+import { collectCompletedImageSets } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { buildFinalQuoteTweetImageDownloadName } from "./image-helpers";
 import { QuoteTweetComposite } from "./quote-tweet-composite";
@@ -60,7 +61,10 @@ export function FinalQuoteTweetImageOverlay({
     return null;
   }
 
-  const selectedVariation = findSelectedVariation(imageSet, run.selectedGeneratedImage ?? null);
+  const selectedVariation = findSelectedVariation(
+    collectCompletedImageSets(run),
+    run.selectedGeneratedImage ?? null,
+  );
   const selectedVisualJoke = findSelectedVisualJoke(
     run.visualJokeSet,
     run.selectedVisualJoke ?? null,

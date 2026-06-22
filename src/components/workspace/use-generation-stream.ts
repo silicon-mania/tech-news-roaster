@@ -195,6 +195,8 @@ export function useGenerationRunStream({
         imageModelProvenance: event.run.imageModelProvenance,
         imageOriginalCandidates,
         imageSet: event.run.imageSet,
+        // A freshly completed generation run has no operator uploads yet (ADR-0025).
+        uploadedImageSets: [],
         jokeContextSnapshot: event.run.jokeContextSnapshot,
         newsLinkedImages,
         phase:

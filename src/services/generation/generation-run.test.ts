@@ -12,6 +12,7 @@ import {
   buildImageSet,
   buildJokeContextSnapshot,
   buildLegacyVisualJokeSet,
+  buildUploadedImageSet,
   buildVisualJokeSet,
 } from "./test-fixtures";
 
@@ -94,6 +95,57 @@ describe("generation run contracts", () => {
         },
       }),
     ).toThrow();
+  });
+
+  test("round-trips a run carrying completed and failed Uploaded Image Sets", () => {
+    const baseRunningRun = {
+      id: "run-uploaded",
+      label: "Uploaded sets run",
+      sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+      usersDirection: "",
+      status: "running" as const,
+      draftCount: 0,
+      draftTarget: 3 as const,
+      drafts: [],
+    };
+
+    const parsed = parseSavedGenerationRun({
+      ...baseRunningRun,
+      uploadedImageSets: [
+        { status: "completed", imageSet: buildUploadedImageSet() },
+        {
+          status: "failed",
+          failedImageSet: {
+            id: "uploaded-failed-1",
+            failedAt: "2026-06-05T11:30:00.000Z",
+            message: "Image generation failed for the uploaded image.",
+            selectedImageId: "uploaded-original-2",
+            debugLog: ["AI Gateway timeout", "step: generate-variations"],
+          },
+        },
+      ],
+    });
+
+    expect(parsed.uploadedImageSets).toHaveLength(2);
+    expect(parsed.uploadedImageSets[0]).toMatchObject({ status: "completed" });
+    expect(parsed.uploadedImageSets[1]).toMatchObject({ status: "failed" });
+    // Serialize → re-parse is byte-for-byte stable.
+    expect(parseSavedGenerationRun(JSON.parse(JSON.stringify(parsed)))).toEqual(parsed);
+  });
+
+  test("defaults uploadedImageSets to an empty list on a legacy payload without the field", () => {
+    const parsed = parseSavedGenerationRun({
+      id: "run-legacy",
+      label: "Legacy run",
+      sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+      usersDirection: "",
+      status: "running" as const,
+      draftCount: 0,
+      draftTarget: 3 as const,
+      drafts: [],
+    });
+
+    expect(parsed.uploadedImageSets).toEqual([]);
   });
 
   test("accepts a Selected Draft id that names one of the run's drafts and rejects a stray one", () => {

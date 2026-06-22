@@ -11,20 +11,30 @@ import type {
  * Tweet Image is derived purely from these — only a Selected Generated Image
  * that is a `variation` (never the original) and a Selected Visual Joke can
  * assemble the composite. Shared by the overlay and its tests.
+ *
+ * The variation is searched across every completed Image Set in resolution order
+ * (`collectCompletedImageSets`: source-derived first, then uploaded sets), so an
+ * uploaded variation resolves just like a source-derived one (ADR-0025).
  */
 export function findSelectedVariation(
-  imageSet: ImageSet | undefined,
+  imageSets: readonly ImageSet[],
   selection: SelectedGeneratedImage,
 ) {
-  if (!selection || !imageSet) {
+  if (!selection) {
     return null;
   }
 
-  return (
-    imageSet.options.find(
+  for (const imageSet of imageSets) {
+    const variation = imageSet.options.find(
       (option) => option.id === selection.imageOptionId && option.kind === "variation",
-    ) ?? null
-  );
+    );
+
+    if (variation) {
+      return variation;
+    }
+  }
+
+  return null;
 }
 
 export function findSelectedVisualJoke(

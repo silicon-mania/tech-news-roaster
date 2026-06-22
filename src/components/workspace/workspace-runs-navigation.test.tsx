@@ -74,6 +74,7 @@ describe("Workspace runs navigation", () => {
         draftCount: 0,
         draftTarget: 3,
         drafts: [],
+        uploadedImageSets: [],
       },
       {
         id: "second-run",
@@ -84,6 +85,7 @@ describe("Workspace runs navigation", () => {
         draftCount: 1,
         draftTarget: 3,
         drafts: [],
+        uploadedImageSets: [],
       },
     ];
 

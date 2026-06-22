@@ -221,6 +221,7 @@ export function buildCompletedRun(overrides: Partial<GenerationRun> = {}): Gener
       }),
     ],
     ...overrides,
+    uploadedImageSets: overrides.uploadedImageSets ?? [],
   };
 }
 

@@ -9,7 +9,12 @@ import {
   type QuoteTweetDraft,
   type VisualJokeSet,
 } from "@/services/generation";
-import { buildImageSet, buildVisualJokeSet, buildVisualJokes } from "./test-fixtures";
+import {
+  buildImageSet,
+  buildUploadedImageSet,
+  buildVisualJokeSet,
+  buildVisualJokes,
+} from "./test-fixtures";
 
 const fixedNow = () => new Date("2026-06-16T12:00:00.000Z");
 const selectedAt = "2026-06-16T12:00:00.000Z";
@@ -162,6 +167,37 @@ describe("deriveAutomatedSelection", () => {
     expect(selection.selectedImageOriginal).toEqual(
       parseImageSet(buildImageSet()).selectedImageOriginal,
     );
+  });
+
+  test("defaults the Selected Generated Image to the first uploaded variation when no base set exists", () => {
+    const selection = deriveAutomatedSelection(
+      {
+        drafts,
+        uploadedImageSets: [
+          { status: "completed", imageSet: parseImageSet(buildUploadedImageSet()) },
+        ],
+      },
+      { now: fixedNow },
+    );
+
+    expect(selection.selectedGeneratedImage).toEqual({
+      imageOptionId: "uploaded-option-variation-1",
+      selectedAt,
+    });
+  });
+
+  test("prefers the source-derived set's first variation over an uploaded set's", () => {
+    const selection = deriveAutomatedSelection(
+      {
+        ...buildFullResults(),
+        uploadedImageSets: [
+          { status: "completed", imageSet: parseImageSet(buildUploadedImageSet()) },
+        ],
+      },
+      { now: fixedNow },
+    );
+
+    expect(selection.selectedGeneratedImage?.imageOptionId).toBe("image-option-variation-1");
   });
 
   test("omits selections for outputs that were not generated, without throwing", () => {

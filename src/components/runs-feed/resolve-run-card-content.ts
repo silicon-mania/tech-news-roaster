@@ -3,6 +3,7 @@ import {
   findSelectedVisualJoke,
 } from "@/components/workspace/quote-tweet-selection";
 import {
+  collectCompletedImageSets,
   deriveAutomatedSelection,
   type QuoteTweetDraft,
   type VisualJoke,
@@ -37,8 +38,11 @@ export function resolveRunCardContent(run: GenerationRun): ResolvedRunCardConten
   const automatedSelection = deriveAutomatedSelection({
     drafts: run.drafts,
     imageSet: run.imageSet,
+    uploadedImageSets: run.uploadedImageSets,
     visualJokeSet: run.visualJokeSet,
   });
+
+  const imageSets = collectCompletedImageSets(run);
 
   const draft =
     run.drafts.find((candidate) => candidate.id === run.selectedDraftId) ??
@@ -50,8 +54,8 @@ export function resolveRunCardContent(run: GenerationRun): ResolvedRunCardConten
     findSelectedVisualJoke(run.visualJokeSet, automatedSelection.selectedVisualJoke ?? null);
 
   const variation =
-    findSelectedVariation(run.imageSet, run.selectedGeneratedImage ?? null) ??
-    findSelectedVariation(run.imageSet, automatedSelection.selectedGeneratedImage ?? null);
+    findSelectedVariation(imageSets, run.selectedGeneratedImage ?? null) ??
+    findSelectedVariation(imageSets, automatedSelection.selectedGeneratedImage ?? null);
 
   return {
     draft,

@@ -9,6 +9,10 @@ export const imageOriginalCandidateTarget = 4;
 export const imageOriginalCandidateOriginSchema = z.enum([
   "source-tweet-media",
   "news-linked-image",
+  // An operator-supplied image (ADR-0025). Used only by an Uploaded Image Set's
+  // Selected Image Original — uploaded originals are provided directly and are
+  // never assembled as Image Original Candidates.
+  "user-uploaded",
 ]);
 
 export const imageOriginalCandidateSchema = z
