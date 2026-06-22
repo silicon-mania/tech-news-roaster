@@ -77,7 +77,8 @@ read [CONTEXT.md](CONTEXT.md) and the ADRs under [docs/adr/](docs/adr/).
   - `src/components/<feature>/` — feature UI components (`src/components/ui/` is
     reserved for shadcn primitives)
   - `src/services/<feature>/` — feature logic / data services
-  - `src/types/` — shared types & interfaces
+  - `src/types/` — shared cross-feature types (created on demand; feature-local
+    types stay in their feature/service folder)
   - `src/utils/` — shared utilities
   - `src/lib/` — third-party glue (e.g. shadcn's `cn`)
 - Files are **kebab-case**. Co-locate tests next to their subject as
@@ -87,7 +88,37 @@ read [CONTEXT.md](CONTEXT.md) and the ADRs under [docs/adr/](docs/adr/).
   directly by routes and stay out of the `services/generation` barrel so client
   bundles never pull in server code.
 - The migration out of `src/features/*` is **complete** — the tree above is the
-  live layout. Put new code in the matching folder.
+  live layout (folders are created as needed: `src/types/` appears only once a
+  type is genuinely shared across features). Put new code in the matching folder.
+
+## Documentation
+
+The docs sit in three tiers by **durability** — know which tier you're touching.
+
+- **Durable truth — keep and maintain.** The code and its tests, [CONTEXT.md](CONTEXT.md)
+  (the domain language), and the **active ADRs** under [docs/adr/](docs/adr/) (the
+  decisions). Together these *are* the spec. If another doc conflicts with them, the
+  other doc is wrong — fix or delete it; never reshape the code to match a stale doc.
+- **Ephemeral plans — delete once shipped.** PRDs and the issues under
+  `.grilled/issues/` are planning scaffolding for one cycle of `grill → to-prd →
+  to-issues → implement-next-issue`. Before the work merges, capture any lasting
+  decision in an ADR (and any new term in CONTEXT.md); then the plan is disposable.
+  Do **not** accumulate superseded PRDs — agents read them as current and get misled.
+- **Ops runbooks — keep, but maintain.** Deployment and setup guides under
+  [docs/](docs/) go stale silently; update them in the same change that alters the
+  thing they describe.
+
+Conventions:
+
+- **ADRs are the decision log.** Maintain supersession links in **both** directions:
+  when a new ADR reverses an old one, add a forward "amended/superseded by" banner to
+  the old ADR too, not just a back-link in the new one. Delete a fully-superseded ADR
+  only when its superseder already carries the rejected option's rationale **and** you
+  have removed the now-dangling links.
+- **CONTEXT.md is a glossary, not a changelog.** Define a term's current meaning;
+  don't narrate how it used to be ("no longer the landing page", "preserved from
+  earlier versions") — that history lives in an ADR. Drop a term's version tag once the
+  behavior is simply current (keep it only to mark a genuinely retired term).
 
 ## Workflow
 

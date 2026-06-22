@@ -1,4 +1,4 @@
-Status: Historical v2 implementation decision. ADR-0015 supersedes the single outside-X enrichment boundary for v3.
+Status: The v2 single-enrichment-boundary framing is superseded by ADR-0015, but this decision still ships — the `/enrich` route is still protected by the `OUTSIDE_X_ENRICHMENT_API_KEY` bearer token.
 
 # Bearer Token for Outside-X Enrichment Service
 

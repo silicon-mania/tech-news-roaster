@@ -1,4 +1,4 @@
-Status: Historical v2 implementation decision. ADR-0015 supersedes the single outside-X enrichment boundary for v3.
+Status: The v2 single-enrichment-boundary framing is superseded by ADR-0015, but this decision still ships — the `/enrich` route remains the in-repo `OUTSIDE_X_ENRICHMENT_ENDPOINT` contract that News-Linked Image Discovery calls.
 
 # Independent Outside-X Enrichment Endpoint
 

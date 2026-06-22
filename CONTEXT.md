@@ -65,7 +65,7 @@ The single tech-news event that several viral tweets are witnesses to, formed by
 _Avoid_: Story, topic, trend, thread
 
 **Saved Run**:
-A generation run that remains available to the user after creation, including its source tweet, user's direction, joke context snapshot, visual joke direction, visual joke set, selected visual joke, persisted selected image originals, user image prompt, image sets, model provenance, date, and the latest edited version of each draft, and that can be reopened, edited again, inspected, downloaded, or deleted by the user without ever regenerating its drafts, visual jokes, or images.
+A generation run that remains available to the user after creation, including its source tweet, user's direction, joke context snapshot, visual joke direction, visual joke set, selected visual joke, persisted selected image originals, user image prompt, image sets, model provenance, run provenance (its origin — manual or automated — the image prompt source — user or default — and, for automated runs, the news coverage cluster it came from), date, and the latest edited version of each draft, and that can be reopened, edited again, inspected, downloaded, or deleted by the user without ever regenerating its drafts, visual jokes, or images.
 _Avoid_: History item, cache entry, record
 
 **Saved Run Retention**:
@@ -121,7 +121,7 @@ The server-side boundary that calls the connected AI providers, tracks provider 
 _Avoid_: Client coordinator, frontend workflow, provider client
 
 **Single-Page Workspace**:
-The manual-generation surface: one responsive page containing generation, source tweet reference, draft editing, and access to all saved runs. It is no longer the product's landing page — the Runs Feed is the main page, and the workspace is reached from it by the New Manual Run button. "Workspace" is the canonical feature name for this surface in code.
+The manual-generation surface: one responsive page containing generation, source tweet reference, draft editing, and access to all saved runs. The Runs Feed is the product's landing page; the workspace is reached from it by the New Manual Run button. "Workspace" is the canonical feature name for this surface in code.
 _Avoid_: Multi-page flow, wizard, separate editor, intake
 
 **Generation Progress**:
@@ -133,7 +133,7 @@ The compact environment readiness surface that reports which Generation Run serv
 _Avoid_: Debug dashboard, raw environment dump, hidden health check
 
 **Runtime Readiness Gate**:
-The v3 rule that a Generation Run cannot start unless every required service boundary for the full v3 workflow is configured and ready. It favors full live workflow confidence over partial startup.
+The rule that work cannot start unless every required service boundary is configured and ready: it disables the manual Generation Run action until the full live workflow is ready, and independently decides whether an automated Discovery Sweep starts at all — a not-ready sweep starts nothing that cycle, judged on a deliberately narrower ruleset than the manual gate. It favors full live workflow confidence over partial startup.
 _Avoid_: Partial readiness, best-effort run, optional service startup
 
 **Creative Result Area**:
@@ -145,11 +145,11 @@ The hidden technical detail or log reveal available from a failed context or cre
 _Avoid_: Error wall, visible stack trace, recovery workflow
 
 **Active Run**:
-The single run currently shown in the center workspace — the manual-run surface, preserved unchanged from earlier versions and now reached from the Runs Feed by a button rather than being the landing page. Selecting another run inside the workspace replaces it rather than opening multiple workspaces at once. Existing successful runs can also be browsed and edited from the Runs Feed as the Selected Run, without entering the workspace.
+The single run currently shown in the center workspace — the manual-run surface, reached from the Runs Feed by a button. Selecting another run inside the workspace replaces it rather than opening multiple workspaces at once. Existing successful runs can also be browsed and edited from the Runs Feed as the Selected Run, without entering the workspace.
 _Avoid_: Tab, secondary workspace, side-by-side run
 
 **Runs Feed**:
-The product's main page: the operator's successful runs shown newest-first as an infinite-scrolling list, each rendered as a card that previews the run as the quote tweet it will become. It replaces the earlier left-hand runs list as the way to browse and reopen past runs. Selecting a card opens that run as the Selected Run for editing.
+The product's main page: the operator's successful runs shown newest-first as an infinite-scrolling list, each rendered as a card that previews the run as the quote tweet it will become. Selecting a card opens that run as the Selected Run for editing.
 _Avoid_: Runs list, history sidebar, gallery, dashboard
 
 **Selected Run**:
@@ -201,7 +201,7 @@ A non-editable image inside an image set, either the selected image original or 
 _Avoid_: Asset, picture, visual output
 
 **Image Generation**:
-The one-time part of a generation run where exactly one image original is selected from four candidates and a prompt is provided — the user image prompt in a manual run, the default image prompt in an automated run — before one configured image model creates four variations using only the selected original and that prompt, without using the joke context snapshot in v3.
+The one-time part of a generation run where exactly one image original is selected from four candidates and a prompt is provided — the user image prompt in a manual run, the default image prompt in an automated run — before one configured image model creates four variations using only the selected original and that prompt, without using the joke context snapshot.
 _Avoid_: Image generation run, visual job, image workflow
 
 **Image Generation Service**:

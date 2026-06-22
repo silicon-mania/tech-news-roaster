@@ -6,8 +6,7 @@
  * geometry is in the template's native pixel space (top-left origin); both the
  * live preview and the 2x rasterization scale from these numbers.
  *
- * See docs/adr/0018-deterministic-derived-final-quote-tweet-image.md and
- * docs/prds/final-quote-tweet-image.md.
+ * See docs/adr/0018-deterministic-derived-final-quote-tweet-image.md.
  */
 
 /** A rectangle in the template's native pixel space. */

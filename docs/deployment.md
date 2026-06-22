@@ -1,6 +1,6 @@
-# Tech News Roaster v3 Deployment Setup
+# Tech News Roaster — Deployment Setup
 
-Use this checklist before deploying version 3. All values are server-only; do not prefix any of
+Use this checklist before deploying. All values are server-only; do not prefix any of
 these variables with `NEXT_PUBLIC_`.
 
 ## 1. Prepare external services
@@ -25,7 +25,7 @@ these variables with `NEXT_PUBLIC_`.
    - Decide the public `OUTSIDE_X_ENRICHMENT_ENDPOINT`. For the same Vercel deployment, this is
      usually `https://<your-production-domain>/enrich`.
 
-4. Supabase (server-side persistence + single-operator auth — required for v4 automated discovery)
+4. Supabase (server-side persistence + multi-operator allowlist auth — required for automated discovery)
    - Create a Supabase project. From Project Settings -> API copy the **Project URL**
      (`SUPABASE_URL`), the **anon** key (`SUPABASE_ANON_KEY`), and the **service_role** key
      (`SUPABASE_SERVICE_ROLE_KEY`). The service-role key is secret — server-only, never
@@ -66,6 +66,11 @@ APP_BASE_URL=https://<your-production-domain>
 DISCOVERY_SOURCE_LIST_IDS=<comma-separated operator-owned X List ids>
 CRON_SECRET=<long random secret protecting the sweep route>
 ```
+
+The model IDs above (`gpt-5.4-mini`, `claude-sonnet-4.6`, `gemini-3-flash`, `gpt-5.5`,
+`gemini-2.5-flash-image`) are the **current code defaults** and are shown as examples — they may
+change. Confirm the live values against `/api/runtime-status`, which reports each configured model
+as `available: true` against the gateway catalog.
 
 `APP_BASE_URL` is required for automated runs: a cron-driven run has no incoming request, so it
 builds its stored image URLs from this base. Without it those URLs default to `localhost` and are
@@ -108,20 +113,28 @@ Notes:
 
 ## 4. Production smoke test
 
-1. Open the production app.
-2. Paste a direct `x.com` or `twitter.com` status URL.
-3. Run one paid v3 generation.
-4. Confirm these areas complete or fail independently and visibly:
+The app lands on the **Runs Feed** at `/`. Start a manual generation from the **New Manual Run**
+action, which opens the manual **Workspace** at `/workspace`. (The Workspace and its left-hand runs
+sidebar still exist — the feed is just the primary surface now; past runs are reviewed from the
+feed.)
+
+1. Open the production app — you land on the Runs Feed.
+2. Click **New Manual Run** to open `/workspace`.
+3. Paste a direct `x.com` or `twitter.com` status URL.
+4. Run one real paid generation.
+5. Confirm these areas complete or fail independently and visibly:
    - Generation Progress
    - Text Generation drafts
    - Joke Context Snapshot reveal
    - Visual Joke Creative Result Area
    - News-linked image selection
    - Image Generation results
-5. Reopen the saved run from the drawer and confirm it does not regenerate.
-6. Select or clear a visual joke, reopen the run again, and confirm the selection persisted.
+6. Return to the Runs Feed and confirm the completed run appears as a **Run Card**. Click it to open
+   the **Selected Run sidebar** and confirm it does not regenerate.
+7. Select or clear a visual joke, reopen the run again from the feed, and confirm the selection
+   persisted.
 
-## 5. Automated Discovery Sweep scheduling (v4)
+## 5. Automated Discovery Sweep scheduling
 
 The sweep runs unattended as a **Vercel Cron job** that hits the secured
 `/api/discovery-sweep` route. The schedule lives in `vercel.json`:
@@ -165,7 +178,7 @@ The sweep runs unattended as a **Vercel Cron job** that hits the secured
   unattended sweeps. (The gate checks boundaries, not whether the operator has signed in —
   that is the separate `unauthorized` case above.)
 
-## 6. Real Discovery Sweep smoke (v4)
+## 6. Real Discovery Sweep smoke
 
 Operator-driven and occasional, with production keys — separate from the fast,
 deterministic fixture suite, which remains the regression guard.
@@ -182,7 +195,7 @@ deterministic fixture suite, which remains the regression guard.
    `{ "status": "completed", "startedRuns": N, "droppedByCap": M, "joinedExistingClusters": K, "runIds": [...] }`.
    `startedRuns` should match the count of distinct viral news events in the trailing
    window (one run per News Coverage Cluster), bounded by the per-sweep cap.
-4. Open the unified runs list and confirm the started runs appear as **automated**,
+4. Open the **Runs Feed** at `/` and confirm the started runs appear as **automated**,
    marked **unseen**.
 5. Trigger the sweep again immediately. Confirm a tweet that joins an already-run
    cluster starts **no second run** (`startedRuns` for the same news is 0;
@@ -190,12 +203,12 @@ deterministic fixture suite, which remains the regression guard.
 6. Check the cron logs: any cluster dropped by the per-sweep cap is logged
    (`[discovery-sweep] cap-drop: ...`), never silently discarded.
 
-## 7. Real Automated Run smoke (v4)
+## 7. Real Automated Run smoke
 
 1. Open one of the runs the sweep started (section 6).
 2. Confirm it reached a composed **Final Quote Tweet Image** end to end with no input
-   from you, and that Automated Selection picked the first draft, the Recommended
-   Visual Joke, the first image original candidate, and the first variation.
+   from you, and that Automated Selection picked the first draft, the first Top Pick
+   visual joke, the first image original candidate, and the first variation.
 3. Confirm the image set has exactly **four variations** and the selected original is
    locked.
 4. Confirm **prepare-not-publish**: nothing was posted to X — the run only prepared the
@@ -203,7 +216,7 @@ deterministic fixture suite, which remains the regression guard.
 5. Override the Selected Visual Joke (or re-pick a variation) and confirm the Final
    Quote Tweet Image **recomposes instantly with no regeneration**.
 
-## 8. Tuning the discovery configuration (v4)
+## 8. Tuning the discovery configuration
 
 These knobs ship as documented launch defaults; tune them against your live feed.
 Each lives in code (change, redeploy) except the interval, which lives in `vercel.json`.

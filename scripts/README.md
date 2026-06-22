@@ -4,15 +4,20 @@ Operator-driven, throwaway scripts that make **real, credit-metered** provider c
 part of the automated test suite (which stays fixture-based, fast, and deterministic — see the
 v4 PRD's Testing Decisions) and ship no app code. Run them by hand.
 
-## probe-x-search-operators.mjs — issue 007 spike
+## probe-x-search-operators.mjs — issue 007 spike (resolved)
 
-Verifies whether the retrieval provider (TwitterAPI.io, per
+A **historical spike**, retained so the probe can be **re-run** if the provider's behavior changes.
+It verifies whether the retrieval provider (TwitterAPI.io, per
 [ADR-0005](../docs/adr/0005-provider-agnostic-tweet-retrieval.md)) passes through the native X
-search operators `list:`, `min_retweets:`, and `min_faves:`. The answer picks the Tweet Discovery
-branch that the List-timeline adapter (issue 014) implements:
+search operators `list:`, `min_retweets:`, and `min_faves:`. The spike was resolved (2026-06-15) and
+the decision is recorded in
+[ADR-0020](../docs/adr/0020-automated-discovery-via-api-list-polling.md); the List-timeline adapter
+(issue 014) shipped on that basis. The probe distinguished two Tweet Discovery branches:
 
 - **HONORED** → X pre-filters server-side; a Discovery Sweep is a handful of calls.
 - **IGNORED** → the sweep pulls full List timelines and applies the virality bar in-house.
+
+Re-run it if you suspect the provider has changed how it treats these operators.
 
 ### Run
 
@@ -59,5 +64,6 @@ do, set a smaller `PROBE_DELAY_MS` to speed the run up.
 - `list:` → **LIKELY_HONORED** needs your eyeball: confirm the printed authors are actually members
   of the list. **LIKELY_NOT_HONORED** means empty results or the literal `list:ID` text came back.
 
-Paste the final JSON block back and the finding gets written into
-[ADR-0020](../docs/adr/0020-automated-discovery-via-api-list-polling.md).
+The original finding was recorded in
+[ADR-0020](../docs/adr/0020-automated-discovery-via-api-list-polling.md). If you re-run the probe and
+the verdict differs from what ADR-0020 documents, capture the final JSON block and update that ADR.

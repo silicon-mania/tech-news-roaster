@@ -1,9 +1,8 @@
 # Supabase Foundation + Email-OTP Operator Auth — Setup & Verification
 
-This guide covers the **human-in-the-loop** steps for issue
-`010-supabase-foundation-email-otp-operator-auth`: provisioning the Supabase
-project, choosing the operator allowlist, configuring the secrets, and
-verifying the auth gate end to end.
+This guide covers the **human-in-the-loop** steps for the Supabase foundation and
+email-OTP operator auth: provisioning the Supabase project, choosing the operator
+allowlist, configuring the secrets, and verifying the auth gate end to end.
 
 All Supabase variables are **server-only**. Do **not** prefix any of them with
 `NEXT_PUBLIC_` — per [ADR-0019](adr/0019-server-side-persistence-and-single-operator-auth.md)
@@ -22,12 +21,12 @@ must never reach the client bundle.
 1. Sign in at <https://supabase.com> and create a **new project**. Pick a region
    close to where the app is deployed.
 2. A new project automatically includes managed **Postgres**, **Storage**
-   (object storage), and **Auth**. No tables or buckets are needed for this
-   issue itself — run data moves in issue `011` and image bytes in issue `012`.
-   Those two ship SQL migrations under `supabase/migrations/` (the
-   `generation_runs` table and the private `generated-images` storage bucket);
-   apply them with the Supabase CLI (`supabase db push`) or by pasting each file
-   into the **SQL Editor** once the project exists.
+   (object storage), and **Auth**. The auth gate itself needs no tables or
+   buckets, but run persistence and image storage do: the SQL migrations under
+   `supabase/migrations/` create the `generation_runs` table and the private
+   `generated-images` storage bucket. Apply them with the Supabase CLI
+   (`supabase db push`) or by pasting each file into the **SQL Editor** once the
+   project exists.
 3. Wait for the project to finish provisioning.
 
 ## 2. Configure email-OTP authentication
@@ -160,7 +159,8 @@ Run through these once the variables are set and the server is restarted:
 2. **Unauthenticated workspace is gated.** In a fresh/incognito browser, visit
    `http://localhost:3000/` → you should be redirected to `/sign-in`.
 3. **Unauthenticated runs API is rejected.** `curl -i http://localhost:3000/api/generation-runs/stream`
-   → should return **401** (not a stream).
+   → should return **401** (not a stream). The same deny-by-default gate also protects the
+   persisted-runs API at `/api/runs/*`.
 4. **Allowlisted sign-in works.** On `/sign-in`, enter the allowlisted email →
    "Send code" → check your inbox for the 6-digit code → enter it → "Verify and
    sign in" → you land on the workspace.
@@ -170,12 +170,13 @@ Run through these once the variables are set and the server is restarted:
 6. **Cross-device continuity.** Sign in from a second browser/device with the
    same allowlisted email + a fresh code → you reach the **same** Operator
    Account. (A second *teammate* signs in with their own allowlisted email and
-   gets their own account; automated-run fan-out across operators lands in
-   ADR-0024 / issue `012`.)
+   gets their own account; automated-run fan-out across operators is
+   implemented — each finished Automated Run is copied into every other signed-in
+   operator's account — see [ADR-0024](adr/0024-multi-operator-allowlist-and-automated-run-fan-out.md).)
 
 > ⚠️ Heads-up for local verification: the dev server uses your **live, paid**
 > generation/retrieval APIs. Signing in is free, but do not start a real
 > Generation Run during this check unless you intend to spend quota.
 
-When all six pass, the issue's acceptance criteria are met. Ping back with any
+When all six pass, the operator auth gate is correctly configured. Ping back with any
 step that fails and the exact response you saw.
