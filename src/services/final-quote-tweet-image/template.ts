@@ -17,6 +17,13 @@ export interface TemplateRect {
   readonly height: number;
 }
 
+/**
+ * Fixed label baked where a Joke Title once sat. The Final Quote Tweet Image is
+ * no longer derived from a Selected Visual Joke (ADR-0026); the composite renders
+ * this literal string instead — it is not selected, not editable, not persisted.
+ */
+export const finalQuoteTweetImageLabel = "LABEL GOES HERE";
+
 /** Fixed portrait frame at native resolution. */
 export const quoteTweetFrame = { width: 3240, height: 4050 } as const;
 

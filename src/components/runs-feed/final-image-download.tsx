@@ -9,6 +9,7 @@ import { buildFinalQuoteTweetImageDownloadName } from "@/components/workspace/im
 import { QuoteTweetComposite } from "@/components/workspace/quote-tweet-composite";
 import {
   type CompositeRasterizer,
+  finalQuoteTweetImageLabel,
   rasterizeCompositeToPng,
 } from "@/services/final-quote-tweet-image";
 import type { GenerationRun } from "@/services/workspace";
@@ -24,11 +25,11 @@ import { resolveRunCardContent } from "./resolve-run-card-content";
  * The PNG is captured from this exact preview node (preview equals download, per
  * [ADR 0018](../../../docs/adr/0018-deterministic-derived-final-quote-tweet-image.md)),
  * reusing the shared {@link rasterizeCompositeToPng} so quality and geometry match
- * the workspace bit-for-bit. The two picks resolve exactly as the Run Card does —
- * the operator's explicit choice or the first-of-each fallback via
+ * the workspace bit-for-bit. The image variation resolves exactly as the Run Card
+ * does — the operator's explicit choice or the first-of-each fallback via
  * {@link resolveRunCardContent} — so the download always matches what the card
- * shows. A Selected Run is always a Complete Run, so both picks resolve and the
- * download is always available.
+ * shows. A Selected Run is always a Complete Run, so the variation resolves and
+ * the download is always available.
  */
 export function FinalImageDownload({
   rasterizeComposite = rasterizeCompositeToPng,
@@ -39,11 +40,11 @@ export function FinalImageDownload({
 }) {
   const compositeRef = useRef<HTMLElement | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
-  const { variation, visualJoke } = resolveRunCardContent(run);
+  const { variation } = resolveRunCardContent(run);
 
-  // A Complete Run always resolves both, but guard so an incomplete run reaching
-  // the sidebar renders nothing here rather than a broken composite.
-  if (!variation || !visualJoke) {
+  // A Complete Run always resolves a variation, but guard so an incomplete run
+  // reaching the sidebar renders nothing here rather than a broken composite.
+  if (!variation) {
     return null;
   }
 
@@ -100,7 +101,7 @@ export function FinalImageDownload({
         <QuoteTweetComposite
           imageAlt={variation.altText ?? variation.label}
           imageUrl={variation.url}
-          jokeTitle={visualJoke.text}
+          jokeTitle={finalQuoteTweetImageLabel}
           ref={compositeRef}
         />
       </div>

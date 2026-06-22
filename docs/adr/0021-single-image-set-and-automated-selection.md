@@ -2,6 +2,8 @@
 
 > **Status: amended by [ADR-0025](0025-repeatable-uploaded-image-sets.md).** A run is no longer limited to one image set: the operator can upload their own original and generate additional Uploaded Image Sets, repeatedly. The "exactly one image set" and "changing the original requires a new run" claims below are superseded. Everything else here — the four-candidate source-derived set, its locked original, and the automated-selection defaults — still stands and is unchanged for that source-derived set.
 
+> **Status: amended by [ADR-0026](0026-remove-visual-joke-generation.md).** Visual jokes have been removed: automated selection no longer picks "the recommended visual joke". The remaining defaults — first text draft, first image original candidate, first generated variation — are unchanged.
+
 This records two related changes to the shape of a run's outputs and to how an automated run fills the choices a manual run leaves to the operator.
 
 ## One image set of four variations, with source-tweet media as primary originals

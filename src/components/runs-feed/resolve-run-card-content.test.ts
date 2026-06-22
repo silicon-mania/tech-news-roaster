@@ -4,8 +4,6 @@ import { resolveRunCardContent } from "./resolve-run-card-content";
 
 describe("resolveRunCardContent", () => {
   test("uses the operator's explicit picks when present", () => {
-    // buildCompletedV3Run already carries an explicit Selected Visual Joke
-    // (visual-joke-2); add an explicit draft and variation on top.
     const run = buildCompletedV3Run({
       selectedDraftId: "draft-anthropic",
       selectedGeneratedImage: {
@@ -14,35 +12,36 @@ describe("resolveRunCardContent", () => {
       },
     });
 
-    const { draft, variation, visualJoke } = resolveRunCardContent(run);
+    const { draft, variation } = resolveRunCardContent(run);
 
     expect(draft?.id).toBe("draft-anthropic");
     expect(variation?.id).toBe("image-option-news-linked-image-1-variation-2");
-    expect(visualJoke?.id).toBe("visual-joke-2");
   });
 
-  test("falls back to first draft, first Top Pick joke, and first variation with no selection", () => {
+  test("falls back to the first draft and first variation with no selection", () => {
     const run = buildCompletedV3Run({
       selectedDraftId: undefined,
       selectedGeneratedImage: null,
-      selectedVisualJoke: null,
     });
 
-    const { draft, variation, visualJoke } = resolveRunCardContent(run);
+    const { draft, variation } = resolveRunCardContent(run);
 
-    // First-of-each, matching Automated Selection: first draft, the first Top
-    // Pick joke (visual-joke-1), and the first generated variation.
+    // First-of-each, matching Automated Selection — no joke slot is resolved.
     expect(draft?.id).toBe("draft-openai");
-    expect(visualJoke?.id).toBe("visual-joke-1");
     expect(variation?.id).toBe("image-option-news-linked-image-1-variation-1");
   });
 
-  test("falls back when an explicit selection dangles past its content", () => {
+  test("falls back to the first variation when an explicit image selection dangles past its content", () => {
     const run = buildCompletedV3Run({
-      selectedVisualJoke: { selectedAt: "2026-06-06T10:16:00.000Z", visualJokeId: "missing-joke" },
+      selectedGeneratedImage: {
+        imageOptionId: "image-option-missing",
+        selectedAt: "2026-06-06T10:16:00.000Z",
+      },
     });
 
-    expect(resolveRunCardContent(run).visualJoke?.id).toBe("visual-joke-1");
+    expect(resolveRunCardContent(run).variation?.id).toBe(
+      "image-option-news-linked-image-1-variation-1",
+    );
   });
 
   test("returns the run's embedded Source Tweet", () => {

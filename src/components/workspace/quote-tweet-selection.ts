@@ -47,21 +47,3 @@ export function findSelectedVisualJoke(
 
   return visualJokeSet.jokes.find((joke) => joke.id === selection.visualJokeId) ?? null;
 }
-
-export function getMissingPickMessage({
-  isImageMissing,
-  isJokeMissing,
-}: {
-  isImageMissing: boolean;
-  isJokeMissing: boolean;
-}) {
-  if (isImageMissing && isJokeMissing) {
-    return "Select a generated image and a visual joke to assemble the final quote tweet image.";
-  }
-
-  if (isImageMissing) {
-    return "Select a generated image to assemble the final quote tweet image.";
-  }
-
-  return "Select a visual joke to assemble the final quote tweet image.";
-}

@@ -14,9 +14,9 @@ const selectedGeneratedImageFixture = {
   imageOptionId: "image-option-news-linked-image-1-variation-1",
   selectedAt: "2026-06-06T10:17:00.000Z",
 };
-// buildCompletedV3Run selects jokes[1] of the fixture visual joke set by default,
-// and the fixture image above is its first variation.
-const selectedJokeTitle = "A workflow map where every exit arrow points back to the login screen.";
+// The composite renders the fixed label where the Joke Title once sat (ADR-0026);
+// the fixture image above is the run's first variation.
+const placeholderLabel = "LABEL GOES HERE";
 const selectedVariationName = "Launch visual variation 1.";
 
 describe("Workspace final quote tweet image overlay", () => {
@@ -41,18 +41,18 @@ describe("Workspace final quote tweet image overlay", () => {
       }),
     ).not.toBeInTheDocument();
 
-    // Derived composite: the Selected Visual Joke's title over the Selected Generated Image.
+    // Derived composite: the fixed label over the Selected Generated Image.
     expect(
       within(finalArea).getByRole("figure", { name: "Final Quote Tweet Image preview" }),
     ).toBeInTheDocument();
-    expect(within(finalArea).getByText(selectedJokeTitle)).toBeInTheDocument();
+    expect(within(finalArea).getByText(placeholderLabel)).toBeInTheDocument();
     expect(within(finalArea).getByRole("img", { name: selectedVariationName })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /download final quote tweet image/i }),
     ).toBeInTheDocument();
   });
 
-  test("reopening a saved run with both selections renders the composite without re-running generation", async () => {
+  test("reopening a saved run with a selected image renders the composite without re-running generation", async () => {
     const onStartGenerationRun = vi.fn();
     const onStartImageGeneration = vi.fn();
     const imageGenerationStreamFetcher = vi.fn(
@@ -70,13 +70,13 @@ describe("Workspace final quote tweet image overlay", () => {
     });
 
     // The run is restored from storage (no initialRuns), and the composite is
-    // derived immediately from the two persisted selection ids plus the baked
+    // derived immediately from the persisted image selection id plus the baked
     // template — never from stored picture bytes.
     const finalArea = await screen.findByRole("region", {
       name: /final quote tweet image creative result area/i,
     });
 
-    expect(within(finalArea).getByText(selectedJokeTitle)).toBeInTheDocument();
+    expect(within(finalArea).getByText(placeholderLabel)).toBeInTheDocument();
     expect(within(finalArea).getByRole("img", { name: selectedVariationName })).toBeInTheDocument();
 
     // Reopening is pure rendering: nothing is regenerated.

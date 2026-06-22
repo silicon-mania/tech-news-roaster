@@ -6,14 +6,11 @@ import { Toaster } from "@/components/ui/sonner";
 import { buildCompletedV3Run } from "../workspace/workspace-test-utils";
 import { FinalImageDownload } from "./final-image-download";
 
-// buildCompletedV3Run selects jokes[1] by default and leaves the generated image
-// unselected, so the composite falls back to the first variation (Automated
-// Selection), exactly as the Run Card does.
-const selectedJokeTitle = "A workflow map where every exit arrow points back to the login screen.";
+// buildCompletedV3Run leaves the generated image unselected, so the composite
+// falls back to the first variation (Automated Selection), exactly as the Run
+// Card does. The composite renders the fixed label where the Joke Title once sat.
+const placeholderLabel = "LABEL GOES HERE";
 const firstVariationAlt = "Launch visual variation 1.";
-// visual-joke-1 is the set's only Top Pick — the first-of-each fallback when no
-// joke is explicitly selected.
-const topPickJokeTitle = "A one-click launch button labeled 'Eventually, manual work.'";
 
 describe("FinalImageDownload", () => {
   test("renders the run's Final Quote Tweet Image composite whole", () => {
@@ -23,8 +20,8 @@ describe("FinalImageDownload", () => {
       screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
     ).toBeInTheDocument();
 
-    // The non-editable punchline renders whole — nothing truncates or clamps it.
-    const title = screen.getByText(selectedJokeTitle);
+    // The non-editable label renders whole — nothing truncates or clamps it.
+    const title = screen.getByText(placeholderLabel);
     expect(title.className).not.toMatch(/truncate|line-clamp/);
 
     expect(screen.getByRole("img", { name: firstVariationAlt })).toHaveAttribute(
@@ -33,15 +30,11 @@ describe("FinalImageDownload", () => {
     );
   });
 
-  test("falls back to the first-of-each picks when the run has no explicit selection", () => {
-    render(
-      <FinalImageDownload
-        run={buildCompletedV3Run({ selectedGeneratedImage: null, selectedVisualJoke: null })}
-      />,
-    );
+  test("falls back to the first variation when the run has no explicit image selection", () => {
+    render(<FinalImageDownload run={buildCompletedV3Run({ selectedGeneratedImage: null })} />);
 
-    // Matches the Run Card: first Top Pick joke and first generated variation.
-    expect(screen.getByText(topPickJokeTitle)).toBeInTheDocument();
+    // Matches the Run Card: the fixed label over the first generated variation.
+    expect(screen.getByText(placeholderLabel)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: firstVariationAlt })).toBeInTheDocument();
   });
 

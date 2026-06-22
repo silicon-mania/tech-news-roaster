@@ -19,10 +19,6 @@ class NoopIntersectionObserver {
 const sourceTweetUrl = "https://x.com/siliconmania/status/1234567890";
 const firstDraftText = "Quote-tweet draft: first saved draft.";
 const secondDraftText = "Quote-tweet draft: second saved draft.";
-// buildCompletedV3Run selects jokes[1] (visual-joke-2, the first Tech-positive
-// joke) by default; visual-joke-1 is the set's only Top Pick.
-const selectedJokeTitle = "A workflow map where every exit arrow points back to the login screen.";
-const topPickJokeTitle = "A one-click launch button labeled 'Eventually, manual work.'";
 // buildCompletedV3Run's image set is built from the first news-linked image
 // ("Launch visual"); its options' alt text and ids follow from that. With no
 // explicit selection the card falls back to the first generated variation.
@@ -185,22 +181,21 @@ describe("Selected Run sidebar", () => {
     expect(within(visualJokes).getByText("Top pick 1")).toBeInTheDocument();
   });
 
-  test("switching the selected visual joke saves immediately and updates the visible card", async () => {
+  test("switching the selected visual joke saves immediately", async () => {
     const user = userEvent.setup();
     const savedRunStore = renderFeed([buildCompleteRun()]);
 
     await openSidebar(user);
     const sidebar = getSidebar();
 
-    // The card's Final Quote Tweet Image starts on the explicitly selected joke.
-    expect(within(getFeedCard()).getByText(selectedJokeTitle)).toBeInTheDocument();
-
     // Switch to the first Satire joke (the Top Pick).
     await user.click(
       within(sidebar).getByRole("button", { name: /^select satire visual joke 1$/i }),
     );
 
-    // The discrete switch persists the new selection immediately.
+    // The discrete switch persists the new selection immediately. The card's
+    // Final Quote Tweet Image is decoupled from the joke (ADR-0026), so the
+    // switch no longer changes the card.
     await waitFor(() =>
       expect(savedRunStore.save).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -209,20 +204,14 @@ describe("Selected Run sidebar", () => {
         }),
       ),
     );
-    // ...and the card's image reflects the new Joke Title immediately.
-    expect(within(getFeedCard()).getByText(topPickJokeTitle)).toBeInTheDocument();
-    expect(within(getFeedCard()).queryByText(selectedJokeTitle)).not.toBeInTheDocument();
   });
 
-  test("inline-editing the selected joke's title autosaves the overwrite and re-derives the card", async () => {
+  test("inline-editing the selected joke's title autosaves the overwrite", async () => {
     const user = userEvent.setup();
     const savedRunStore = renderFeed([buildCompleteRun()]);
 
     await openSidebar(user);
     const sidebar = getSidebar();
-
-    // The selected joke's title sits on the card's Final Quote Tweet Image.
-    expect(within(getFeedCard()).getByText(selectedJokeTitle)).toBeInTheDocument();
 
     await user.click(
       within(sidebar).getByRole("button", { name: /edit tech-positive visual joke 1/i }),
@@ -250,11 +239,6 @@ describe("Selected Run sidebar", () => {
         }),
       ),
     );
-    // The card re-derives its image from the overwritten title.
-    expect(
-      within(getFeedCard()).getByText("Every workflow exit arrow loops back to the login screen."),
-    ).toBeInTheDocument();
-    expect(within(getFeedCard()).queryByText(selectedJokeTitle)).not.toBeInTheDocument();
   });
 
   test("switching the image variation saves immediately and updates the visible card", async () => {

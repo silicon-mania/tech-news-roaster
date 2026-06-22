@@ -1,5 +1,7 @@
 # Joke Context Gathering and Image Discovery Split
 
+> **Status: amended by [ADR-0026](0026-remove-visual-joke-generation.md).** Visual joke generation has been removed from the product. The shared understanding layer described here now feeds **text generation only**, and visual joke generation no longer appears among the runtime-status boundaries or in the runtime readiness gate. The joke-context-gathering / news-linked-image-discovery split, and joke context gathering as the shared understanding layer, still stand.
+
 In v3, joke context gathering becomes the shared understanding layer for text generation and visual joke generation, while news-linked image discovery remains a separate automatic initial-run step for later image generation. We chose this split because v2 outside-X enrichment bundled hidden news understanding with image discovery, but strong visual jokes need richer media-aware context from the source tweet, replies, author context, and supporting research, whereas image generation should keep using only selected images and the user image prompt for now.
 
 This supersedes the v2 assumption that outside-X enrichment is the single enrichment boundary for both understanding the news and gathering image candidates. The older v2 ADRs remain useful historical context, but v3 implementation should treat joke context gathering and news-linked image discovery as distinct product and service boundaries.
