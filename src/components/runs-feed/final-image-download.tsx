@@ -101,7 +101,7 @@ export function FinalImageDownload({
         <QuoteTweetComposite
           imageAlt={variation.altText ?? variation.label}
           imageUrl={variation.url}
-          jokeTitle={finalQuoteTweetImageLabel}
+          label={finalQuoteTweetImageLabel}
           ref={compositeRef}
         />
       </div>

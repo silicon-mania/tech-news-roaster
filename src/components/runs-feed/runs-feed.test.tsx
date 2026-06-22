@@ -46,9 +46,9 @@ function triggerFeedScroll() {
   });
 }
 
-// A Complete Run carries a draft, a visual joke, and an image variation. The
-// ordinal drives both a unique label and a savedAt minute so newest-first order
-// and pagination are deterministic.
+// A Complete Run carries a draft and an image variation. The ordinal drives both
+// a unique label and a savedAt minute so newest-first order and pagination are
+// deterministic.
 function buildCompleteRun(ordinal: number): GenerationRun {
   return buildCompletedV3Run({
     id: `complete-run-${ordinal}`,
@@ -57,8 +57,8 @@ function buildCompleteRun(ordinal: number): GenerationRun {
   });
 }
 
-// A successful-but-incomplete run (no visual joke set, no image set) — fails
-// isCompleteRun and must stay out of the feed.
+// A successful-but-incomplete run (no image set) — fails isCompleteRun and must
+// stay out of the feed.
 function buildIncompleteRun(ordinal: number): GenerationRun {
   return buildCompletedRun({
     id: `incomplete-run-${ordinal}`,

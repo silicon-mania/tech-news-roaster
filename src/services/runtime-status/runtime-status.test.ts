@@ -5,12 +5,10 @@ function buildStatus({
   retrievalLive = true,
   persistenceLive = true,
   imageModelAvailable = true,
-  visualJokeModelAvailable = true,
 }: {
   retrievalLive?: boolean;
   persistenceLive?: boolean;
   imageModelAvailable?: boolean;
-  visualJokeModelAvailable?: boolean;
 } = {}): RuntimeStatus {
   return {
     enrichment: { credentials: { apiKey: true }, mode: "configured" },
@@ -23,7 +21,6 @@ function buildStatus({
           anthropic: { available: true, id: "anthropic/claude-sonnet-4.6" },
           google: { available: true, id: "google/gemini-3-flash" },
         },
-        visualJokeModel: { available: visualJokeModelAvailable, id: "openai/gpt-5.5" },
       },
       credentials: { aiGatewayApiKey: true },
       mode: "live",
@@ -47,7 +44,7 @@ function buildStatus({
 }
 
 describe("isDiscoverySweepReady", () => {
-  test("is ready when retrieval, Supabase, and the image and visual-joke models are all live", () => {
+  test("is ready when retrieval, Supabase, and the image model are all live", () => {
     expect(isDiscoverySweepReady(buildStatus())).toBe(true);
   });
 
@@ -61,9 +58,5 @@ describe("isDiscoverySweepReady", () => {
 
   test("is not ready when the image model is unavailable", () => {
     expect(isDiscoverySweepReady(buildStatus({ imageModelAvailable: false }))).toBe(false);
-  });
-
-  test("is not ready when the Visual Joke model is unavailable", () => {
-    expect(isDiscoverySweepReady(buildStatus({ visualJokeModelAvailable: false }))).toBe(false);
   });
 });

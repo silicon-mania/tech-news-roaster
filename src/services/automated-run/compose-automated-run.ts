@@ -239,7 +239,6 @@ export async function composeAutomatedRun(
         },
         textGeneration: { status: "not-started" },
         newsLinkedImageDiscovery: { status: "not-started" },
-        visualJokeGeneration: { status: "not-started" },
         imageGeneration: { status: "not-started" },
       }),
       phase: "failed",
@@ -360,9 +359,6 @@ export async function composeAutomatedRun(
     },
     textGeneration: textGenerationState,
     newsLinkedImageDiscovery: discoveryResult.state,
-    // Visual Joke Generation no longer runs; the stage stays "not-started" (the
-    // contract field is removed in a later slice).
-    visualJokeGeneration: { status: "not-started" },
     imageGeneration: imageGenerationState,
   });
   const isSuccessful = isSuccessfulRun(generationResultStates);

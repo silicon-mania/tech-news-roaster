@@ -84,10 +84,6 @@ describe("generation stream route", () => {
         textGeneration: {
           status: "completed",
         },
-        // Visual Joke Generation never runs; the stage stays "not-started".
-        visualJokeGeneration: {
-          status: "not-started",
-        },
       },
     });
     expect(events[7]).toMatchObject({
@@ -131,8 +127,6 @@ describe("generation stream route", () => {
     for (const event of events) {
       if (event.type === "completed") {
         expect(event.run).not.toHaveProperty("replies");
-        // No visual-joke result data streams: the completed run carries no set.
-        expect(event.run).not.toHaveProperty("visualJokeSet");
       } else if (event.type === "run-state") {
         expect(event).not.toHaveProperty("replies");
       } else if (event.type === "progress") {

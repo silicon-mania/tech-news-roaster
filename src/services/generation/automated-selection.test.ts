@@ -78,8 +78,6 @@ describe("deriveAutomatedSelection", () => {
         selectedAt,
       },
     });
-    // Automated Selection never picks a visual joke.
-    expect(selection).not.toHaveProperty("selectedVisualJoke");
   });
 
   test("is deterministic for identical inputs and clock", () => {

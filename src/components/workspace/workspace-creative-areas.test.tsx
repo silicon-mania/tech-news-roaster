@@ -234,9 +234,6 @@ describe("Workspace creative result areas", () => {
             textGeneration: {
               status: "not-started",
             },
-            visualJokeGeneration: {
-              status: "not-started",
-            },
           },
           label: "Drafts for 1234567890",
           sourceTweet: tweetContext.sourceTweet,
@@ -296,9 +293,6 @@ describe("Workspace creative result areas", () => {
               draftCount: 3,
               startedAt: "2026-06-06T10:11:00.000Z",
               status: "completed",
-            },
-            visualJokeGeneration: {
-              status: "not-started",
             },
           },
           imageGenerationState: {

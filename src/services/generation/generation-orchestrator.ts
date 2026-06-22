@@ -260,9 +260,6 @@ function buildCreativeResultStates({
       startedAt: textGenerationStartedAt,
       status: "completed",
     },
-    visualJokeGeneration: {
-      status: "not-started",
-    },
   };
 }
 

@@ -1,4 +1,4 @@
-import type { JokeContextSnapshot, VisualJokeSet } from "@/services/generation";
+import type { JokeContextSnapshot } from "@/services/generation";
 
 export function buildImageSet() {
   return {
@@ -172,78 +172,10 @@ export function buildJokeContextSnapshot() {
   };
 }
 
-// The three Visual Joke Sections in direction order. Fixture jokes round-robin
-// across them so any count still produces contiguous within-section order.
-const visualJokeSectionOrder = ["satire", "tech-positive", "experimental"] as const;
-
-type VisualJokeFixture = {
-  id: string;
-  order: number;
-  section: (typeof visualJokeSectionOrder)[number];
-  text: string;
-};
-
-export function buildVisualJoke(index: number, overrides: Partial<VisualJokeFixture> = {}) {
-  const joke = {
-    id: `visual-joke-${index + 1}`,
-    order: Math.floor(index / visualJokeSectionOrder.length) + 1,
-    section: visualJokeSectionOrder[index % visualJokeSectionOrder.length],
-    text: `Visual joke ${index + 1}`,
-  };
-
-  return {
-    ...joke,
-    ...overrides,
-  };
-}
-
-function buildVisualJokes(count: number) {
-  return Array.from({ length: count }, (_, index) => buildVisualJoke(index));
-}
-
-export function buildVisualJokeSet() {
-  return {
-    generatedAt: "2026-06-06T10:12:00.000Z",
-    id: "visual-joke-set-1",
-    jokes: buildVisualJokes(6),
-    targetPerSection: 7,
-    topPicks: [
-      { reason: "Sharpest satire angle.", visualJokeId: "visual-joke-1" },
-      { reason: "Strong tech-positive flip.", visualJokeId: "visual-joke-2" },
-    ],
-  };
-}
-
-// The pre-categorized ranked-eight Visual Joke Set shape (with per-joke
-// `metadata`/`rank`/`recommended` and a set-level `targetCount`). It predates
-// the categorized schema and fails its strict validation, so it exists only to
-// exercise the saved-run back-compat gate — never to round-trip.
-export function buildLegacyVisualJokeSet() {
-  return {
-    generatedAt: "2026-06-06T10:12:00.000Z",
-    id: "visual-joke-set-legacy",
-    jokes: [1, 2].map((rank) => ({
-      id: `legacy-visual-joke-${rank}`,
-      metadata: {
-        jokePattern: "Juxtaposition",
-        jokeTarget: "The launch hype",
-        referencedFact: "The keynote ran long.",
-        shortRationale: "Plays the timing against the promise.",
-      },
-      rank,
-      recommended: rank === 1,
-      text: `Legacy visual joke ${rank}`,
-    })),
-    targetCount: 8,
-  };
-}
-
 export function buildGenerationResultStates({
   jokeContextSnapshot,
-  visualJokeSet,
 }: {
   jokeContextSnapshot: JokeContextSnapshot;
-  visualJokeSet: VisualJokeSet;
 }) {
   return {
     contextGathering: {
@@ -263,12 +195,6 @@ export function buildGenerationResultStates({
       startedAt: "2026-06-06T10:10:02.000Z",
       failedAt: "2026-06-06T10:10:25.000Z",
       message: "No qualifying news-linked images were found.",
-    },
-    visualJokeGeneration: {
-      status: "completed",
-      startedAt: "2026-06-06T10:10:03.000Z",
-      completedAt: "2026-06-06T10:10:40.000Z",
-      visualJokeSet,
     },
     imageGeneration: {
       status: "not-started",

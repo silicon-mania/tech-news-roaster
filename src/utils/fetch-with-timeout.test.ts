@@ -53,7 +53,7 @@ describe("fetchWithTimeout", () => {
 
     const error = await fetchWithTimeout("https://example.com/resource", {
       fetchImpl,
-      operationLabel: "Visual joke generation",
+      operationLabel: "Image generation",
       timeoutMs: 50,
       upstreamLabel: "the AI Gateway",
     }).catch((thrown: unknown) => thrown);

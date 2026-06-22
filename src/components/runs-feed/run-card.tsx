@@ -101,7 +101,7 @@ export function RunCard({ run, onSelect }: RunCardProps) {
             <QuoteTweetComposite
               imageAlt={variation.altText ?? variation.label}
               imageUrl={variation.url}
-              jokeTitle={finalQuoteTweetImageLabel}
+              label={finalQuoteTweetImageLabel}
             />
           </div>
         ) : null}

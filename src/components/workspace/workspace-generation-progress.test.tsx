@@ -152,10 +152,6 @@ describe("Workspace generation progress", () => {
               startedAt: "2026-06-06T10:10:01.000Z",
               status: "running",
             },
-            visualJokeGeneration: {
-              startedAt: "2026-06-06T10:10:03.000Z",
-              status: "running",
-            },
           },
           label: "Drafts for 2468",
           sourceTweet: tweetContext.sourceTweet,
@@ -204,10 +200,7 @@ describe("Workspace generation progress", () => {
           label: completedV3Run.label,
           newsLinkedImages: completedV3Run.newsLinkedImages,
           phase: completedV3Run.phase,
-          selectedVisualJoke: completedV3Run.selectedVisualJoke,
           sourceTweet,
-          visualJokeDirection: completedV3Run.visualJokeDirection,
-          visualJokeSet: completedV3Run.visualJokeSet,
         },
       })) {
         generationEventSources[0]?.emit(event);

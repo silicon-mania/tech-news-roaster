@@ -11,7 +11,6 @@ import {
   buildImageSet,
   buildJokeContextSnapshot,
   buildNewsLinkedImages,
-  buildVisualJokeSet,
   createMemorySavedRunStore,
   renderWorkspace,
 } from "./workspace-test-utils";
@@ -171,11 +170,6 @@ describe("Workspace image generation", () => {
     const newsLinkedImages = buildNewsLinkedImages();
     const imageSet = buildImageSet(newsLinkedImages[0]);
     const jokeContextSnapshot = buildJokeContextSnapshot("1234567890");
-    const visualJokeSet = buildVisualJokeSet();
-    const selectedVisualJoke = {
-      selectedAt: "2026-06-06T10:16:00.000Z",
-      visualJokeId: visualJokeSet.jokes[1].id,
-    };
     const imageGenerationStreamFetcher = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) =>
         buildImageGenerationStreamResponse([
@@ -205,10 +199,7 @@ describe("Workspace image generation", () => {
           jokeContextSnapshot,
           newsLinkedImages,
           phase: "waiting-for-image-selection",
-          selectedVisualJoke,
           usersDirection: "Keep the text skeptical about platform risk.",
-          visualJokeDirection: "Internal visual joke direction.",
-          visualJokeSet,
         }),
       ],
       savedRunStore,
@@ -275,7 +266,7 @@ describe("Workspace image generation", () => {
       },
     });
     expect(JSON.stringify(imageGenerationStreamFetcher.mock.calls[0]?.[1]?.body)).not.toMatch(
-      /jokeContextSnapshot|visualJokeDirection|visualJokeSet|selectedVisualJoke|platform risk/i,
+      /jokeContextSnapshot|platform risk/i,
     );
     await waitFor(() =>
       expect(
@@ -294,9 +285,6 @@ describe("Workspace image generation", () => {
           imageSet,
           jokeContextSnapshot,
           phase: "image-generation-complete",
-          selectedVisualJoke,
-          visualJokeDirection: "Internal visual joke direction.",
-          visualJokeSet,
         }),
       ),
     );
@@ -609,7 +597,6 @@ function buildCandidateSelectionRun() {
     imageGenerationState: { status: "not-started" },
     newsLinkedImages: buildNewsLinkedImages(),
     phase: "waiting-for-image-selection",
-    visualJokeSet: buildVisualJokeSet(),
   });
 }
 

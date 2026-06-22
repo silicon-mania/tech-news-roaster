@@ -207,11 +207,8 @@ export function useGenerationRunStream({
               ? "waiting-for-image-selection"
               : deriveRunPhaseFromGenerationResultStates(event.run.generationResultStates)),
         savedAt: new Date().toISOString(),
-        selectedVisualJoke: event.run.selectedVisualJoke,
         selectedImageOriginal: event.run.selectedImageOriginal,
         sourceTweet: event.run.sourceTweet,
-        visualJokeDirection: event.run.visualJokeDirection,
-        visualJokeSet: event.run.visualJokeSet,
       };
 
       setRuns((currentRuns) =>

@@ -35,15 +35,13 @@ describe("FinalQuoteTweetImageOverlay", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  test("mounts with the placeholder composite from the image alone, no visual joke", () => {
+  test("mounts with the placeholder composite from the image alone", () => {
     // A completed Image Set and a Selected Generated Image are the only inputs;
-    // the run carries no visual joke at all and the composite still assembles.
+    // the composite still assembles from them alone.
     render(
       <FinalQuoteTweetImageOverlay
         run={buildCompletedV3Run({
           selectedGeneratedImage: selectedGeneratedImageFixture,
-          selectedVisualJoke: null,
-          visualJokeSet: undefined,
         })}
       />,
     );
@@ -64,8 +62,6 @@ describe("FinalQuoteTweetImageOverlay", () => {
     );
 
     expect(message).toHaveRole("status");
-    // The missing-pick message never asks for a visual joke.
-    expect(message).not.toHaveTextContent(/visual joke/i);
     expect(
       screen.queryByRole("button", { name: "Download final quote tweet image" }),
     ).not.toBeInTheDocument();

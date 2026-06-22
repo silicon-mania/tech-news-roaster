@@ -34,10 +34,6 @@ describe("generation orchestrator", () => {
     expect(run.drafts).toHaveLength(3);
     expect(new Set(run.drafts.map((draft) => draft.angle)).size).toBe(3);
     expect(run.fallbackDisclosure).toBeUndefined();
-    // The orchestrator no longer runs Visual Joke Generation: the run carries no
-    // Visual Joke Set and the stage stays "not-started".
-    expect(run.visualJokeSet).toBeUndefined();
-    expect(run.generationResultStates?.visualJokeGeneration).toEqual({ status: "not-started" });
   });
 
   test("uses configured AI Gateway model IDs as completed draft provenance", async () => {
@@ -348,9 +344,9 @@ describe("generation orchestrator", () => {
   test("rejects when every text provider fails, since there is no other creative area", async () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
 
-    // With Visual Joke Generation removed, Text Generation is the orchestrator's
-    // only Creative Result Area — a total text failure has no joke set to fall back
-    // on, so it rejects and the stream/composition handle the failed run.
+    // Text Generation is the orchestrator's only Creative Result Area, so a total
+    // text failure has nothing to fall back on: it rejects and the
+    // stream/composition handle the failed run.
     await expect(
       orchestrateThreeProviderGeneration(
         {

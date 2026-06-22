@@ -426,9 +426,6 @@ function buildContextGatheringRunningStates(startedAt: string): GenerationResult
     textGeneration: {
       status: "not-started",
     },
-    visualJokeGeneration: {
-      status: "not-started",
-    },
   };
 }
 
@@ -452,9 +449,6 @@ function buildContextGatheringCompletedStates(
       status: "not-started",
     },
     textGeneration: {
-      status: "not-started",
-    },
-    visualJokeGeneration: {
       status: "not-started",
     },
   };
@@ -481,9 +475,6 @@ function buildContextGatheringFailedStates(
       status: "not-started",
     },
     textGeneration: {
-      status: "not-started",
-    },
-    visualJokeGeneration: {
       status: "not-started",
     },
   };
@@ -518,9 +509,6 @@ function buildCreativeBranchesRunningStates({
     textGeneration: {
       startedAt: textGenerationStartedAt,
       status: "running",
-    },
-    visualJokeGeneration: {
-      status: "not-started",
     },
   };
 }
@@ -562,11 +550,6 @@ function buildTerminalGenerationResultStates({
             status: "failed",
           },
     textGeneration,
-    // Visual Joke Generation no longer runs; the stage stays "not-started" on
-    // every terminal run (the contract field is removed in a later slice).
-    visualJokeGeneration: {
-      status: "not-started",
-    },
   };
 }
 

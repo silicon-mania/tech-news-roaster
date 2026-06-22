@@ -20,7 +20,7 @@ import { findSelectedVariation } from "./quote-tweet-selection";
 import { useQuoteTweetOverlayState } from "./use-quote-tweet-overlay-state";
 
 // The composite needs only the image; when it is missing the overlay asks for
-// that one pick — never for a visual joke (ADR-0026).
+// that one pick (ADR-0026).
 const missingImageMessage = "Select a generated image to assemble the final quote tweet image.";
 
 // The overlay chrome is a deliberate light surface against the dark-only app —
@@ -125,7 +125,7 @@ export function FinalQuoteTweetImageOverlay({
                   <QuoteTweetComposite
                     imageAlt={selectedVariation.altText ?? selectedVariation.label}
                     imageUrl={selectedVariation.url}
-                    jokeTitle={finalQuoteTweetImageLabel}
+                    label={finalQuoteTweetImageLabel}
                     ref={compositeRef}
                   />
                 </div>

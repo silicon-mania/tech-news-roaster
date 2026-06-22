@@ -251,9 +251,6 @@ export function Workspace({
         textGeneration: {
           status: "not-started",
         },
-        visualJokeGeneration: {
-          status: "not-started",
-        },
       },
     };
 

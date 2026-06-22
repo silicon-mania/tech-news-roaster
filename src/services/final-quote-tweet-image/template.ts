@@ -18,9 +18,9 @@ export interface TemplateRect {
 }
 
 /**
- * Fixed label baked where a Joke Title once sat. The Final Quote Tweet Image is
- * no longer derived from a Selected Visual Joke (ADR-0026); the composite renders
- * this literal string instead — it is not selected, not editable, not persisted.
+ * Fixed label the Final Quote Tweet Image renders in its title box (ADR-0026):
+ * the composite always shows this literal string — it is not selected, not
+ * editable, not persisted.
  */
 export const finalQuoteTweetImageLabel = "LABEL GOES HERE";
 

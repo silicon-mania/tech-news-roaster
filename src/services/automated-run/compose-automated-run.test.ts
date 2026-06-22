@@ -87,7 +87,6 @@ function buildCompletedPayload(options: { fallbackDisclosure?: string } = {}) {
         draftCount: 3,
       },
       newsLinkedImageDiscovery: { status: "not-started" },
-      visualJokeGeneration: { status: "not-started" },
       imageGeneration: { status: "not-started" },
     },
     ...(options.fallbackDisclosure ? { fallbackDisclosure: options.fallbackDisclosure } : {}),
@@ -168,12 +167,10 @@ describe("composeAutomatedRun", () => {
     expect(run.status).toBe("completed");
     expect(run.usersDirection).toBe("");
 
-    // Automated Selection wrote the Manual-Run picks — and never a visual joke.
+    // Automated Selection wrote the Manual-Run picks.
     expect(run.selectedDraftId).toBe("draft-openai");
     expect(run.selectedGeneratedImage?.imageOptionId).toBe("image-option-variation-1");
     expect(run.selectedImageOriginal).toBeDefined();
-    expect(run.selectedVisualJoke).toBeUndefined();
-    expect(run.visualJokeSet).toBeUndefined();
 
     // The Final Quote Tweet Image is composable from the derived image pick
     // (ADR-0018) — the same resolution the overlay uses.
@@ -322,7 +319,6 @@ describe("composeAutomatedRun", () => {
       debugLog: ["Started fixture context gathering.", "Tweet text was too thin."],
     });
     expect(run.generationResultStates?.textGeneration.status).toBe("not-started");
-    expect(run.generationResultStates?.visualJokeGeneration.status).toBe("not-started");
 
     // The creative branches never start once context gathering fails (No Automatic Retry).
     expect(orchestrateGeneration).not.toHaveBeenCalled();

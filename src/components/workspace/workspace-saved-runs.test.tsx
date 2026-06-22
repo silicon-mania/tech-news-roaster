@@ -65,7 +65,7 @@ describe("Workspace saved runs", () => {
     ).toBeInTheDocument();
   });
 
-  test("automatically saves completed v3 runs with context, visual jokes, selection, image state, and independent result states", async () => {
+  test("automatically saves completed v3 runs with context, image state, and independent result states", async () => {
     const user = userEvent.setup();
     const generationEventSources: FakeGenerationEventSource[] = [];
     const savedRunStore = createMemorySavedRunStore();
@@ -96,10 +96,7 @@ describe("Workspace saved runs", () => {
         newsLinkedImages: completedV3Run.newsLinkedImages,
         phase: completedV3Run.phase,
         selectedImageOriginal: completedV3Run.selectedImageOriginal,
-        selectedVisualJoke: completedV3Run.selectedVisualJoke,
         sourceTweet: completedV3Run.sourceTweet,
-        visualJokeDirection: completedV3Run.visualJokeDirection,
-        visualJokeSet: completedV3Run.visualJokeSet,
       },
     });
 
@@ -119,9 +116,6 @@ describe("Workspace saved runs", () => {
         jokeContextSnapshot: completedV3Run.jokeContextSnapshot,
         newsLinkedImages: completedV3Run.newsLinkedImages,
         selectedImageOriginal: completedV3Run.selectedImageOriginal,
-        selectedVisualJoke: completedV3Run.selectedVisualJoke,
-        visualJokeDirection: completedV3Run.visualJokeDirection,
-        visualJokeSet: completedV3Run.visualJokeSet,
       }),
     );
   });
