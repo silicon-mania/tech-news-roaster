@@ -65,7 +65,7 @@ The single tech-news event that several viral tweets are witnesses to, formed by
 _Avoid_: Story, topic, trend, thread
 
 **Saved Run**:
-A generation run that remains available to the user after creation, including its source tweet, user's direction, joke context snapshot, visual joke direction, visual joke set, selected visual joke, persisted selected image originals, user image prompt, image sets, model provenance, run provenance (its origin — manual or automated — the image prompt source — user or default — and, for automated runs, the news coverage cluster it came from), date, and the latest edited version of each draft, and that can be reopened, edited again, inspected, downloaded, or deleted by the user without ever regenerating its drafts, visual jokes, or images.
+A generation run that remains available to the user after creation, including its source tweet, user's direction, joke context snapshot, visual joke direction, visual joke set, selected visual joke, persisted selected image originals, user image prompt, image sets (including any Uploaded Image Sets), model provenance, run provenance (its origin — manual or automated — the image prompt source — user or default — and, for automated runs, the news coverage cluster it came from), date, and the latest edited version of each draft, and that can be reopened, edited again, inspected, downloaded, or deleted by the user without ever regenerating its drafts, visual jokes, or images.
 _Avoid_: History item, cache entry, record
 
 **Saved Run Retention**:
@@ -177,8 +177,16 @@ The part of a generation run that creates exactly three candidate drafts from th
 _Avoid_: Text generation run, copy job, draft workflow
 
 **Image Set**:
-One selected image original plus exactly four generated image variations derived from it for use with a quote tweet. A generation run includes exactly one image set.
+One selected image original plus exactly four generated image variations derived from it for use with a quote tweet. A generation run carries one source-derived image set plus zero or more Uploaded Image Sets; all are retained and shown.
 _Avoid_: Visual set, image bundle, image pack
+
+**Uploaded Image Set**:
+An Image Set seeded by an Uploaded Image Original instead of a source-tweet or news-linked candidate, carrying that one uploaded original plus four generated variations made with the Default Image Prompt. A run may carry many, added at any point once the run exists and independent of whether its source-derived image set has been generated — so a manual run may reach a Complete Run through uploaded sets alone, never selecting a candidate. Each is retained and shown in upload order beneath any source-derived image set. A generation attempt that fails is itself retained as a failed Uploaded Image Set so its Quiet Failure Details stay available.
+_Avoid_: Re-roll, regenerated image set, replacement image set
+
+**Uploaded Image Original**:
+The user-provided image that seeds an Uploaded Image Set, supplied directly by the operator rather than chosen from Image Original Candidates. Its origin is user-uploaded, distinct from source-tweet media and news-linked images, and it is stored as soon as it is uploaded so it stays visible even when its variations fail to generate.
+_Avoid_: Selected Image Original, Image Original Candidate, source image
 
 **News-Linked Images**:
 Images gathered during news-linked image discovery that are directly tied to the underlying news, used to top up the image original candidates to four when the source tweet does not carry enough usable media.
@@ -201,7 +209,7 @@ A non-editable image inside an image set, either the selected image original or 
 _Avoid_: Asset, picture, visual output
 
 **Image Generation**:
-The one-time part of a generation run where exactly one image original is selected from four candidates and a prompt is provided — the user image prompt in a manual run, the default image prompt in an automated run — before one configured image model creates four variations using only the selected original and that prompt, without using the joke context snapshot.
+The part of a generation run where one configured image model creates four variations from a single selected original and a prompt, using only that original and prompt and not the joke context snapshot. Its source-derived form runs once: exactly one image original is selected from four candidates and a prompt is provided — the user image prompt in a manual run, the default image prompt in an automated run. A run additionally accepts repeatable Uploaded Image Set generation, which appends new sets from Uploaded Image Originals using the default image prompt.
 _Avoid_: Image generation run, visual job, image workflow
 
 **Image Generation Service**:
@@ -381,7 +389,7 @@ The requirement that a visual joke set populate all three Visual Joke Sections t
 _Avoid_: Joke pattern diversity, variation spread, random variety
 
 **Selected Generated Image**:
-The one generated Image Option — always one of the four variations, never the original — chosen as the picture placed inside the Final Quote Tweet Image: the user chooses it in a manual run and the system takes the first variation in an automated run. It is distinct from the Selected Image Original, which is the input to image generation.
+The one generated Image Option — always one of the four variations, never an original — chosen as the picture placed inside the Final Quote Tweet Image, and resolvable to a variation in any of the run's image sets, source-derived or uploaded: the user chooses it in a manual run and the system takes the first variation in an automated run. It is distinct from the Selected Image Original, which is the input to image generation.
 _Avoid_: Selected Image Original, selected variation, composite image, chosen image
 
 **Final Quote Tweet Image**:
