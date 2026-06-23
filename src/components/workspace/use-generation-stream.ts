@@ -198,6 +198,10 @@ export function useGenerationRunStream({
         // A freshly completed generation run has no operator uploads yet (ADR-0025).
         uploadedImageSets: [],
         jokeContextSnapshot: event.run.jokeContextSnapshot,
+        // The News Category stamp the classifier picked during the stream, plus its
+        // terminal state, so the autosaved run carries them (ADR-0027 / issue 004).
+        newsCategory: event.run.newsCategory,
+        newsCategoryClassification: event.run.newsCategoryClassification,
         newsLinkedImages,
         phase:
           event.run.phase ??

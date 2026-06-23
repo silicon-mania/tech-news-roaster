@@ -22,6 +22,7 @@ import {
   JokeContextGatheringError,
   type JokeContextGatheringInput,
 } from "@/services/joke-context-gathering";
+import { classifyNewsCategory } from "@/services/news-category-classifier";
 import {
   discoverNewsLinkedImages,
   type NewsLinkedImageDiscoveryService,
@@ -43,6 +44,7 @@ export async function GET(request: Request) {
 export async function streamGenerationRun(
   request: Request,
   dependencies: {
+    classifyNewsCategory?: typeof classifyNewsCategory;
     discoverNewsLinkedImages?: NewsLinkedImageDiscoveryService;
     gatherJokeContext?: (input: JokeContextGatheringInput) => Promise<JokeContextSnapshot>;
     orchestrateGeneration?: GenerationOrchestrator;
@@ -53,6 +55,7 @@ export async function streamGenerationRun(
   const sourceTweetUrl = requestUrl.searchParams.get("sourceTweetUrl") ?? "";
   const usersDirection = requestUrl.searchParams.get("usersDirection") ?? "";
   const encoder = new TextEncoder();
+  const classify = dependencies.classifyNewsCategory ?? classifyNewsCategory;
   const discover = dependencies.discoverNewsLinkedImages ?? discoverNewsLinkedImages;
   const gather = dependencies.gatherJokeContext ?? gatherJokeContext;
   const retrieve = dependencies.retrieveTweetContext ?? retrieveTweetContext;
@@ -65,6 +68,7 @@ export async function streamGenerationRun(
         // advances as the run proceeds instead of staying frozen until a single
         // end-of-run flush. Mirrors the Image Generation stream.
         for await (const event of streamGenerationRunEvents({
+          classify,
           discover,
           gather,
           orchestrate,
@@ -112,6 +116,7 @@ function enqueueGenerationEvent(
 }
 
 async function* streamGenerationRunEvents({
+  classify,
   discover,
   gather,
   orchestrate,
@@ -119,6 +124,7 @@ async function* streamGenerationRunEvents({
   sourceTweetUrl,
   usersDirection,
 }: {
+  classify: typeof classifyNewsCategory;
   discover: NewsLinkedImageDiscoveryService;
   gather: (input: JokeContextGatheringInput) => Promise<JokeContextSnapshot>;
   orchestrate: GenerationOrchestrator;
@@ -188,6 +194,16 @@ async function* streamGenerationRunEvents({
   })
     .then((run) => ({ run, status: "fulfilled" as const }))
     .catch((error: unknown) => ({ error, status: "rejected" as const }));
+  // News Category classification runs after Joke Context Gathering, in parallel
+  // with Text Generation and News-Linked Image Discovery (ADR-0027 / issue 004).
+  // It reads only the snapshot, never steers the drafts, and never throws — on any
+  // failure it yields a failed state plus a VIRAL fallback — so it needs no
+  // rejection guard and can never block the run from starting or completing. The
+  // resolved stamp and its terminal state ride the completed payload, so the run
+  // autosaved on completion already carries `newsCategory`.
+  const newsCategoryClassificationPromise = classify({
+    jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
+  });
 
   // Text Generation and News-Linked Image Discovery are now in flight. Emit the
   // "running" state before awaiting them so the workspace shows the live creative
@@ -224,6 +240,7 @@ async function* streamGenerationRunEvents({
   }
 
   const generationResult = await completedRunPromise;
+  const newsCategoryClassification = await newsCategoryClassificationPromise;
 
   if (generationResult.status === "rejected") {
     console.error("Generation orchestration failed.", generationResult.error);
@@ -251,6 +268,8 @@ async function* streamGenerationRunEvents({
         imageOriginalCandidates: carriedImageOriginalCandidates,
         jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
         label: runLabel,
+        newsCategory: newsCategoryClassification.newsCategory,
+        newsCategoryClassification: newsCategoryClassification.classification,
         newsLinkedImages: newsLinkedImageDiscoveryResult.newsLinkedImages,
         sourceTweet: tweetContext.sourceTweet,
       });
@@ -276,6 +295,8 @@ async function* streamGenerationRunEvents({
     imageOriginalCandidates: carriedImageOriginalCandidates,
     jokeContextSnapshot: jokeContextResult.jokeContextSnapshot,
     label: generationResult.run.label,
+    newsCategory: newsCategoryClassification.newsCategory,
+    newsCategoryClassification: newsCategoryClassification.classification,
     newsLinkedImages:
       newsLinkedImageDiscoveryResult.status === "available"
         ? newsLinkedImageDiscoveryResult.newsLinkedImages

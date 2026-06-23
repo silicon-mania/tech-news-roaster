@@ -10,6 +10,7 @@ import { getStageFailure } from "./failure-details";
 import { GenerationFailureState } from "./generation-failure-state";
 import { ImageGenerationArea } from "./image-generation-area";
 import { ImageGenerationSkeleton } from "./image-generation-skeleton";
+import { NewsCategoryProgress } from "./news-category-progress";
 import { QuietRunReveals } from "./quiet-run-reveals";
 import { SourceTweetPreview } from "./source-tweet-preview";
 import { TextGenerationSection } from "./text-generation-section";
@@ -118,6 +119,7 @@ export function ActiveRunPanel({
       aria-label={isCompleted ? "Completed draft canvas" : undefined}
       className="mx-auto grid w-full max-w-5xl gap-3 self-start">
       {sourceTweetPreview}
+      <NewsCategoryProgress run={activeRun} />
       <RunWorkspaceLayout
         imageGenerationArea={imageGenerationArea}
         usersDirection={activeRun.usersDirection}>

@@ -123,6 +123,14 @@ export const completedGenerationRunPayloadSchema = z
     generationResultStates: generationResultStatesSchema.optional(),
     jokeContextSnapshot: jokeContextSnapshotSchema.optional(),
     label: nonEmptyTrimmedStringSchema,
+    // The News Category stamp the classifier picked during the manual run stream
+    // (ADR-0027 / issue 004), carried through to the run autosaved on completion.
+    // Resolves to VIRAL on read when absent.
+    newsCategory: nonEmptyTrimmedStringSchema.optional(),
+    // The classifier's terminal result-state. A failed classification still
+    // resolves VIRAL and never fails the run, so this rides the payload alongside
+    // — never inside — the success-counted generationResultStates.
+    newsCategoryClassification: newsCategoryClassificationStateSchema.optional(),
     sourceTweet: retrievedSourceTweetSchema,
     drafts: z.array(quoteTweetDraftSchema).max(draftTarget),
     imageGenerationState: imageGenerationAttemptStateSchema.optional(),

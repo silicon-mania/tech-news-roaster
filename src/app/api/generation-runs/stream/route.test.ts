@@ -595,6 +595,95 @@ describe("generation stream route", () => {
     expect(orchestrationSettled).toBe(true);
     expect(sse.events.at(-1)).toMatchObject({ type: "completed" });
   });
+
+  test("carries the classifier's News Category and completed state in the completed payload", async () => {
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/4242");
+    const snapshot = buildJokeContextSnapshot("4242");
+    const classifyRequests: unknown[] = [];
+    const response = await streamGenerationRun(
+      new Request(
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F4242",
+      ),
+      {
+        classifyNewsCategory: async (input) => {
+          classifyRequests.push(input);
+
+          return {
+            classification: {
+              completedAt: "2026-06-06T10:14:30.000Z",
+              startedAt: "2026-06-06T10:11:00.000Z",
+              status: "completed",
+            },
+            newsCategory: "FUNDED",
+          };
+        },
+        discoverNewsLinkedImages: async () => ({
+          discoveredAt: "2026-06-05T10:20:00.000Z",
+          newsLinkedImages: [],
+        }),
+        gatherJokeContext: async () => snapshot,
+        orchestrateGeneration: async (input) => buildCompletedRun(input.sourceTweet, "4242"),
+        retrieveTweetContext: async () => tweetContext,
+      },
+    );
+    const events = await readStreamEvents(response);
+
+    // The classifier reads only the snapshot and is called exactly once (No
+    // Automatic Retry at the route boundary).
+    expect(classifyRequests).toEqual([{ jokeContextSnapshot: snapshot }]);
+    expect(events.at(-1)).toMatchObject({
+      type: "completed",
+      run: {
+        newsCategory: "FUNDED",
+        newsCategoryClassification: {
+          status: "completed",
+        },
+      },
+    });
+  });
+
+  test("falls back to VIRAL and records the failed classification without failing the run", async () => {
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/4243");
+    const response = await streamGenerationRun(
+      new Request(
+        "https://tech-news-roaster.test/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F4243",
+      ),
+      {
+        classifyNewsCategory: async () => ({
+          classification: {
+            debugLog: ["Classification failed and the stamp fell back to VIRAL: timeout."],
+            failedAt: "2026-06-06T10:14:30.000Z",
+            message: "News Category classification timed out.",
+            startedAt: "2026-06-06T10:11:00.000Z",
+            status: "failed",
+          },
+          newsCategory: "VIRAL",
+        }),
+        discoverNewsLinkedImages: async () => ({
+          discoveredAt: "2026-06-05T10:20:00.000Z",
+          newsLinkedImages: [],
+        }),
+        gatherJokeContext: async () => buildJokeContextSnapshot("4243"),
+        orchestrateGeneration: async (input) => buildCompletedRun(input.sourceTweet, "4243"),
+        retrieveTweetContext: async () => tweetContext,
+      },
+    );
+    const events = await readStreamEvents(response);
+
+    // A failed classification never fails the run — it still completes — and the
+    // failed state rides the payload so the value resolves to VIRAL on read.
+    expect(events.at(-1)).toMatchObject({
+      type: "completed",
+      run: {
+        newsCategory: "VIRAL",
+        newsCategoryClassification: {
+          message: "News Category classification timed out.",
+          status: "failed",
+        },
+      },
+    });
+    expect(events.some((event) => event.type === "failed")).toBe(false);
+  });
 });
 
 function createSseEventReader(response: Response) {
