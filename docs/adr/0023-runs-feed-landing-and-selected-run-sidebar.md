@@ -4,6 +4,8 @@ status: accepted
 
 # Runs Feed Landing and Selected Run Sidebar
 
+> **Status: amended by [ADR-0026](0026-remove-visual-joke-generation.md).** Visual jokes have been removed. The Selected Run sidebar and Run Card carry no visual joke slot or Joke-Title editing: the sidebar switches the selected draft and the selected generated image, and a Run Card's two slots are the first draft and the first generated variation. A Complete Run is now a draft plus an image variation. The Context below is kept as the original record; the Runs Feed landing page and Selected Run sidebar decision otherwise stands.
+
 ## Context
 
 The workspace (`workspace.tsx`, mounted at `/`) is the product's landing page: a
@@ -28,19 +30,16 @@ with static engagement chrome — and shows the run's generated time and the
 source tweet's posted time.
 
 Selecting a card opens the Selected Run right sidebar over the feed: the full
-editor for an existing run. There the operator switches the selected draft,
-visual joke, and image variation, inline-edits the selected draft's text, and
-inline-edits the selected visual joke's Joke Title — every change persisted with
-no save button, the card updating instantly. The sidebar is the complete editor;
+editor for an existing run. There the operator switches the selected draft
+and image variation and inline-edits the selected draft's text — every change
+persisted with no save button, the card updating instantly. The sidebar is the complete editor;
 an existing run never needs the center workspace.
 
 The center workspace (`workspace.tsx`) is preserved unchanged for manual, live
 generation and is reached from the feed by an icon-only New Manual Run button; a
 thin route wrapper adds a "back to Runs" link without modifying the component.
-Visual joke titles become editable after generation, overwriting the joke within
-the run's own visual joke set, mirroring how Drafts are edited; the draft/joke/
-image section components and the autosave path are shared so the workspace and
-sidebar behave uniformly.
+The draft and image section components and the autosave path are shared so the
+workspace and sidebar behave uniformly.
 
 ## Considered Options
 
@@ -61,20 +60,12 @@ sidebar behave uniformly.
 ## Consequences
 
 - Two surfaces can edit a run (workspace inline editing and the Selected Run
-  sidebar). We keep them consistent by sharing the draft/joke/image section
-  components and the autosave path (`useRunAutosave`, `httpSavedRunStore`); the
-  workspace's visual-joke area gains the same inline title editing.
-- Visual jokes are no longer immutable. An edit overwrites the Joke Title within
-  the run's visual joke set — the original generated title is not preserved,
-  exactly as Drafts overwrite their text. The Final Quote Tweet Image, derived
-  deterministically per [ADR 0018](0018-deterministic-derived-final-quote-tweet-image.md),
-  now derives from the edited title too; its determinism still holds, the input
-  set simply includes the edited title.
-- The feed shows only Complete Runs (at least one draft, one visual joke, and one
-  generated image variation). Successful-but-incomplete runs are excluded from
-  the feed but stay in the workspace's runs sidebar for inspection or deletion.
-  With No Automatic Retry, a run whose image generation failed never reaches the
-  feed.
+  sidebar). We keep them consistent by sharing the draft and image section
+  components and the autosave path (`useRunAutosave`, `httpSavedRunStore`).
+- The feed shows only Complete Runs (at least one draft and one generated image
+  variation). Successful-but-incomplete runs are excluded from the feed but stay
+  in the workspace's runs sidebar for inspection or deletion. With No Automatic
+  Retry, a run whose image generation failed never reaches the feed.
 - No realtime. New cards — finished manual runs and background automated runs —
   appear on feed mount or via an explicit Refresh action that re-fetches and
   toasts how many arrived. A background automated run that completes while the
@@ -82,7 +73,7 @@ sidebar behave uniformly.
   avoid building a streaming/subscription layer now; a server-side in-flight
   count would be its own future decision.
 - Defaults are display-only: each Run Card resolves the operator's explicit
-  choice or the first of each (first draft, first Top Pick, first variation, per
+  choice or the first of each (first draft, first variation, per
   Automated Selection / [ADR 0021](0021-single-image-set-and-automated-selection.md)).
   Nothing is persisted until the operator makes a real edit, so scrolling the
   feed triggers no writes and a run reopens exactly as it was left.

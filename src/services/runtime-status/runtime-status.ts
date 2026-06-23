@@ -4,7 +4,6 @@ import { type GenerationProviderId, generationProviderIds } from "@/services/gen
 import {
   readConfiguredAiGatewayImageModel,
   readConfiguredAiGatewayModels,
-  readConfiguredAiGatewayVisualJokeModel,
   readEnvValue,
 } from "@/services/generation/ai-gateway-models";
 
@@ -32,7 +31,6 @@ export type RuntimeStatus = {
       catalogReachable: boolean;
       imageModel: AiGatewayModelStatus;
       models: Record<GenerationProviderId, AiGatewayModelStatus>;
-      visualJokeModel: AiGatewayModelStatus;
     };
     credentials: {
       aiGatewayApiKey: boolean;
@@ -92,7 +90,6 @@ export async function readRuntimeStatus({
     supabaseUrl && supabaseAnonKey && supabaseServiceRoleKey && operatorAllowlistedEmail;
   const configuredModelIds = readConfiguredAiGatewayModels(env);
   const configuredImageModelId = readConfiguredAiGatewayImageModel(env);
-  const configuredVisualJokeModelId = readConfiguredAiGatewayVisualJokeModel(env);
   const modelCatalog = await readAiGatewayModelCatalog({
     baseUrl: env.AI_GATEWAY_BASE_URL,
     fetcher,
@@ -112,10 +109,6 @@ export async function readRuntimeStatus({
     available: modelCatalog.modelIds.has(configuredImageModelId),
     id: configuredImageModelId,
   };
-  const visualJokeModel = {
-    available: modelCatalog.modelIds.has(configuredVisualJokeModelId),
-    id: configuredVisualJokeModelId,
-  };
 
   return {
     enrichment: {
@@ -129,7 +122,6 @@ export async function readRuntimeStatus({
         catalogReachable: modelCatalog.catalogReachable,
         imageModel,
         models,
-        visualJokeModel,
       },
       credentials: {
         aiGatewayApiKey,
@@ -156,7 +148,6 @@ export async function readRuntimeStatus({
       outsideXEnrichmentApiKey &&
       allConfiguredModelsAvailable &&
       imageModel.available &&
-      visualJokeModel.available &&
       persistenceReady,
     retrieval: {
       credentials: {
@@ -170,10 +161,9 @@ export async function readRuntimeStatus({
 /**
  * Whether the Runtime Readiness Gate clears the boundaries an automated Discovery
  * Sweep requires before it starts anything: live followed-accounts retrieval, live
- * Supabase persistence, and both image-side models — the image model and the Visual
- * Joke model — present in the AI Gateway catalog. A sweep that finds this `false`
- * starts nothing that cycle (PRD user story 20), so automation never produces broken
- * half-runs.
+ * Supabase persistence, and the image model present in the AI Gateway catalog. A
+ * sweep that finds this `false` starts nothing that cycle (PRD user story 20), so
+ * automation never produces broken half-runs.
  *
  * Text-generation model availability is deliberately *not* gated here: Provider
  * Fallback lets an Automated Run complete on a subset of the three text providers,
@@ -183,8 +173,7 @@ export function isDiscoverySweepReady(status: RuntimeStatus): boolean {
   return (
     status.retrieval.mode === "live" &&
     status.persistence.mode === "live" &&
-    status.generation.aiGateway.imageModel.available &&
-    status.generation.aiGateway.visualJokeModel.available
+    status.generation.aiGateway.imageModel.available
   );
 }
 

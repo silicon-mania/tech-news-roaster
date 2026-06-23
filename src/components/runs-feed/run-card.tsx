@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { QuoteTweetComposite } from "@/components/workspace/quote-tweet-composite";
+import { finalQuoteTweetImageLabel } from "@/services/final-quote-tweet-image";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
 import { formatRelativeTime } from "@/utils/relative-time";
@@ -54,7 +55,7 @@ const engagementChrome: { Icon: LucideIcon; key: string; value: string }[] = [
  * the preview reads like a genuine post rather than an internal list row.
  */
 export function RunCard({ run, onSelect }: RunCardProps) {
-  const { draft, sourceTweet, variation, visualJoke } = resolveRunCardContent(run);
+  const { draft, sourceTweet, variation } = resolveRunCardContent(run);
 
   return (
     <article aria-label={run.label} className="grid gap-2">
@@ -95,12 +96,12 @@ export function RunCard({ run, onSelect }: RunCardProps) {
           <p className="whitespace-pre-line text-foreground text-sm leading-6">{draft.text}</p>
         ) : null}
 
-        {variation && visualJoke ? (
+        {variation ? (
           <div className="overflow-hidden rounded-xl">
             <QuoteTweetComposite
               imageAlt={variation.altText ?? variation.label}
               imageUrl={variation.url}
-              jokeTitle={visualJoke.text}
+              label={finalQuoteTweetImageLabel}
             />
           </div>
         ) : null}

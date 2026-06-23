@@ -1,14 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { parseFailedImageSet, parseImageSet, parseVisualJokeSet } from "@/services/generation";
-import {
-  buildImageSet,
-  buildUploadedImageSet,
-  buildVisualJokeSet,
-} from "@/services/generation/test-fixtures";
+import { parseFailedImageSet, parseImageSet } from "@/services/generation";
+import { buildImageSet, buildUploadedImageSet } from "@/services/generation/test-fixtures";
 import { isCompleteRun } from "./run-phase";
 import type { GenerationRun } from "./types";
 
-const visualJokeSet = parseVisualJokeSet(buildVisualJokeSet());
 const imageSet = parseImageSet(buildImageSet());
 const uploadedImageSet = parseImageSet(buildUploadedImageSet());
 const failedImageSet = parseFailedImageSet({
@@ -29,8 +24,8 @@ function buildSavedDraft(id: string): GenerationRun["drafts"][number] {
   };
 }
 
-// A fully-complete run: at least one draft, a visual joke set with jokes, and an
-// image set carrying variations. Each test strips exactly one piece.
+// A fully-complete run: at least one draft and an image set carrying variations.
+// Each test strips exactly one piece.
 function buildRun(overrides: Partial<GenerationRun> = {}): GenerationRun {
   return {
     id: "saved-run",
@@ -41,7 +36,6 @@ function buildRun(overrides: Partial<GenerationRun> = {}): GenerationRun {
     draftCount: 1,
     draftTarget: 3,
     drafts: [buildSavedDraft("draft-openai")],
-    visualJokeSet,
     imageSet,
     ...overrides,
     uploadedImageSets: overrides.uploadedImageSets ?? [],
@@ -49,20 +43,12 @@ function buildRun(overrides: Partial<GenerationRun> = {}): GenerationRun {
 }
 
 describe("isCompleteRun", () => {
-  test("returns true for a run with a draft, a visual joke, and an image variation", () => {
+  test("returns true for a run with a draft and an image variation", () => {
     expect(isCompleteRun(buildRun())).toBe(true);
   });
 
   test("returns false when the run has no drafts", () => {
     expect(isCompleteRun(buildRun({ draftCount: 0, drafts: [] }))).toBe(false);
-  });
-
-  test("returns false when the run has no visual joke set", () => {
-    expect(isCompleteRun(buildRun({ visualJokeSet: undefined }))).toBe(false);
-  });
-
-  test("returns false when the visual joke set has zero jokes", () => {
-    expect(isCompleteRun(buildRun({ visualJokeSet: { ...visualJokeSet, jokes: [] } }))).toBe(false);
   });
 
   test("returns false when image generation failed (failed image set, no variations)", () => {

@@ -99,7 +99,7 @@ describe("Workspace generation progress", () => {
     expect(screen.queryByLabelText(/image generation loading/i)).not.toBeInTheDocument();
   });
 
-  test("renders independent skeletons for all three sections while the run is in flight", async () => {
+  test("renders independent skeletons for the text and image sections while the run is in flight", async () => {
     const user = userEvent.setup();
     const generationEventSources: FakeGenerationEventSource[] = [];
     const { sourceTweetUrlInput, generateButton } = renderWorkspace({
@@ -112,9 +112,6 @@ describe("Workspace generation progress", () => {
     // shows its own skeleton rather than a single shared waiting state.
     expect(screen.getByLabelText(/text generation loading/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/image generation loading/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: /visual joke creative result area/i }),
-    ).toHaveAttribute("aria-busy", "true");
     expect(
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
@@ -155,10 +152,6 @@ describe("Workspace generation progress", () => {
               startedAt: "2026-06-06T10:10:01.000Z",
               status: "running",
             },
-            visualJokeGeneration: {
-              startedAt: "2026-06-06T10:10:03.000Z",
-              status: "running",
-            },
           },
           label: "Drafts for 2468",
           sourceTweet: tweetContext.sourceTweet,
@@ -166,8 +159,8 @@ describe("Workspace generation progress", () => {
       );
     });
 
-    // The image section resolves to its failure area while text and visual jokes
-    // keep loading independently.
+    // The image section resolves to its failure area while text keeps loading
+    // independently.
     expect(
       screen.getByRole("region", { name: /image work creative result area/i }),
     ).toBeInTheDocument();
@@ -207,10 +200,7 @@ describe("Workspace generation progress", () => {
           label: completedV3Run.label,
           newsLinkedImages: completedV3Run.newsLinkedImages,
           phase: completedV3Run.phase,
-          selectedVisualJoke: completedV3Run.selectedVisualJoke,
           sourceTweet,
-          visualJokeDirection: completedV3Run.visualJokeDirection,
-          visualJokeSet: completedV3Run.visualJokeSet,
         },
       })) {
         generationEventSources[0]?.emit(event);
@@ -221,25 +211,15 @@ describe("Workspace generation progress", () => {
     const draftStack = screen.getByRole("region", {
       name: /completed draft stack/i,
     });
-    const visualJokeArea = screen.getByRole("region", {
-      name: /visual joke creative result area/i,
-    });
     const imageGenerationArea = screen.getByRole("complementary", {
       name: /image generation area/i,
     });
 
     expect(responsiveWorkspace).not.toHaveClass("lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]");
     expect(
-      draftStack.compareDocumentPosition(visualJokeArea) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      visualJokeArea.compareDocumentPosition(imageGenerationArea) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      draftStack.compareDocumentPosition(imageGenerationArea) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(draftStack).toHaveTextContent("Quote-tweet draft: first saved draft.");
-    expect(visualJokeArea).toHaveTextContent(
-      "A workflow map where every exit arrow points back to the login screen.",
-    );
     expect(imageGenerationArea).toHaveTextContent("Launch visual");
     expect(imageGenerationArea).toHaveTextContent("Waiting for image selection");
   });

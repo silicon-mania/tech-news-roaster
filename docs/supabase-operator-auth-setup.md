@@ -22,10 +22,10 @@ must never reach the client bundle.
    close to where the app is deployed.
 2. A new project automatically includes managed **Postgres**, **Storage**
    (object storage), and **Auth**. The auth gate itself needs no tables or
-   buckets, but run persistence and image storage do: the SQL migrations under
-   `supabase/migrations/` create the `generation_runs` table and the private
-   `generated-images` storage bucket. Apply them with the Supabase CLI
-   (`supabase db push`) or by pasting each file into the **SQL Editor** once the
+   buckets, but run persistence and image storage do: the single SQL migration at
+   `supabase/migrations/0001_init.sql` creates the `generation_runs` table and the
+   private `generated-images` storage bucket. Apply it with the Supabase CLI
+   (`supabase db push`) or by pasting the file into the **SQL Editor** once the
    project exists.
 3. Wait for the project to finish provisioning.
 

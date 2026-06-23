@@ -27,7 +27,6 @@ export function getStageFailure(
     | GenerationResultStates["contextGathering"]
     | GenerationResultStates["newsLinkedImageDiscovery"]
     | GenerationResultStates["textGeneration"]
-    | GenerationResultStates["visualJokeGeneration"]
     | undefined,
 ): StageFailure | undefined {
   if (stage?.status !== "failed") {

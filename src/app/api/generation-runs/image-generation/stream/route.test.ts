@@ -199,7 +199,7 @@ describe("image generation stream route", () => {
     expect(JSON.stringify(generateVariations.mock.calls)).not.toContain("platform risk");
   });
 
-  test("rejects joke and context fields in the image generation parent run", async () => {
+  test("rejects context fields in the image generation parent run", async () => {
     const response = await streamImageGenerationRun(
       buildRequest({
         input: buildInput({
@@ -211,12 +211,7 @@ describe("image generation stream route", () => {
               status: "not-started",
             },
           }),
-          selectedVisualJoke: {
-            selectedAt: "2026-06-05T10:19:00.000Z",
-            visualJokeId: "visual-joke-1",
-          },
           usersDirection: "Make the text skeptical about platform risk.",
-          visualJokeDirection: "Internal visual joke direction.",
         },
       }),
     );

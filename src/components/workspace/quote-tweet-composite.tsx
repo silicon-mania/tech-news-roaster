@@ -15,9 +15,9 @@ import {
 } from "@/services/final-quote-tweet-image";
 
 /**
- * Joke Title auto-fit policy: the title renders at the Figma design size and
- * shrinks in steps down to the legibility floor until it fits the title box.
- * Truncation is disallowed — the non-editable punchline must stay whole.
+ * Label auto-fit policy: the label renders at the Figma design size and shrinks
+ * in steps down to the legibility floor until it fits the title box. Truncation
+ * is disallowed — the fixed label must stay whole.
  */
 const titleAutoFit = {
   minScale: 0.4,
@@ -54,18 +54,18 @@ const titleTextStyle: CSSProperties = {
 export function QuoteTweetComposite({
   imageAlt,
   imageUrl,
-  jokeTitle,
+  label,
   ref,
 }: {
   imageAlt: string;
   imageUrl: string;
-  jokeTitle: string;
+  label: string;
   /** Exposes the composite root so Download can rasterize this exact node. */
   ref?: Ref<HTMLElement>;
 }) {
   const titleBoxRef = useRef<HTMLElement | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the effect measures the DOM rendered from jokeTitle, so it must re-fit when the title changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the effect measures the DOM rendered from label, so it must re-fit when the label changes.
   useLayoutEffect(() => {
     const titleBox = titleBoxRef.current;
 
@@ -103,7 +103,7 @@ export function QuoteTweetComposite({
       disposed = true;
       resizeObserver?.disconnect();
     };
-  }, [jokeTitle]);
+  }, [label]);
 
   return (
     <figure
@@ -141,7 +141,7 @@ export function QuoteTweetComposite({
         width={quoteTweetRainbowStripe.width}
       />
       <figcaption ref={titleBoxRef} style={frameRectStyle(quoteTweetTitleBox)}>
-        <p style={titleTextStyle}>{jokeTitle}</p>
+        <p style={titleTextStyle}>{label}</p>
       </figcaption>
     </figure>
   );

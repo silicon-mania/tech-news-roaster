@@ -9,10 +9,8 @@ import { RunCard } from "./run-card";
 const firstDraftText = "Quote-tweet draft: first saved draft.";
 const secondDraftText = "Quote-tweet draft: second saved draft.";
 const firstVariationAlt = "Launch visual variation 1.";
-// buildCompletedV3Run selects jokes[1] (visual-joke-2) by default; visual-joke-1
-// is the set's first Top Pick, the no-selection fallback.
-const explicitJokeTitle = "A workflow map where every exit arrow points back to the login screen.";
-const firstTopPickJokeTitle = "A one-click launch button labeled 'Eventually, manual work.'";
+// The composite renders the fixed label where the Joke Title once sat (ADR-0026).
+const placeholderLabel = "LABEL GOES HERE";
 const sourceTweetText =
   "OpenAI just shipped an agent workspace for product teams, and every incumbent suddenly has to explain why their roadmap still looks like a settings page.";
 
@@ -51,15 +49,15 @@ describe("RunCard", () => {
     expect(screen.queryByText(firstDraftText)).not.toBeInTheDocument();
   });
 
-  test("renders the Final Quote Tweet Image composite with the chosen joke and variation", () => {
+  test("renders the Final Quote Tweet Image composite with the fixed label and variation", () => {
     render(<RunCard run={buildCardRun()} />);
 
     expect(
       screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
     ).toBeInTheDocument();
-    // The chosen Joke Title (explicit) sits on the first generated variation (the
-    // image falls back since the fixture has no explicit image selection).
-    expect(screen.getByText(explicitJokeTitle)).toBeInTheDocument();
+    // The fixed label sits on the first generated variation (the image falls back
+    // since the fixture has no explicit image selection).
+    expect(screen.getByText(placeholderLabel)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: firstVariationAlt })).toBeInTheDocument();
   });
 
@@ -96,19 +94,18 @@ describe("RunCard", () => {
     expect(screen.getByText("original tweet posted 1 day ago")).toBeInTheDocument();
   });
 
-  test("defaults to first draft / first Top Pick joke / first variation with no selection", () => {
+  test("defaults to the first draft and first variation with no selection", () => {
     render(
       <RunCard
         run={buildCardRun({
           selectedDraftId: undefined,
           selectedGeneratedImage: null,
-          selectedVisualJoke: null,
         })}
       />,
     );
 
     expect(screen.getByText(firstDraftText)).toBeInTheDocument();
-    expect(screen.getByText(firstTopPickJokeTitle)).toBeInTheDocument();
+    expect(screen.getByText(placeholderLabel)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: firstVariationAlt })).toBeInTheDocument();
   });
 

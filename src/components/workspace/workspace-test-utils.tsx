@@ -15,9 +15,7 @@ import {
   parseFailedImageSet,
   parseImageSet,
   parseJokeContextSnapshot,
-  parseVisualJokeSet,
   type QuoteTweetDraft,
-  type VisualJokeSet,
 } from "@/services/generation";
 import { buildReplySignals } from "@/services/outside-x-enrichment";
 import type { RuntimeStatus } from "@/services/runtime-status";
@@ -233,7 +231,6 @@ export function buildCompletedV3Run(overrides: Partial<GenerationRun> = {}): Gen
   const newsLinkedImages = buildNewsLinkedImages();
   const imageSet = buildImageSet(newsLinkedImages[0]);
   const jokeContextSnapshot = buildJokeContextSnapshot(sourceTweetId);
-  const visualJokeSet = buildVisualJokeSet();
   const imageGenerationState: NonNullable<GenerationRun["imageGenerationState"]> = {
     completedAt: "2026-06-06T10:25:00.000Z",
     selectedImageId: newsLinkedImages[0].id,
@@ -261,12 +258,6 @@ export function buildCompletedV3Run(overrides: Partial<GenerationRun> = {}): Gen
       startedAt: "2026-06-06T10:11:00.000Z",
       status: "completed",
     },
-    visualJokeGeneration: {
-      completedAt: "2026-06-06T10:15:00.000Z",
-      startedAt: "2026-06-06T10:11:00.000Z",
-      status: "completed",
-      visualJokeSet,
-    },
   };
 
   return buildCompletedRun({
@@ -280,12 +271,6 @@ export function buildCompletedV3Run(overrides: Partial<GenerationRun> = {}): Gen
     phase: "image-generation-complete",
     savedAt: "2026-06-06T10:26:00.000Z",
     selectedImageOriginal: imageSet.selectedImageOriginal,
-    selectedVisualJoke: {
-      selectedAt: "2026-06-06T10:16:00.000Z",
-      visualJokeId: visualJokeSet.jokes[1].id,
-    },
-    visualJokeDirection: "Ground every visual joke in the source media and lock-in replies.",
-    visualJokeSet,
     ...overrides,
   });
 }
@@ -343,10 +328,6 @@ export function buildRuntimeStatus(overrides: Partial<RuntimeStatus> = {}): Runt
             available: false,
             id: "openai/gpt-5.4-mini",
           },
-        },
-        visualJokeModel: {
-          available: false,
-          id: "openai/gpt-5.5",
         },
       },
       credentials: {
@@ -471,47 +452,6 @@ export function buildJokeContextSnapshot(sourceTweetId: string) {
       supportingFacts: ["The rollout is framed as an operator productivity update."],
       unknowns: ["No pricing detail is confirmed in the source tweet."],
     },
-  });
-}
-
-export function buildVisualJokeSet(): VisualJokeSet {
-  return parseVisualJokeSet({
-    generatedAt: "2026-06-06T10:14:00.000Z",
-    id: "visual-joke-set-1",
-    targetPerSection: 7,
-    jokes: [
-      {
-        id: "visual-joke-1",
-        order: 1,
-        section: "satire",
-        text: "A one-click launch button labeled 'Eventually, manual work.'",
-      },
-      {
-        id: "visual-joke-2",
-        order: 1,
-        section: "tech-positive",
-        text: "A workflow map where every exit arrow points back to the login screen.",
-      },
-      {
-        id: "visual-joke-3",
-        order: 1,
-        section: "experimental",
-        text: "A dashboard celebrating that the bottleneck has been promoted to admin.",
-      },
-      {
-        id: "visual-joke-4",
-        order: 2,
-        section: "satire",
-        text: "A polished product card with one button: 'Automate explaining this later.'",
-      },
-      {
-        id: "visual-joke-5",
-        order: 2,
-        section: "tech-positive",
-        text: "A launch graphic where confetti falls only on the terms-of-service checkbox.",
-      },
-    ],
-    topPicks: [{ reason: "Sharpest satire angle.", visualJokeId: "visual-joke-1" }],
   });
 }
 

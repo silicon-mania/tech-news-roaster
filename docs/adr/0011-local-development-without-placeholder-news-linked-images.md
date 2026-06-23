@@ -1,5 +1,7 @@
 # Local Development Without Placeholder News-Linked Images
 
+> **Status: amended by [ADR-0026](0026-remove-visual-joke-generation.md).** Visual joke generation has been removed; drop it from the list of live boundaries below. The no-silent-fixtures rule for the remaining boundaries still stands.
+
 Outside-X enrichment remains required for production generation runs, but local development may run without `OUTSIDE_X_ENRICHMENT_ENDPOINT` only by making news-linked images and image generation unavailable. We chose this instead of keeping placeholder image fixtures because placeholder visuals create false confidence in the v2 image workflow; production readiness must include a configured enrichment endpoint, and production runs without it fail before drafts are produced.
 
 For v3, configured development should follow the same live service paths as production. When the required credentials and endpoints for a boundary are present, development must not silently use fixtures, mocks, or local fallback data to avoid real retrieval, media understanding, text generation, visual joke generation, news-linked image discovery, or image generation. Fixture or local modes remain useful only when a boundary is explicitly unconfigured or under test, and runtime status should make those modes visible.

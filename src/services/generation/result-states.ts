@@ -4,7 +4,6 @@ import { jokeContextSnapshotSchema } from "./joke-context";
 import { newsLinkedImageSchema } from "./news-linked-image";
 import { draftTarget } from "./providers";
 import { nonEmptyTrimmedStringSchema } from "./schema-primitives";
-import { visualJokeSetSchema } from "./visual-joke";
 
 const resultStageNotStartedSchema = z
   .object({
@@ -71,27 +70,12 @@ const newsLinkedImageDiscoveryStateSchema = z.discriminatedUnion("status", [
   resultStageFailedSchema,
 ]);
 
-const visualJokeGenerationStateSchema = z.discriminatedUnion("status", [
-  resultStageNotStartedSchema,
-  resultStageRunningSchema,
-  z
-    .object({
-      completedAt: z.string().datetime(),
-      startedAt: z.string().datetime(),
-      status: z.literal("completed"),
-      visualJokeSet: visualJokeSetSchema,
-    })
-    .strict(),
-  resultStageFailedSchema,
-]);
-
 export const generationResultStatesSchema = z
   .object({
     contextGathering: contextGatheringStateSchema,
     imageGeneration: imageGenerationAttemptStateSchema,
     newsLinkedImageDiscovery: newsLinkedImageDiscoveryStateSchema,
     textGeneration: textGenerationStateSchema,
-    visualJokeGeneration: visualJokeGenerationStateSchema,
   })
   .strict()
   .superRefine((states, ctx) => {
@@ -113,14 +97,6 @@ export const generationResultStatesSchema = z
         code: "custom",
         message: "Text Generation cannot start before Joke Context Gathering completes.",
         path: ["textGeneration"],
-      });
-    }
-
-    if (states.visualJokeGeneration.status !== "not-started") {
-      ctx.addIssue({
-        code: "custom",
-        message: "Visual Joke Generation cannot start before Joke Context Gathering completes.",
-        path: ["visualJokeGeneration"],
       });
     }
   });

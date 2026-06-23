@@ -8,9 +8,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *
  *  - A run defaults to expanded the first time its overlay is shown, so the
  *    guidance — or the finished composite — is visible without a click.
- *  - Any change to that run's Selected Generated Image or Selected Visual Joke
- *    force-expands it. Completing the pair is itself a selection change, so this
- *    one rule also covers "auto-expand once both picks exist".
+ *  - Any change to that run's Selected Generated Image force-expands it, so
+ *    picking the image that completes the composite reopens a collapsed overlay.
  *  - The user can collapse at any time; a collapse only sticks until the next
  *    selection change.
  *  - Switching runs is not a selection change — each run keeps its own state.
@@ -18,17 +17,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export function useQuoteTweetOverlayState({
   runId,
   selectedImageOptionId,
-  selectedVisualJokeId,
 }: {
   runId: string | null;
   selectedImageOptionId: string | null;
-  selectedVisualJokeId: string | null;
 }) {
   const [expandedByRunId, setExpandedByRunId] = useState<Record<string, boolean>>({});
   const lastSelectionRef = useRef<{
     runId: string | null;
     imageOptionId: string | null;
-    visualJokeId: string | null;
   } | null>(null);
 
   useEffect(() => {
@@ -37,7 +33,6 @@ export function useQuoteTweetOverlayState({
     lastSelectionRef.current = {
       imageOptionId: selectedImageOptionId,
       runId,
-      visualJokeId: selectedVisualJokeId,
     };
 
     if (!runId || !previous || previous.runId !== runId) {
@@ -45,13 +40,10 @@ export function useQuoteTweetOverlayState({
       return;
     }
 
-    if (
-      previous.imageOptionId !== selectedImageOptionId ||
-      previous.visualJokeId !== selectedVisualJokeId
-    ) {
+    if (previous.imageOptionId !== selectedImageOptionId) {
       setExpandedByRunId((current) => ({ ...current, [runId]: true }));
     }
-  }, [runId, selectedImageOptionId, selectedVisualJokeId]);
+  }, [runId, selectedImageOptionId]);
 
   const isExpanded = runId ? (expandedByRunId[runId] ?? true) : true;
 

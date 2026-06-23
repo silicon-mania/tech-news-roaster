@@ -35,8 +35,7 @@ export function deriveRunPhaseFromGenerationResultStates(
 
   if (
     generationResultStates.textGeneration.status === "running" ||
-    generationResultStates.newsLinkedImageDiscovery.status === "running" ||
-    generationResultStates.visualJokeGeneration.status === "running"
+    generationResultStates.newsLinkedImageDiscovery.status === "running"
   ) {
     return "text-generation-running";
   }

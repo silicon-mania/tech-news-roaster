@@ -14,7 +14,7 @@ these variables with `NEXT_PUBLIC_`.
    - In Vercel, enable AI Gateway for the team/project that will host this app.
    - Create an AI Gateway key for `AI_GATEWAY_API_KEY` or use the Vercel-provided
      `VERCEL_AI_GATEWAY_API_KEY`.
-   - Confirm the model catalog contains the text models, image model, and visual-joke model you
+   - Confirm the model catalog contains the text models and image model you
      plan to deploy.
 
 3. Outside-X enrichment
@@ -30,10 +30,10 @@ these variables with `NEXT_PUBLIC_`.
      (`SUPABASE_URL`), the **anon** key (`SUPABASE_ANON_KEY`), and the **service_role** key
      (`SUPABASE_SERVICE_ROLE_KEY`). The service-role key is secret — server-only, never
      `NEXT_PUBLIC_`.
-   - Apply the database schema. In the Supabase dashboard SQL Editor, run each file in
-     `supabase/migrations/` **in order** (`0001` → `0004`). This creates the run, author-baseline,
+   - Apply the database schema. In the Supabase dashboard SQL Editor, run the single
+     `supabase/migrations/0001_init.sql`. This creates the run, author-baseline,
      cluster, and seen-tweet tables, their row-level-security policies, **and the private
-     `generated-images` storage bucket** (`0002`) — no manual bucket creation needed.
+     `generated-images` storage bucket** — no manual bucket creation needed.
    - Enable email auth. Authentication -> Providers -> **Email** on; the operator signs in with an
      email OTP. For reliable delivery configure SMTP (Authentication -> Emails); the built-in
      sender is heavily rate-limited and is the most common cause of "code could not be sent".
@@ -54,7 +54,6 @@ AI_GATEWAY_OPENAI_MODEL=openai/gpt-5.4-mini
 AI_GATEWAY_ANTHROPIC_MODEL=anthropic/claude-sonnet-4.6
 AI_GATEWAY_GOOGLE_MODEL=google/gemini-3-flash
 AI_GATEWAY_IMAGE_MODEL=google/gemini-2.5-flash-image
-AI_GATEWAY_VISUAL_JOKE_MODEL=openai/gpt-5.5
 OUTSIDE_X_ENRICHMENT_ENDPOINT=https://<your-production-domain>/enrich
 OUTSIDE_X_ENRICHMENT_API_KEY=<shared enrichment bearer token>
 SERPER_API_KEY=<serper key, if using this repo's /enrich route>
@@ -67,7 +66,7 @@ DISCOVERY_SOURCE_LIST_IDS=<comma-separated operator-owned X List ids>
 CRON_SECRET=<long random secret protecting the sweep route>
 ```
 
-The model IDs above (`gpt-5.4-mini`, `claude-sonnet-4.6`, `gemini-3-flash`, `gpt-5.5`,
+The model IDs above (`gpt-5.4-mini`, `claude-sonnet-4.6`, `gemini-3-flash`,
 `gemini-2.5-flash-image`) are the **current code defaults** and are shown as examples — they may
 change. Confirm the live values against `/api/runtime-status`, which reports each configured model
 as `available: true` against the gateway catalog.
@@ -107,7 +106,7 @@ Notes:
    - `generation.mode` as `live`
    - `enrichment.mode` as `configured`
    - `generation.aiGateway.catalogReachable` as `true`
-   - every configured text, image, and visual-joke model as `available: true`
+   - every configured text and image model as `available: true`
    - `productionReady` as `true`
 4. Confirm the runtime-status JSON does not include any secret values.
 
@@ -126,13 +125,12 @@ feed.)
    - Generation Progress
    - Text Generation drafts
    - Joke Context Snapshot reveal
-   - Visual Joke Creative Result Area
    - News-linked image selection
    - Image Generation results
 6. Return to the Runs Feed and confirm the completed run appears as a **Run Card**. Click it to open
    the **Selected Run sidebar** and confirm it does not regenerate.
-7. Select or clear a visual joke, reopen the run again from the feed, and confirm the selection
-   persisted.
+7. Re-pick a different draft or generated image variation, reopen the run again from the feed, and
+   confirm the selection persisted.
 
 ## 5. Automated Discovery Sweep scheduling
 
@@ -173,9 +171,9 @@ The sweep runs unattended as a **Vercel Cron job** that hits the secured
   new teammates rather than changing the first.
 - **Readiness gate.** A sweep that finds the Runtime Readiness Gate not ready starts
   nothing that cycle and returns `{ "status": "not-ready" }` (HTTP 200). Confirm
-  `/api/runtime-status` reports `retrieval.mode: live`, `persistence.mode: live`, and
-  both the image model and visual-joke model as `available: true` before relying on
-  unattended sweeps. (The gate checks boundaries, not whether the operator has signed in —
+  `/api/runtime-status` reports `retrieval.mode: live`, `persistence.mode: live`, and the
+  image model as `available: true` before relying on unattended sweeps. (The gate checks
+  boundaries, not whether the operator has signed in —
   that is the separate `unauthorized` case above.)
 
 ## 6. Real Discovery Sweep smoke
@@ -207,13 +205,13 @@ deterministic fixture suite, which remains the regression guard.
 
 1. Open one of the runs the sweep started (section 6).
 2. Confirm it reached a composed **Final Quote Tweet Image** end to end with no input
-   from you, and that Automated Selection picked the first draft, the first Top Pick
-   visual joke, the first image original candidate, and the first variation.
+   from you, and that Automated Selection picked the first draft, the first image
+   original candidate, and the first variation.
 3. Confirm the image set has exactly **four variations** and the selected original is
    locked.
 4. Confirm **prepare-not-publish**: nothing was posted to X — the run only prepared the
    Final Quote Tweet Image and Selected Draft.
-5. Override the Selected Visual Joke (or re-pick a variation) and confirm the Final
+5. Re-pick a different image variation and confirm the Final
    Quote Tweet Image **recomposes instantly with no regeneration**.
 
 ## 8. Tuning the discovery configuration
@@ -235,3 +233,12 @@ Each lives in code (change, redeploy) except the interval, which lives in `verce
 After any change, redeploy and re-run the real Discovery Sweep smoke (section 6) to
 confirm the new values behave as intended. The fixture suite (`npm test`) stays the
 fast guard against regressions while you tune.
+
+## 9. Visual-joke removal — production cleanup (one-time closeout)
+
+The Visual Joke feature has been removed from the product (ADR-0026). Before this runbook
+is considered fully reconciled with production, an operator must complete the one-time
+cleanup in [visual-joke-production-cleanup.md](visual-joke-production-cleanup.md) — it
+enumerates every environment variable, secret, endpoint, storage bucket, and config item to
+check, each with an action or an explicit "nothing to do" note. Delete that doc **and this
+section** once the checklist is ticked and the final verification passes.

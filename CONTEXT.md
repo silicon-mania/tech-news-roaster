@@ -5,11 +5,11 @@ This context is the language of a product that turns a source tweet about tech n
 ## Language
 
 **Generation Run**:
-The parent attempt to turn a source tweet into candidate drafts, a visual joke set, and optional image options for the quote tweet.
+The parent attempt to turn a source tweet into candidate drafts and optional image options for the quote tweet.
 _Avoid_: Session, job, request
 
 **Manual Run**:
-A generation run started by the user submitting a source tweet URL in the source tweet bar, keeping user-owned image selection, user image prompt, and visual joke selection.
+A generation run started by the user submitting a source tweet URL in the source tweet bar, keeping user-owned image selection and user image prompt.
 _Avoid_: Interactive run, browser run, classic run
 
 **Automated Run**:
@@ -17,7 +17,7 @@ A generation run started by the system from a discovered viral tweet while the u
 _Avoid_: Background job, cron run, bot run
 
 **Automated Selection**:
-The rule by which an automated run makes, without human input, the choices a manual run leaves to the user: the first text draft, the first Top Pick visual joke, the first image original candidate, and the first generated variation. Each remains overridable once the operator opens the run.
+The rule by which an automated run makes, without human input, the choices a manual run leaves to the user: the first text draft, the first image original candidate, and the first generated variation. Each remains overridable once the operator opens the run.
 _Avoid_: Auto-publish, locked choice, final pick
 
 **Operator Account**:
@@ -65,7 +65,7 @@ The single tech-news event that several viral tweets are witnesses to, formed by
 _Avoid_: Story, topic, trend, thread
 
 **Saved Run**:
-A generation run that remains available to the user after creation, including its source tweet, user's direction, joke context snapshot, visual joke direction, visual joke set, selected visual joke, persisted selected image originals, user image prompt, image sets (including any Uploaded Image Sets), model provenance, run provenance (its origin — manual or automated — the image prompt source — user or default — and, for automated runs, the news coverage cluster it came from), date, and the latest edited version of each draft, and that can be reopened, edited again, inspected, downloaded, or deleted by the user without ever regenerating its drafts, visual jokes, or images.
+A generation run that remains available to the user after creation, including its source tweet, user's direction, joke context snapshot, persisted selected image originals, user image prompt, image sets (including any Uploaded Image Sets), model provenance, run provenance (its origin — manual or automated — the image prompt source — user or default — and, for automated runs, the news coverage cluster it came from), date, and the latest edited version of each draft, and that can be reopened, edited again, inspected, downloaded, or deleted by the user without ever regenerating its drafts or images.
 _Avoid_: History item, cache entry, record
 
 **Saved Run Retention**:
@@ -73,15 +73,15 @@ The rule that every successful run is kept server-side under the operator accoun
 _Avoid_: Storage cleanup, pruning, history cap
 
 **Successful Run**:
-A generation run where joke context gathering has succeeded and at least one creative result area has succeeded, while text generation, visual joke generation, and image generation keep independent success or failure states.
+A generation run where joke context gathering has succeeded and at least one creative result area has succeeded, while text generation and image generation keep independent success or failure states.
 _Avoid_: finished job, fully generated run
 
 **Complete Run**:
-A successful run that carries all three pieces a Run Card needs — at least one draft, at least one visual joke, and at least one generated image variation — so it can render a full Quote Repost. Only complete runs appear in the Runs Feed. A successful but incomplete run (image generation failed or never run, or no visual jokes) is still kept, but excluded from the feed and reachable only through the workspace's runs sidebar, where it can be inspected or deleted. Narrower than a Successful Run, which may have one creative area fail.
+A successful run that carries both pieces a Run Card needs — at least one draft and at least one generated image variation — so it can render a full Quote Repost. Only complete runs appear in the Runs Feed. A successful but incomplete run (image generation failed or never run) is still kept, but excluded from the feed and reachable only through the workspace's runs sidebar, where it can be inspected or deleted. Narrower than a Successful Run, which may have one creative area fail.
 _Avoid_: Successful Run, partial run, ready-to-post run
 
 **Running Run**:
-A generation run that has been created and is visible in the runs list while joke context gathering, text generation, visual joke generation, news-linked image discovery, or image generation is still in flight.
+A generation run that has been created and is visible in the runs list while joke context gathering, text generation, news-linked image discovery, or image generation is still in flight.
 _Avoid_: Pending save, loading item, temporary run
 
 **Run Label**:
@@ -89,7 +89,7 @@ A short generated label used to identify a run in the unified runs list. The def
 _Avoid_: Title, custom name, editable name
 
 **User's Direction**:
-Optional freeform guidance provided by the user to influence or challenge the creative angle of the text drafts. It does not steer visual joke generation or image generation.
+Optional freeform guidance provided by the user to influence or challenge the creative angle of the text drafts. It does not steer image generation.
 _Avoid_: Direction, prompt, instruction, preset
 
 **Source Tweet**:
@@ -125,7 +125,7 @@ The manual-generation surface: one responsive page containing generation, source
 _Avoid_: Multi-page flow, wizard, separate editor, intake
 
 **Generation Progress**:
-The compact status surface that shows where context gathering, text generation, news-linked image discovery, visual joke generation, and image generation are in the run without becoming a research panel.
+The compact status surface that shows where context gathering, text generation, news-linked image discovery, and image generation are in the run without becoming a research panel.
 _Avoid_: Research console, verbose timeline, hidden background work
 
 **Runtime Status**:
@@ -137,7 +137,7 @@ The rule that work cannot start unless every required service boundary is config
 _Avoid_: Partial readiness, best-effort run, optional service startup
 
 **Creative Result Area**:
-A distinct workspace area for one kind of generated output, such as candidate drafts, image options, or visual jokes, with its own progress and failure state.
+A distinct workspace area for one kind of generated output, such as candidate drafts or image options, with its own progress and failure state.
 _Avoid_: Mixed output feed, combined result card, monolithic result
 
 **Quiet Failure Details**:
@@ -153,11 +153,11 @@ The product's main page: the operator's successful runs shown newest-first as an
 _Avoid_: Runs list, history sidebar, gallery, dashboard
 
 **Selected Run**:
-The single successful run whose editor is open in the right sidebar of the Runs Feed. Selecting a run card opens its sidebar, where the operator edits that run's draft text and switches its selected draft, selected visual joke, and selected generated image — all without entering the center workspace. The sidebar scrolls to expose every draft, visual joke, and image variation. From the sidebar the operator can also download the run's Final Quote Tweet Image — the same export already available in the workspace. Distinct from the Active Run, which is the run being generated in the center workspace.
+The single successful run whose editor is open in the right sidebar of the Runs Feed. Selecting a run card opens its sidebar, where the operator edits that run's draft text and switches its selected draft and selected generated image — all without entering the center workspace. The sidebar scrolls to expose every draft and image variation. From the sidebar the operator can also download the run's Final Quote Tweet Image — the same export already available in the workspace. Distinct from the Active Run, which is the run being generated in the center workspace.
 _Avoid_: Active Run, opened run, focused card, preview
 
 **Run Card**:
-The unit of the Runs Feed: a faithful preview of the Quote Repost a successful run will become, rendered as an X quote-repost post — the Operator Account header (fixed brand name, handle, and avatar), the Selected Draft as commentary, the Final Quote Tweet Image as media, and the Source Tweet embedded as the quoted post — with static, decorative engagement chrome. Each of the three slots shows the operator's explicit choice, or the first of each — first draft, first Top Pick visual joke, first generated variation — when none was chosen, so the card is ready as soon as all three exist. Beneath it sit the run's generated time and the source tweet's posted time. Selecting a card opens its Selected Run editor.
+The unit of the Runs Feed: a faithful preview of the Quote Repost a successful run will become, rendered as an X quote-repost post — the Operator Account header (fixed brand name, handle, and avatar), the Selected Draft as commentary, the Final Quote Tweet Image as media, and the Source Tweet embedded as the quoted post — with static, decorative engagement chrome. Each of the two slots shows the operator's explicit choice, or the first of each — first draft, first generated variation — when none was chosen, so the card is ready as soon as both exist. Beneath it sit the run's generated time and the source tweet's posted time. Selecting a card opens its Selected Run editor.
 _Avoid_: Final Quote Tweet Image, Source Tweet Preview, thumbnail, list row
 
 **Draft Stack**:
@@ -194,7 +194,7 @@ _Avoid_: Search images, candidate images, scraped images
 
 **News-Linked Image Discovery**:
 The automatic initial-run step that gathers original image candidates directly tied to the underlying news, used to fill the image original candidates up to four when the source tweet has fewer than four usable images, separate from joke context gathering.
-_Avoid_: Joke Context Gathering, visual joke research, generic image search
+_Avoid_: Joke Context Gathering, generic image search
 
 **Image Original Candidate**:
 One of exactly four images offered for the image original selection, drawn first from the source tweet's own media and topped up with news-linked images when the tweet carries fewer than four usable images.
@@ -216,46 +216,6 @@ _Avoid_: Image generation run, visual job, image workflow
 The server-side integration layer that prepares selected image originals, calls the configured image model, and returns image sets without binding the product language to a specific image provider.
 _Avoid_: Image provider client, Gemini client, visual generator
 
-**Visual Joke Generation**:
-The part of a generation run that starts after joke context gathering and creates candidate visual jokes from the joke context snapshot and visual joke direction, without depending on text generation, image selection, or placing those jokes on an image.
-_Avoid_: Better draft generation, image generation with text, caption overlay
-
-**Visual Joke Workflow**:
-The internal creative process for visual joke generation that hands the joke context snapshot and visual joke direction to the model and returns the categorized visual joke set — three Visual Joke Sections plus the Top Picks — without a separate local critique stage; taste lives in the visual joke direction and the model's own Top Picks.
-_Avoid_: Single prompt, joke completion, caption call, local critic
-
-**Visual Joke Service**:
-The provider-agnostic service boundary that runs the visual joke workflow and returns a visual joke set without binding product language to a specific AI provider or model.
-_Avoid_: OpenAI joke call, Gemini joke call, caption generator
-
-**Boring Accuracy**:
-A factually correct but flat visual joke that summarizes the news without surprise, tension, misdirection, or a strong punchline; the visual joke direction steers the model away from it rather than a local critic rejecting it.
-_Avoid_: Safe summary, neutral title, accurate caption
-
-**Visual Joke Direction**:
-Global system-owned guidance for visual joke generation that steers the joke's tone, angle, and style separately from the user's direction and the user image prompt, and is only inspectable as the full internal prompt through a quiet UI reveal.
-_Avoid_: User's Direction, User Image Prompt, image prompt
-
-**Visual Joke Taste**:
-The system-owned humor standard for visual jokes, favoring dark, sharp tech satire that reads as a ruthless observer of tech incentives while avoiding condescending, patronizing, or mean-spirited jokes.
-_Avoid_: Prompt wording, personal preference, joke settings
-
-**Tech-Native Punchline**:
-A punchline that usually uses the language, references, and absurdities of the tech ecosystem to make the news feel instantly legible to the intended audience, without forcing a tech term when a sharper joke works better.
-_Avoid_: Generic joke, broad meme, non-tech punchline
-
-**Context-Supported Reference**:
-A reference used in a visual joke that is either broadly legible to the tech audience or explicitly present in the joke context snapshot, avoiding obscure outside knowledge that would fail at scroll speed.
-_Avoid_: Deep lore, random drama reference, unexplained niche callback
-
-**Truthful Misdirection**:
-A visual joke pattern that frames a real technical or contextual fact in a surprising way that sounds wrong at first but becomes defensible once the reader understands the reference.
-_Avoid_: Misinformation, clickbait lie, unsupported twist
-
-**Earned Edge**:
-The selective use of profanity, sexual bluntness, dark humor, or harsh phrasing when it clarifies the absurdity of public news involving named news actors or makes the punchline stronger, rather than acting as decorative shock value or private humiliation.
-_Avoid_: Random profanity, shock value, edgy filler
-
 **User Image Prompt**:
 Required freeform guidance provided by the user in a manual run to steer the four generated image variations for the selected image original.
 _Avoid_: Image prompt, visual direction, generation prompt
@@ -273,7 +233,7 @@ The raw responses posted under the source tweet that may contain phrasing, jokes
 _Avoid_: Comments, thread noise
 
 **Reply Signals**:
-The inferred patterns, tensions, jokes, backlash, confusion, corrections, recurring interpretations, and representative snippets extracted from replies to help identify stronger editorial angles and visual joke opportunities without carrying every raw reply.
+The inferred patterns, tensions, jokes, backlash, confusion, corrections, recurring interpretations, and representative snippets extracted from replies to help identify stronger editorial angles without carrying every raw reply.
 _Avoid_: Sentiment, reply summary
 
 **Outside-X Enrichment**:
@@ -301,11 +261,11 @@ The structured reading of who posted the source tweet, why their identity matter
 _Avoid_: Biography, profile research, persona file
 
 **Joke Context Quality**:
-The internal confidence that joke context gathering has enough understanding to support strong visual jokes, especially when the source tweet is short and its media carries much of the context.
+The internal confidence that joke context gathering has enough understanding to support strong drafts, especially when the source tweet is short and its media carries much of the context.
 _Avoid_: Completeness score, research status, media success flag
 
 **Joke Context Snapshot**:
-The full structured context gathered from the source tweet, media, replies, author context, and supporting research that the user can inspect in a clean format through a quiet UI reveal, without acting as an approval checkpoint for visual joke generation.
+The full structured context gathered from the source tweet, media, replies, author context, and supporting research that the user can inspect in a clean format through a quiet UI reveal, without acting as an approval checkpoint for generation.
 _Avoid_: Research panel, debug output, retry form
 
 **Joke Context Debug Log**:
@@ -317,20 +277,12 @@ The fixed shape of the joke context snapshot that separates the source tweet's c
 _Avoid_: Loose summary, raw research dump, model notes
 
 **Jokeable Tensions**:
-The contradictions, pressures, absurdities, and uncomfortable trade-offs in the source tweet's context that can become the raw material for strong visual jokes.
+The contradictions, pressures, absurdities, and uncomfortable trade-offs in the source tweet's context that can become the raw material for strong drafts.
 _Avoid_: Summary points, joke ideas, funny facts
 
 **Forbidden Assumptions**:
-The unsupported claims or misleading leaps that joke context gathering explicitly marks as unavailable, so visual jokes can use truthful misdirection without becoming misinformation.
+The unsupported claims or misleading leaps that joke context gathering explicitly marks as unavailable, so drafts can reframe facts surprisingly without becoming misinformation.
 _Avoid_: Safety disclaimer, moderation policy, fact-check report
-
-**Joke Target**:
-The system, incentive, product dynamic, company behavior, platform power, market logic, or hype cycle that a visual joke aims its bite at, rather than individual users or harmless people.
-_Avoid_: Victim, punchline subject, mocked person
-
-**Named News Actor**:
-A public figure, company, brand, product, or organization that is central to the source tweet's news and can be named directly in a visual joke.
-_Avoid_: Random celebrity, unrelated brand, private person
 
 **Editorial Interpretation**:
 The system's overall reading of the source tweet, replies, and surrounding context that it uses to choose an angle and a draft's tone.
@@ -360,40 +312,12 @@ _Avoid_: Character limit, max length, platform limit
 The expressive manner a draft uses to deliver its angle, such as dry, sharp, sarcastic, understated, or roast-leaning.
 _Avoid_: Tone, vibe, mood
 
-**Visual Joke**:
-A short joke or caption generated from the source tweet, its media, replies, author context, and supporting research, intended to be the first readable element on the Final Quote Tweet Image and available for copy or selection. The visual joke set is never regenerated, but a visual joke's Joke Title can be edited in place by the operator after generation — mirroring how a Draft is edited — overwriting that joke within the run's own visual joke set.
-_Avoid_: Image caption, meme text, overlay text
-
-**Joke Title**:
-The preferred format for a visual joke: a short, title-like one-liner that gives a fast read on the news while landing like an insider punchline, kept compressed by the visual joke direction rather than a fixed word cap.
-_Avoid_: Paragraph joke, long caption, explanatory copy
-
-**Visual Joke Set**:
-The categorized, publishable visual jokes produced for one generation run — organized into three Visual Joke Sections of up to seven each (up to twenty-one total) plus the ordered Top Picks. The set ships whatever the model returns per section (as few as one joke overall) rather than failing the whole result area, and the result surface shows a quiet per-section shortfall notice whenever a section returns fewer than seven.
-_Avoid_: Joke list, caption batch, meme options, ranked eight
-
-**Visual Joke Section**:
-One of the three labeled groups a visual joke set is organized into, defined by who the joke punches at and how experimental it is: **Satire** (may hit the company, founders, product, valuation, press-release language, or culture), **Tech-Positive** (punches at everyone except the company and founder — the haters, the wrong analysts, Wall Street, retail investors, the press, the public — leaving the company looking good or untouched), and **Experimental** (deliberately breaks the guidelines to discover new registers, where some candidates are expected to miss). Each section targets seven visual jokes.
-_Avoid_: Joke pattern, category tag, tone bucket
-
-**Top Pick**:
-One of the model's two-to-three self-flagged strongest visual jokes across all sections, surfaced as an ordered list with a quiet label while every other visual joke stays visible. The first Top Pick is the system's default and the one Automated Selection takes. Each Top Pick carries an internal one-line reason that is not shown on the main surface.
-_Avoid_: Recommended visual joke, winner, hidden ranking
-
-**Selected Visual Joke**:
-The visual joke whose Joke Title is placed on the Final Quote Tweet Image: the user chooses it from any section of the visual joke set in a manual run and the system takes the first Top Pick in an automated run. It can be changed afterward, and its Joke Title can be edited in place — uniformly from either the Selected Run sidebar or the center workspace — overwriting that joke within the run's visual joke set, and the Final Quote Tweet Image re-derives from it immediately.
-_Avoid_: Required joke choice, final caption
-
-**Section Coverage**:
-The requirement that a visual joke set populate all three Visual Joke Sections toward seven jokes each, exploring the distinct angle of each section rather than repeating one idea across the set.
-_Avoid_: Joke pattern diversity, variation spread, random variety
-
 **Selected Generated Image**:
 The one generated Image Option — always one of the four variations, never an original — chosen as the picture placed inside the Final Quote Tweet Image, and resolvable to a variation in any of the run's image sets, source-derived or uploaded: the user chooses it in a manual run and the system takes the first variation in an automated run. It is distinct from the Selected Image Original, which is the input to image generation.
 _Avoid_: Selected Image Original, selected variation, composite image, chosen image
 
 **Final Quote Tweet Image**:
-The shareable image a generation run produces by placing one Selected Visual Joke's Joke Title over the Selected Generated Image, using the fixed Silicon Mania layout while leaving every other visual element of that layout unchanged.
+The shareable image a generation run produces by placing a fixed placeholder label ("LABEL GOES HERE") over the Selected Generated Image, using the fixed Silicon Mania layout while leaving every other visual element of that layout unchanged.
 _Avoid_: Quote Tweet image, final card, composite, meme
 
 ## Editing
@@ -411,7 +335,7 @@ The text-generation-only behavior that preserves a complete three-draft result b
 _Avoid_: Retry noise, hidden substitution, silent replacement
 
 **No Automatic Retry**:
-The rule that failed joke context gathering, text generation, visual joke generation, news-linked image discovery, image generation, or provider calls are not automatically retried by the product.
+The rule that failed joke context gathering, text generation, news-linked image discovery, image generation, or provider calls are not automatically retried by the product.
 _Avoid_: Retry policy, silent retry, background retry
 
 ## Publish Modes

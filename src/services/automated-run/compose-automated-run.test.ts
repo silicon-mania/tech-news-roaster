@@ -1,8 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import {
-  findSelectedVariation,
-  findSelectedVisualJoke,
-} from "@/components/workspace/quote-tweet-selection";
+import { findSelectedVariation } from "@/components/workspace/quote-tweet-selection";
 import {
   collectCompletedImageSets,
   defaultImagePrompt,
@@ -11,14 +8,8 @@ import {
   parseFailedImageSet,
   parseImageSet,
   parseJokeContextSnapshot,
-  parseVisualJokeSet,
 } from "@/services/generation";
-import {
-  buildGenerationResultStates,
-  buildImageSet,
-  buildJokeContextSnapshot,
-  buildVisualJokeSet,
-} from "@/services/generation/test-fixtures";
+import { buildImageSet, buildJokeContextSnapshot } from "@/services/generation/test-fixtures";
 import { JokeContextGatheringError } from "@/services/joke-context-gathering";
 import { createInMemoryRunRepository } from "@/services/saved-runs/in-memory-run-repository";
 import { buildFixtureTweetContext, TweetRetrievalError } from "@/services/tweet-retrieval";
@@ -37,7 +28,6 @@ type GenerateImageSetArgs = Parameters<
 >[0];
 
 const jokeContextSnapshot = parseJokeContextSnapshot(buildJokeContextSnapshot());
-const visualJokeSet = parseVisualJokeSet(buildVisualJokeSet());
 
 function buildNewsLinkedImages() {
   return [
@@ -83,8 +73,22 @@ function buildCompletedPayload(options: { fallbackDisclosure?: string } = {}) {
         visibleRationale: "Treats it as a distribution bet.",
       },
     ],
-    visualJokeSet,
-    generationResultStates: buildGenerationResultStates({ jokeContextSnapshot, visualJokeSet }),
+    generationResultStates: {
+      contextGathering: {
+        status: "completed",
+        startedAt: "2026-06-06T10:08:00.000Z",
+        completedAt: "2026-06-06T10:10:00.000Z",
+        jokeContextSnapshot,
+      },
+      textGeneration: {
+        status: "completed",
+        startedAt: "2026-06-06T10:10:01.000Z",
+        completedAt: "2026-06-06T10:10:30.000Z",
+        draftCount: 3,
+      },
+      newsLinkedImageDiscovery: { status: "not-started" },
+      imageGeneration: { status: "not-started" },
+    },
     ...(options.fallbackDisclosure ? { fallbackDisclosure: options.fallbackDisclosure } : {}),
   });
 }
@@ -163,19 +167,15 @@ describe("composeAutomatedRun", () => {
     expect(run.status).toBe("completed");
     expect(run.usersDirection).toBe("");
 
-    // Automated Selection wrote the four Manual-Run picks.
+    // Automated Selection wrote the Manual-Run picks.
     expect(run.selectedDraftId).toBe("draft-openai");
-    expect(run.selectedVisualJoke?.visualJokeId).toBe("visual-joke-1");
     expect(run.selectedGeneratedImage?.imageOptionId).toBe("image-option-variation-1");
     expect(run.selectedImageOriginal).toBeDefined();
 
-    // The Final Quote Tweet Image is composable from the two derived picks
+    // The Final Quote Tweet Image is composable from the derived image pick
     // (ADR-0018) — the same resolution the overlay uses.
     expect(
       findSelectedVariation(collectCompletedImageSets(run), run.selectedGeneratedImage ?? null),
-    ).not.toBeNull();
-    expect(
-      findSelectedVisualJoke(run.visualJokeSet, run.selectedVisualJoke ?? null),
     ).not.toBeNull();
 
     // All four variations exist even though the first is auto-selected.
@@ -264,7 +264,7 @@ describe("composeAutomatedRun", () => {
 
     const run = expectRun(await composeAutomatedRun({ sourceTweetUrl }, deps));
 
-    // Text + visual jokes still succeeded, so it is a Successful Run that is saved.
+    // Text generation still succeeded, so it is a Successful Run that is saved.
     expect(run.status).toBe("completed");
     expect(run.imageSet).toBeUndefined();
     expect(run.failedImageSet?.debugLog).toEqual([
@@ -319,7 +319,6 @@ describe("composeAutomatedRun", () => {
       debugLog: ["Started fixture context gathering.", "Tweet text was too thin."],
     });
     expect(run.generationResultStates?.textGeneration.status).toBe("not-started");
-    expect(run.generationResultStates?.visualJokeGeneration.status).toBe("not-started");
 
     // The creative branches never start once context gathering fails (No Automatic Retry).
     expect(orchestrateGeneration).not.toHaveBeenCalled();

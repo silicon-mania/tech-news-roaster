@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   type CompositeRasterizer,
+  finalQuoteTweetImageLabel,
   quoteTweetRainbowStripe,
   rasterizeCompositeToPng,
 } from "@/services/final-quote-tweet-image";
@@ -15,12 +16,12 @@ import { collectCompletedImageSets } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { buildFinalQuoteTweetImageDownloadName } from "./image-helpers";
 import { QuoteTweetComposite } from "./quote-tweet-composite";
-import {
-  findSelectedVariation,
-  findSelectedVisualJoke,
-  getMissingPickMessage,
-} from "./quote-tweet-selection";
+import { findSelectedVariation } from "./quote-tweet-selection";
 import { useQuoteTweetOverlayState } from "./use-quote-tweet-overlay-state";
+
+// The composite needs only the image; when it is missing the overlay asks for
+// that one pick (ADR-0026).
+const missingImageMessage = "Select a generated image to assemble the final quote tweet image.";
 
 // The overlay chrome is a deliberate light surface against the dark-only app —
 // it frames the composite like a print, matching the design. Scoped zinc/white
@@ -33,12 +34,12 @@ const iconButtonClassName =
 
 /**
  * Sticky bottom-right overlay that renders the run's Final Quote Tweet Image.
- * It owns no selection state — it derives the composite from the active run's
- * two picks and re-renders instantly as they change. It mounts only once the run
- * has at least one completed Image Set — source-derived or uploaded (ADR-0025), so
- * an upload-only run still gets its Final Quote Tweet Image — and visual jokes;
- * total image failure (no completed sets) leaves it hidden and the Image work area
- * carries that failure instead.
+ * It owns no selection state — it derives the composite from the run's Selected
+ * Generated Image plus the fixed label and re-renders instantly as the image
+ * changes. It mounts only once the run has at least one completed Image Set —
+ * source-derived or uploaded (ADR-0025), so an upload-only run still gets its
+ * Final Quote Tweet Image; total image failure (no completed sets) leaves it
+ * hidden and the Image work area carries that failure instead.
  */
 export function FinalQuoteTweetImageOverlay({
   rasterizeComposite = rasterizeCompositeToPng,
@@ -52,12 +53,10 @@ export function FinalQuoteTweetImageOverlay({
   const { collapse, expand, isExpanded } = useQuoteTweetOverlayState({
     runId: run?.id ?? null,
     selectedImageOptionId: run?.selectedGeneratedImage?.imageOptionId ?? null,
-    selectedVisualJokeId: run?.selectedVisualJoke?.visualJokeId ?? null,
   });
 
-  const jokes = run?.visualJokeSet?.jokes ?? [];
   const hasCompletedImageSet = run ? collectCompletedImageSets(run).length > 0 : false;
-  const isAvailable = Boolean(run) && hasCompletedImageSet && jokes.length > 0;
+  const isAvailable = Boolean(run) && hasCompletedImageSet;
 
   if (!run || !isAvailable) {
     return null;
@@ -67,11 +66,6 @@ export function FinalQuoteTweetImageOverlay({
     collectCompletedImageSets(run),
     run.selectedGeneratedImage ?? null,
   );
-  const selectedVisualJoke = findSelectedVisualJoke(
-    run.visualJokeSet,
-    run.selectedVisualJoke ?? null,
-  );
-  const bothSelected = Boolean(selectedVariation && selectedVisualJoke);
   const downloadName = buildFinalQuoteTweetImageDownloadName(run.label);
 
   async function downloadComposite() {
@@ -124,14 +118,14 @@ export function FinalQuoteTweetImageOverlay({
               <TooltipContent>Collapse</TooltipContent>
             </Tooltip>
           </div>
-          {bothSelected && selectedVariation && selectedVisualJoke ? (
+          {selectedVariation ? (
             <>
               <div className="px-2">
                 <div className="overflow-hidden rounded-xl">
                   <QuoteTweetComposite
                     imageAlt={selectedVariation.altText ?? selectedVariation.label}
                     imageUrl={selectedVariation.url}
-                    jokeTitle={selectedVisualJoke.text}
+                    label={finalQuoteTweetImageLabel}
                     ref={compositeRef}
                   />
                 </div>
@@ -158,10 +152,7 @@ export function FinalQuoteTweetImageOverlay({
             </>
           ) : (
             <p className="px-4 pt-1 pb-6 text-center text-sm text-zinc-600 leading-6" role="status">
-              {getMissingPickMessage({
-                isImageMissing: !selectedVariation,
-                isJokeMissing: !selectedVisualJoke,
-              })}
+              {missingImageMessage}
             </p>
           )}
         </div>

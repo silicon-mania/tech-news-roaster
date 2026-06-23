@@ -19,20 +19,12 @@ const variationTwoFixture = {
   imageOptionId: "image-option-news-linked-image-1-variation-2",
   selectedAt: "2026-06-06T10:18:00.000Z",
 };
-// buildCompletedV3Run selects jokes[1] of the fixture visual joke set by default.
-const selectedJokeTitle = "A workflow map where every exit arrow points back to the login screen.";
+// The composite renders the fixed label where the Joke Title once sat (ADR-0026).
+const placeholderLabel = "LABEL GOES HERE";
 
 describe("FinalQuoteTweetImageOverlay", () => {
   test("stays hidden when the run has no generated image set", () => {
     const { container } = render(<FinalQuoteTweetImageOverlay run={buildCompletedRun()} />);
-
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  test("stays hidden when the run has no visual jokes", () => {
-    const { container } = render(
-      <FinalQuoteTweetImageOverlay run={buildCompletedV3Run({ visualJokeSet: undefined })} />,
-    );
 
     expect(container).toBeEmptyDOMElement();
   });
@@ -43,42 +35,47 @@ describe("FinalQuoteTweetImageOverlay", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  test("starts expanded and names both missing picks when nothing is selected", () => {
+  test("mounts with the placeholder composite from the image alone", () => {
+    // A completed Image Set and a Selected Generated Image are the only inputs;
+    // the composite still assembles from them alone.
     render(
       <FinalQuoteTweetImageOverlay
-        run={buildCompletedV3Run({ selectedGeneratedImage: null, selectedVisualJoke: null })}
+        run={buildCompletedV3Run({
+          selectedGeneratedImage: selectedGeneratedImageFixture,
+        })}
       />,
     );
 
     expect(
-      screen.getByText(
-        "Select a generated image and a visual joke to assemble the final quote tweet image.",
-      ),
-    ).toHaveRole("status");
+      screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(placeholderLabel)).toBeInTheDocument();
+  });
+
+  test("starts expanded and asks only for the image when none is selected", () => {
+    render(
+      <FinalQuoteTweetImageOverlay run={buildCompletedV3Run({ selectedGeneratedImage: null })} />,
+    );
+
+    const message = screen.getByText(
+      "Select a generated image to assemble the final quote tweet image.",
+    );
+
+    expect(message).toHaveRole("status");
     expect(
       screen.queryByRole("button", { name: "Download final quote tweet image" }),
     ).not.toBeInTheDocument();
   });
 
-  test("names only the missing image when the visual joke is already selected", () => {
-    render(
-      <FinalQuoteTweetImageOverlay run={buildCompletedV3Run({ selectedGeneratedImage: null })} />,
-    );
-
-    expect(
-      screen.getByText("Select a generated image to assemble the final quote tweet image."),
-    ).toBeInTheDocument();
-  });
-
-  test("renders the composite, whole, once both picks exist", () => {
+  test("renders the composite, whole, once an image is selected", () => {
     render(
       <FinalQuoteTweetImageOverlay
         run={buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })}
       />,
     );
 
-    // The non-editable punchline renders whole and nothing clamps it.
-    const title = screen.getByText(selectedJokeTitle);
+    // The non-editable label renders whole and nothing clamps it.
+    const title = screen.getByText(placeholderLabel);
 
     expect(title.className).not.toMatch(/truncate|line-clamp/);
 

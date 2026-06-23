@@ -48,21 +48,21 @@ export function isRunInFlight(run: GenerationRun) {
 }
 
 /**
- * A Complete Run is eligible for the Runs Feed: it carries all three pieces a Run
- * Card renders — at least one draft, at least one visual joke, and at least one
- * generated image variation. The variation may live in the source-derived set or
- * in any completed Uploaded Image Set, so a manual run that reached its image
- * through uploads alone (no source-derived set) still qualifies (ADR-0025); the
- * search walks {@link collectCompletedImageSets} in the same order selection does.
- * Pure and computed client-side (no I/O, no schema column, no derived flag); the
- * feed gates the runs it already has on this. Sibling to {@link isRunInFlight}.
+ * A Complete Run is eligible for the Runs Feed: it carries both pieces a Run Card
+ * renders — at least one draft and at least one generated image variation
+ * (ADR-0026; the composite's headline is the fixed label, not a joke). The
+ * variation may live in the source-derived set or in any completed Uploaded Image
+ * Set, so a manual run that reached its image through uploads alone (no
+ * source-derived set) still qualifies (ADR-0025); the search walks
+ * {@link collectCompletedImageSets} in the same order selection does. Pure and
+ * computed client-side (no I/O, no schema column, no derived flag); the feed gates
+ * the runs it already has on this. Sibling to {@link isRunInFlight}.
  */
 export function isCompleteRun(run: GenerationRun) {
   const hasDraft = run.drafts.length > 0;
-  const hasVisualJoke = (run.visualJokeSet?.jokes.length ?? 0) > 0;
   const hasImageVariation = collectCompletedImageSets(run).some((imageSet) =>
     imageSet.options.some((option) => option.kind === "variation"),
   );
 
-  return hasDraft && hasVisualJoke && hasImageVariation;
+  return hasDraft && hasImageVariation;
 }

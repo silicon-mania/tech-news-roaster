@@ -1,6 +1,5 @@
 export * from "./automated-selection";
 export * from "./default-image-prompt";
-export * from "./default-visual-joke-direction";
 export * from "./error-detail";
 export * from "./generation-fixtures";
 export * from "./generation-run";
@@ -13,4 +12,3 @@ export * from "./quote-tweet-draft";
 export * from "./result-states";
 export * from "./run-phase";
 export * from "./stream-events";
-export * from "./visual-joke";

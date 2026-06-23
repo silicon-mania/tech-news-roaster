@@ -10,9 +10,8 @@ import {
   renderWorkspace,
 } from "./workspace-test-utils";
 
-// buildCompletedV3Run selects jokes[1] by default; this fixture is its first
-// generated variation. Both are the two inputs the Final Quote Tweet Image
-// derives from (ADR-0018).
+// This fixture is buildCompletedV3Run's first generated variation — the Selected
+// Generated Image the Final Quote Tweet Image derives from (ADR-0018).
 const selectedGeneratedImageFixture = {
   imageOptionId: "image-option-news-linked-image-1-variation-1",
   selectedAt: "2026-06-06T10:17:00.000Z",
@@ -140,41 +139,6 @@ describe("Workspace run review and override loop", () => {
     expect(onStartImageGeneration).not.toHaveBeenCalled();
     expect(imageGenerationStreamFetcher).not.toHaveBeenCalled();
     expect(generationStreamUrls).toEqual([]);
-  });
-
-  test("overriding the Selected Visual Joke instantly retitles the Final Quote Tweet Image", async () => {
-    const user = userEvent.setup();
-
-    renderWorkspace({
-      initialActiveRunId: "saved-run",
-      initialRuns: [buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })],
-    });
-
-    const finalArea = screen.getByRole("region", {
-      name: /final quote tweet image creative result area/i,
-    });
-    expect(
-      within(finalArea).getByText(
-        "A workflow map where every exit arrow points back to the login screen.",
-      ),
-    ).toBeInTheDocument();
-
-    const visualJokeArea = screen.getByRole("region", {
-      name: /visual joke creative result area/i,
-    });
-    await user.click(
-      within(visualJokeArea).getByRole("button", { name: /select satire visual joke 2/i }),
-    );
-
-    await waitFor(() =>
-      expect(
-        within(
-          screen.getByRole("region", {
-            name: /final quote tweet image creative result area/i,
-          }),
-        ).getByText("A polished product card with one button: 'Automate explaining this later.'"),
-      ).toBeInTheDocument(),
-    );
   });
 });
 

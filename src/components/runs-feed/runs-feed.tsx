@@ -49,8 +49,6 @@ export function RunsFeed({
     closeSelectedRun,
     updateSelectedDraft,
     updateDraftText,
-    updateSelectedVisualJoke,
-    updateVisualJokeTitle,
     updateSelectedGeneratedImage,
     uploadSelectedRunImage,
     isUploadGenerating,
@@ -157,9 +155,7 @@ export function RunsFeed({
         onDraftTextChange={updateDraftText}
         onSelectedDraftChange={updateSelectedDraft}
         onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
-        onSelectedVisualJokeChange={updateSelectedVisualJoke}
         onUploadImage={uploadSelectedRunImage}
-        onVisualJokeTitleChange={updateVisualJokeTitle}
         run={selectedRun}
       />
     </>

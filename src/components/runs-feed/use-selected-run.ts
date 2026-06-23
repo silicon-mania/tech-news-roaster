@@ -42,10 +42,6 @@ type SelectedRun = {
   updateSelectedDraft: (draftId: string | null) => void;
   /** Inline-edit a draft's text — updates the card and autosaves (debounced). */
   updateDraftText: (draftId: string, text: string) => void;
-  /** Switch the Selected Visual Joke — updates the card and saves immediately. */
-  updateSelectedVisualJoke: (visualJokeId: string | null) => void;
-  /** Inline-edit a visual joke's title — overwrites it and autosaves (debounced). */
-  updateVisualJokeTitle: (visualJokeId: string, title: string) => void;
   /** Switch the Selected Generated Image variation — updates the card and saves immediately. */
   updateSelectedGeneratedImage: (imageOptionId: string | null) => void;
   /** Upload an image of the operator's own and generate a new Uploaded Image Set. */
@@ -166,56 +162,6 @@ export function useSelectedRun({
     scheduleRunAutosave(updatedRun);
   }
 
-  function updateSelectedVisualJoke(visualJokeId: string | null) {
-    if (!selectedRun?.visualJokeSet) {
-      return;
-    }
-
-    if (visualJokeId && !selectedRun.visualJokeSet.jokes.some((joke) => joke.id === visualJokeId)) {
-      return;
-    }
-
-    const updatedRun: GenerationRun = {
-      ...selectedRun,
-      selectedVisualJoke: visualJokeId
-        ? { selectedAt: new Date().toISOString(), visualJokeId }
-        : null,
-    };
-
-    setRuns((currentRuns) =>
-      currentRuns.map((run) => (run.id === updatedRun.id ? updatedRun : run)),
-    );
-    saveRunNow(updatedRun);
-  }
-
-  function updateVisualJokeTitle(visualJokeId: string, title: string) {
-    if (!selectedRun?.visualJokeSet) {
-      return;
-    }
-
-    if (!selectedRun.visualJokeSet.jokes.some((joke) => joke.id === visualJokeId)) {
-      return;
-    }
-
-    // Overwrite the Joke Title within the run's own visual joke set — the original
-    // generated title is not retained, exactly as an edited Draft overwrites its
-    // text. The card's Final Quote Tweet Image re-derives from this live.
-    const updatedRun: GenerationRun = {
-      ...selectedRun,
-      visualJokeSet: {
-        ...selectedRun.visualJokeSet,
-        jokes: selectedRun.visualJokeSet.jokes.map((joke) =>
-          joke.id === visualJokeId ? { ...joke, text: title } : joke,
-        ),
-      },
-    };
-
-    setRuns((currentRuns) =>
-      currentRuns.map((run) => (run.id === updatedRun.id ? updatedRun : run)),
-    );
-    scheduleRunAutosave(updatedRun);
-  }
-
   function updateSelectedGeneratedImage(imageOptionId: string | null) {
     if (!selectedRun) {
       return;
@@ -317,8 +263,6 @@ export function useSelectedRun({
     closeSelectedRun,
     updateSelectedDraft,
     updateDraftText,
-    updateSelectedVisualJoke,
-    updateVisualJokeTitle,
     updateSelectedGeneratedImage,
     uploadSelectedRunImage,
     isUploadGenerating: generatingRunId !== null,

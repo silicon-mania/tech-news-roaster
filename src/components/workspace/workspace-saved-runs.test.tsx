@@ -65,7 +65,7 @@ describe("Workspace saved runs", () => {
     ).toBeInTheDocument();
   });
 
-  test("automatically saves completed v3 runs with context, visual jokes, selection, image state, and independent result states", async () => {
+  test("automatically saves completed v3 runs with context, image state, and independent result states", async () => {
     const user = userEvent.setup();
     const generationEventSources: FakeGenerationEventSource[] = [];
     const savedRunStore = createMemorySavedRunStore();
@@ -96,10 +96,7 @@ describe("Workspace saved runs", () => {
         newsLinkedImages: completedV3Run.newsLinkedImages,
         phase: completedV3Run.phase,
         selectedImageOriginal: completedV3Run.selectedImageOriginal,
-        selectedVisualJoke: completedV3Run.selectedVisualJoke,
         sourceTweet: completedV3Run.sourceTweet,
-        visualJokeDirection: completedV3Run.visualJokeDirection,
-        visualJokeSet: completedV3Run.visualJokeSet,
       },
     });
 
@@ -119,9 +116,6 @@ describe("Workspace saved runs", () => {
         jokeContextSnapshot: completedV3Run.jokeContextSnapshot,
         newsLinkedImages: completedV3Run.newsLinkedImages,
         selectedImageOriginal: completedV3Run.selectedImageOriginal,
-        selectedVisualJoke: completedV3Run.selectedVisualJoke,
-        visualJokeDirection: completedV3Run.visualJokeDirection,
-        visualJokeSet: completedV3Run.visualJokeSet,
       }),
     );
   });
@@ -157,7 +151,7 @@ describe("Workspace saved runs", () => {
     expect(screen.getAllByText(/Quote-tweet draft:/)).toHaveLength(3);
   });
 
-  test("reopens v3 Saved Runs with selected visual jokes, exact joke sets, the generated image set, and no regeneration", async () => {
+  test("reopens v3 Saved Runs with the generated image set and no regeneration", async () => {
     const user = userEvent.setup();
     const startGenerationRun = vi.fn();
     const startImageGeneration = vi.fn();
@@ -203,25 +197,6 @@ describe("Workspace saved runs", () => {
       "The source tweet claims the launch removes the final workflow bottleneck.",
     );
     await user.click(screen.getByRole("button", { name: /close tweet context/i }));
-
-    await user.click(screen.getByRole("button", { name: /open visual joke direction/i }));
-    expect(screen.getByRole("complementary", { name: /visual joke direction/i })).toHaveTextContent(
-      "Ground every visual joke in the source media and lock-in replies.",
-    );
-    await user.click(screen.getByRole("button", { name: /close visual joke direction/i }));
-
-    const visualJokeArea = screen.getByRole("region", {
-      name: /visual joke creative result area/i,
-    });
-    expect(within(visualJokeArea).getAllByRole("article")).toHaveLength(5);
-    expect(
-      within(visualJokeArea).getByRole("button", {
-        name: /clear tech-positive visual joke 1 selection/i,
-      }),
-    ).toHaveAttribute("aria-pressed", "true");
-    expect(visualJokeArea).toHaveTextContent(
-      "A launch graphic where confetti falls only on the terms-of-service checkbox.",
-    );
 
     const imageGenerationArea = screen.getByRole("complementary", {
       name: /image generation area/i,

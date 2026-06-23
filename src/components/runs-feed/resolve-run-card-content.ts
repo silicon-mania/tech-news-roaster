@@ -1,12 +1,8 @@
-import {
-  findSelectedVariation,
-  findSelectedVisualJoke,
-} from "@/components/workspace/quote-tweet-selection";
+import { findSelectedVariation } from "@/components/workspace/quote-tweet-selection";
 import {
   collectCompletedImageSets,
   deriveAutomatedSelection,
   type QuoteTweetDraft,
-  type VisualJoke,
 } from "@/services/generation";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
@@ -14,8 +10,6 @@ import type { GenerationRun } from "@/services/workspace";
 export type ResolvedRunCardContent = {
   /** The commentary draft — the run's Selected Draft, or the first draft. */
   draft: QuoteTweetDraft | undefined;
-  /** The visual joke whose Joke Title sits on the Final Quote Tweet Image. */
-  visualJoke: VisualJoke | null;
   /** The generated image variation behind the Final Quote Tweet Image. */
   variation: ReturnType<typeof findSelectedVariation>;
   /** The original Source Tweet to embed as the quoted post, if retained. */
@@ -23,12 +17,13 @@ export type ResolvedRunCardContent = {
 };
 
 /**
- * Resolves the three content slots a Run Card paints — the commentary draft, the
- * visual joke (the Final Quote Tweet Image's title), and the image variation —
- * plus the embedded Source Tweet. Each slot is the operator's explicit choice or,
- * when absent or dangling, the first-of-each fallback **matching Automated
- * Selection** (reused via {@link deriveAutomatedSelection}, never re-derived, so
- * the card and an Automated Run always agree).
+ * Resolves the content slots a Run Card paints — the commentary draft and the
+ * image variation behind the Final Quote Tweet Image — plus the embedded Source
+ * Tweet. Each slot is the operator's explicit choice or, when absent or dangling,
+ * the first-of-each fallback **matching Automated Selection** (reused via
+ * {@link deriveAutomatedSelection}, never re-derived, so the card and an Automated
+ * Run always agree). The composite's headline is the fixed label, not a joke
+ * (ADR-0026), so no joke slot is resolved.
  *
  * Pure and display-only: it reads the run and writes nothing, so showing or
  * scrolling the feed persists no selection and a view-only run shows the same
@@ -39,7 +34,6 @@ export function resolveRunCardContent(run: GenerationRun): ResolvedRunCardConten
     drafts: run.drafts,
     imageSet: run.imageSet,
     uploadedImageSets: run.uploadedImageSets,
-    visualJokeSet: run.visualJokeSet,
   });
 
   const imageSets = collectCompletedImageSets(run);
@@ -49,10 +43,6 @@ export function resolveRunCardContent(run: GenerationRun): ResolvedRunCardConten
     run.drafts.find((candidate) => candidate.id === automatedSelection.selectedDraftId) ??
     run.drafts[0];
 
-  const visualJoke =
-    findSelectedVisualJoke(run.visualJokeSet, run.selectedVisualJoke ?? null) ??
-    findSelectedVisualJoke(run.visualJokeSet, automatedSelection.selectedVisualJoke ?? null);
-
   const variation =
     findSelectedVariation(imageSets, run.selectedGeneratedImage ?? null) ??
     findSelectedVariation(imageSets, automatedSelection.selectedGeneratedImage ?? null);
@@ -61,6 +51,5 @@ export function resolveRunCardContent(run: GenerationRun): ResolvedRunCardConten
     draft,
     sourceTweet: run.sourceTweet,
     variation,
-    visualJoke,
   };
 }

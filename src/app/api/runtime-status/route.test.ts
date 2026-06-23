@@ -55,7 +55,6 @@ describe("runtime status route", () => {
         AI_GATEWAY_GOOGLE_MODEL: "google/launch",
         AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
-        AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
         OPERATOR_ALLOWLISTED_EMAILS: "operator@example.test",
         OUTSIDE_X_ENRICHMENT_API_KEY: "enrichment-secret",
         OUTSIDE_X_ENRICHMENT_ENDPOINT: "https://enrichment.example.test/enrich",
@@ -65,13 +64,7 @@ describe("runtime status route", () => {
         TWITTERAPI_IO_API_KEY: "twitter-secret",
       },
       fetcher: buildModelCatalogFetcher(
-        [
-          "anthropic/launch",
-          "google/image-launch",
-          "google/launch",
-          "openai/launch",
-          "openai/visual-jokes-launch",
-        ],
+        ["anthropic/launch", "google/image-launch", "google/launch", "openai/launch"],
         fetchRequests,
       ),
     });
@@ -110,10 +103,6 @@ describe("runtime status route", () => {
               available: true,
               id: "openai/launch",
             },
-          },
-          visualJokeModel: {
-            available: true,
-            id: "openai/visual-jokes-launch",
           },
         },
       },
@@ -168,7 +157,6 @@ describe("runtime status route", () => {
         AI_GATEWAY_GOOGLE_MODEL: "google/launch",
         AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
-        AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
         OPERATOR_ALLOWLISTED_EMAILS: "operator@example.test",
         SUPABASE_ANON_KEY: "anon-secret",
         SUPABASE_SERVICE_ROLE_KEY: "service-role-secret",
@@ -180,7 +168,6 @@ describe("runtime status route", () => {
         "google/image-launch",
         "google/launch",
         "openai/launch",
-        "openai/visual-jokes-launch",
       ]),
     });
 
@@ -225,7 +212,6 @@ describe("runtime status route", () => {
         AI_GATEWAY_GOOGLE_MODEL: "google/launch",
         AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
-        AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
         OUTSIDE_X_ENRICHMENT_API_KEY: "enrichment-secret",
         OUTSIDE_X_ENRICHMENT_ENDPOINT: "https://enrichment.example.test/enrich",
         TWITTERAPI_IO_API_KEY: "twitter-secret",
@@ -235,7 +221,6 @@ describe("runtime status route", () => {
         "google/image-launch",
         "google/launch",
         "openai/launch",
-        "openai/visual-jokes-launch",
       ]),
     });
 
@@ -255,15 +240,9 @@ describe("runtime status route", () => {
         AI_GATEWAY_GOOGLE_MODEL: "google/launch",
         AI_GATEWAY_IMAGE_MODEL: "google/image-launch",
         AI_GATEWAY_OPENAI_MODEL: "openai/launch",
-        AI_GATEWAY_VISUAL_JOKE_MODEL: "openai/visual-jokes-launch",
         TWITTERAPI_IO_API_KEY: "twitter-secret",
       },
-      fetcher: buildModelCatalogFetcher([
-        "google/image-launch",
-        "google/launch",
-        "openai/launch",
-        "openai/visual-jokes-launch",
-      ]),
+      fetcher: buildModelCatalogFetcher(["google/image-launch", "google/launch", "openai/launch"]),
     });
 
     await expect(response.json()).resolves.toMatchObject({
@@ -316,9 +295,6 @@ describe("runtime status route", () => {
             openai: {
               available: false,
             },
-          },
-          visualJokeModel: {
-            available: false,
           },
         },
       },

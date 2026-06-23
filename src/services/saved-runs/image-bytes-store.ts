@@ -11,7 +11,7 @@ type SupabaseEnvironment = Readonly<Record<string, string | undefined>>;
 // The private bucket generated image bytes land in. Keys are
 // `${ownerId}/${runId}/${optionId}`; the owner prefix is applied by the store so
 // one Operator Account can never reach another's bytes (and so the RLS policy in
-// supabase/migrations/0002 can scope objects by their first path segment).
+// supabase/migrations/0001_init.sql can scope objects by their first path segment).
 export const imageBytesBucket = "generated-images";
 
 export type StoredImageBytes = {

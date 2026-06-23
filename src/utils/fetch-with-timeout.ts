@@ -1,8 +1,7 @@
 // Shared hard-timeout wrapper around `fetch` for every external request on the
 // Manual Run critical path — tweet retrieval, the three Text Generation provider
-// calls plus the Provider Fallback call, Visual Joke generation, and
-// News-Linked Image Discovery — plus the Image Generation request that first
-// proved the pattern.
+// calls plus the Provider Fallback call, and News-Linked Image Discovery —
+// plus the Image Generation request that first proved the pattern.
 //
 // Without it a hung upstream stalls on the HTTP runtime's default header timeout
 // (undici's `UND_ERR_HEADERS_TIMEOUT`, ~300s) and the caller only sees a bare

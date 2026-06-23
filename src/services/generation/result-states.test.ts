@@ -6,11 +6,7 @@ import {
   parseGenerationResultStates,
   parseGenerationStreamEvent,
   parseJokeContextSnapshot,
-  parseSelectedVisualJoke,
   parseStructuredJokeContext,
-  parseVisualJoke,
-  parseVisualJokeDirectionText,
-  parseVisualJokeSet,
 } from "@/services/generation";
 import { buildReplySignals } from "@/services/outside-x-enrichment";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
@@ -18,31 +14,20 @@ import {
   buildGenerationResultStates,
   buildJokeContextSnapshot,
   buildStructuredJokeContext,
-  buildVisualJokeSet,
 } from "./test-fixtures";
 
 describe("generation result-state contracts", () => {
-  test("validates v3 context, visual joke, and independent result-state contracts", () => {
+  test("validates context and independent result-state contracts", () => {
     const jokeContextSnapshot = parseJokeContextSnapshot(buildJokeContextSnapshot());
-    const visualJokeSet = parseVisualJokeSet(buildVisualJokeSet());
     const generationResultStates = parseGenerationResultStates(
       buildGenerationResultStates({
         jokeContextSnapshot,
-        visualJokeSet,
       }),
     );
 
     expect(parseStructuredJokeContext(buildStructuredJokeContext())).toMatchObject({
       sourceTweetClaim: "The source tweet claims the launch removes the final workflow bottleneck.",
     });
-    expect(parseVisualJokeDirectionText("  Dark, sharp tech satire only.  ")).toBe(
-      "Dark, sharp tech satire only.",
-    );
-    expect(parseVisualJoke(visualJokeSet.jokes[0])).toMatchObject({
-      order: 1,
-      section: "satire",
-    });
-    expect(parseSelectedVisualJoke(null, visualJokeSet)).toBeNull();
     expect(generationResultStates.newsLinkedImageDiscovery.status).toBe("failed");
     expect(generationResultStates.textGeneration.status).toBe("completed");
     expect(
@@ -61,9 +46,6 @@ describe("generation result-state contracts", () => {
           status: "not-started",
         },
         textGeneration: {
-          status: "not-started",
-        },
-        visualJokeGeneration: {
           status: "not-started",
         },
       }).contextGathering,
@@ -86,7 +68,7 @@ describe("generation result-state contracts", () => {
         contextGathering: {
           status: "completed",
         },
-        visualJokeGeneration: {
+        textGeneration: {
           status: "completed",
         },
       },
@@ -107,21 +89,12 @@ describe("generation result-state contracts", () => {
         }).flatMap((event) => (event.type === "progress" ? [event.draft] : [])),
         jokeContextSnapshot,
         generationResultStates,
-        selectedVisualJoke: {
-          selectedAt: "2026-06-06T10:14:00.000Z",
-          visualJokeId: visualJokeSet.jokes[2].id,
-        },
-        visualJokeDirection: "Dark, sharp tech satire only.",
-        visualJokeSet,
       }),
     ).toMatchObject({
-      selectedVisualJoke: {
-        visualJokeId: visualJokeSet.jokes[2].id,
-      },
-      visualJokeSet: {
-        topPicks: expect.arrayContaining([
-          expect.objectContaining({ visualJokeId: "visual-joke-1" }),
-        ]),
+      generationResultStates: {
+        textGeneration: {
+          status: "completed",
+        },
       },
     });
   });

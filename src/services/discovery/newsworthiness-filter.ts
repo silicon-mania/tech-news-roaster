@@ -7,7 +7,7 @@ import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
  * Automated Run commits. It decides whether the tweet is tech news worth a recap
  * rather than off-topic viral noise (memes, personal drama).
  *
- * The judgment runs against the vendor boundary exactly like Visual Joke generation:
+ * The judgment runs against the vendor boundary through a provider abstraction:
  * a `NewsworthinessJudge` provider abstracts the model, with an AI-Gateway impl, a
  * deterministic local heuristic for fixture development, and a `test` slot for
  * injected judges. The decision is **biased permissive** (recall over precision):
@@ -46,8 +46,8 @@ export type NewsworthinessVerdict = {
 
 /**
  * The vendor boundary for the Newsworthiness Filter. `provider` records which
- * implementation produced the verdict (mirroring the Visual Joke provider), and
- * `model` is the configured model id (empty for the local heuristic).
+ * implementation produced the verdict, and `model` is the configured model id
+ * (empty for the local heuristic).
  */
 export type NewsworthinessJudge = {
   model: string;
@@ -99,8 +99,7 @@ class NewsworthinessJudgeError extends Error {
 /**
  * Resolves the {@link NewsworthinessJudge} to use. With AI-Gateway credentials it is
  * the model-backed judge; otherwise it falls back to the deterministic local
- * heuristic so fixture development works without a backend. Mirrors the Visual Joke
- * service's default-provider resolution.
+ * heuristic so fixture development works without a backend.
  */
 export function createDefaultNewsworthinessJudge(
   env: NewsworthinessEnvironment = process.env,
