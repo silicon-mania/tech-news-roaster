@@ -29,6 +29,7 @@ import {
   JokeContextGatheringError,
   type JokeContextGatheringInput,
 } from "@/services/joke-context-gathering";
+import { classifyNewsCategory } from "@/services/news-category-classifier";
 import {
   discoverNewsLinkedImages,
   type NewsLinkedImageDiscoveryService,
@@ -74,6 +75,11 @@ export type ComposeAutomatedRunDependencies = {
   gatherJokeContext?: (input: JokeContextGatheringInput) => Promise<JokeContextSnapshot>;
   discoverNewsLinkedImages?: NewsLinkedImageDiscoveryService;
   orchestrateGeneration?: GenerationOrchestrator;
+  // Classifies the run's News Category from its Joke Context Snapshot (ADR-0027 /
+  // issue 003) — one more creative-branch step, parallel to Text Generation and
+  // News-Linked Image Discovery. Defaults to the real classifier service, which
+  // reads only the snapshot, never throws, and falls back to VIRAL on any failure.
+  classifyNewsCategory?: typeof classifyNewsCategory;
   generateImageSet?: typeof generateImageSetForRun;
   persistImageSet?: PersistImageSet;
   resolveRepository?: typeof resolveRunRepository;
@@ -99,10 +105,10 @@ export type ComposeAutomatedRunResult = { run: SavedGenerationRun } | { unauthor
 /**
  * Runs a non-streaming, server-driven Automated Run with no client, composing in
  * fixed order: tweet retrieval → joke context gathering → three-provider Text
- * Generation (reusing the Generation Orchestrator) → News-Linked Image Discovery
- * → Image Original Candidate building → Image Generation of four variations using
- * the Default Image Prompt → Automated Selection → server-side persistence under
- * the Operator Account.
+ * Generation (reusing the Generation Orchestrator), News-Linked Image Discovery,
+ * and News Category classification together → Image Original Candidate building →
+ * Image Generation of four variations using the Default Image Prompt → Automated
+ * Selection → server-side persistence under the Operator Account.
  *
  * The run carries `origin: "automated"` and `imagePromptSource: "default"`, is
  * left unseen (`seenAt` absent), and **prepares but never publishes to X** —
@@ -119,6 +125,7 @@ export async function composeAutomatedRun(
   const gather = dependencies.gatherJokeContext ?? gatherJokeContext;
   const discover = dependencies.discoverNewsLinkedImages ?? discoverNewsLinkedImages;
   const orchestrate = dependencies.orchestrateGeneration ?? orchestrateThreeProviderGeneration;
+  const classify = dependencies.classifyNewsCategory ?? classifyNewsCategory;
   const generateImageSet = dependencies.generateImageSet ?? generateImageSetForRun;
   const env = dependencies.env ?? process.env;
   const operatorSession = dependencies.operatorSession ?? getOperatorSession;
@@ -247,7 +254,8 @@ export async function composeAutomatedRun(
 
   const contextCompletedAt = now().toISOString();
 
-  // 3. News-Linked Image Discovery and three-provider generation run together.
+  // 3. News-Linked Image Discovery, three-provider generation, and News Category
+  //    classification run together — all depend only on the snapshot.
   const creativeStartedAt = now().toISOString();
   const replySignals = buildReplySignals(tweetContext);
   const discoveryPromise = runNewsLinkedImageDiscovery({
@@ -265,9 +273,14 @@ export async function composeAutomatedRun(
   })
     .then((run) => ({ run, status: "fulfilled" as const }))
     .catch((error: unknown) => ({ error, status: "rejected" as const }));
+  // The classifier reads only the snapshot, so it never steers the drafts. It
+  // never throws — on any failure it yields a failed state plus a VIRAL fallback —
+  // so it needs no rejection guard and can never block the run from completing.
+  const classificationPromise = classify({ jokeContextSnapshot }, { now });
 
   const discoveryResult = await discoveryPromise;
   const orchestrationResult = await orchestrationPromise;
+  const classificationResult = await classificationPromise;
   const completedRun =
     orchestrationResult.status === "fulfilled" ? orchestrationResult.run : undefined;
   const drafts = completedRun?.drafts ?? [];
@@ -367,6 +380,12 @@ export async function composeAutomatedRun(
     ...buildBaseRun(completedRun?.label ?? baseLabel),
     sourceTweet,
     jokeContextSnapshot,
+    // The stamp the operator can later override per fanned-out copy. The classifier
+    // always resolves a value (VIRAL on failure) and a terminal state; the failed
+    // state is persisted so the ghost icon + Quiet Failure Details survive reopen,
+    // and it is deliberately NOT part of the Successful Run determination below.
+    newsCategory: classificationResult.newsCategory,
+    newsCategoryClassification: classificationResult.classification,
     status: isSuccessful ? "completed" : "failed",
     draftCount: drafts.length,
     drafts,

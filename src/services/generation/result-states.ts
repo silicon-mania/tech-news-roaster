@@ -127,3 +127,5 @@ export const newsCategoryClassificationStateSchema = z.discriminatedUnion("statu
     .strict(),
   resultStageFailedSchema,
 ]);
+
+export type NewsCategoryClassificationState = z.infer<typeof newsCategoryClassificationStateSchema>;

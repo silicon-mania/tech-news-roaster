@@ -4,6 +4,7 @@ import {
   collectCompletedImageSets,
   defaultImagePrompt,
   type ImageSet,
+  type NewsCategory,
   parseCompletedGenerationRunPayload,
   parseFailedImageSet,
   parseImageSet,
@@ -11,6 +12,10 @@ import {
 } from "@/services/generation";
 import { buildImageSet, buildJokeContextSnapshot } from "@/services/generation/test-fixtures";
 import { JokeContextGatheringError } from "@/services/joke-context-gathering";
+import type {
+  NewsCategoryClassificationResult,
+  NewsCategoryClassifierInput,
+} from "@/services/news-category-classifier";
 import { createInMemoryRunRepository } from "@/services/saved-runs/in-memory-run-repository";
 import { buildFixtureTweetContext, TweetRetrievalError } from "@/services/tweet-retrieval";
 import { type ComposeAutomatedRunDependencies, composeAutomatedRun } from "./compose-automated-run";
@@ -28,6 +33,37 @@ type GenerateImageSetArgs = Parameters<
 >[0];
 
 const jokeContextSnapshot = parseJokeContextSnapshot(buildJokeContextSnapshot());
+
+/** A happy-path classification result — a vocabulary pick plus its completed state. */
+function buildClassificationResult(
+  newsCategory: NewsCategory = "ACQUIRED",
+): NewsCategoryClassificationResult {
+  return {
+    classification: {
+      completedAt: "2026-06-16T12:00:01.000Z",
+      startedAt: "2026-06-16T12:00:00.000Z",
+      status: "completed",
+    },
+    newsCategory,
+  };
+}
+
+/** A failed classification result — the VIRAL fallback plus a persisted failed state. */
+function buildFailedClassificationResult(): NewsCategoryClassificationResult {
+  return {
+    classification: {
+      debugLog: [
+        "Classifying News Category via test.",
+        "Classification failed and the stamp fell back to VIRAL: Classifier timed out.",
+      ],
+      failedAt: "2026-06-16T12:00:01.000Z",
+      message: "Classifier timed out.",
+      startedAt: "2026-06-16T12:00:00.000Z",
+      status: "failed",
+    },
+    newsCategory: "VIRAL",
+  };
+}
 
 function buildNewsLinkedImages() {
   return [
@@ -123,6 +159,7 @@ function buildDeps(overrides: Partial<ComposeAutomatedRunDependencies> = {}) {
       newsLinkedImages: buildNewsLinkedImages(),
     }),
     orchestrateGeneration: async () => buildCompletedPayload(),
+    classifyNewsCategory: async () => buildClassificationResult(),
     generateImageSet: async () => ({
       imageModelProvenance: { model: "image-model-v1", provider: "ai-gateway" },
       imageSet: parseImageSet(buildImageSet()),
@@ -246,6 +283,106 @@ describe("composeAutomatedRun", () => {
     const run = expectRun(await composeAutomatedRun({ sourceTweetUrl }, deps));
 
     expect(run.fallbackDisclosure).toBe(fallbackDisclosure);
+  });
+
+  test("classifies the News Category from the snapshot and writes it onto the composed run", async () => {
+    const classifyNewsCategory = vi.fn(
+      async (_input: NewsCategoryClassifierInput): Promise<NewsCategoryClassificationResult> =>
+        buildClassificationResult("ACQUIRED"),
+    );
+    const { deps, repository } = buildDeps({ classifyNewsCategory });
+
+    const run = expectRun(await composeAutomatedRun({ sourceTweetUrl }, deps));
+
+    // The classifier read only the Joke Context Snapshot — it never steers the drafts.
+    expect(classifyNewsCategory).toHaveBeenCalledTimes(1);
+    expect(classifyNewsCategory.mock.calls[0][0]).toEqual({ jokeContextSnapshot });
+
+    // Its pick rides the run as the stamp, with the completed classification state.
+    expect(run.newsCategory).toBe("ACQUIRED");
+    expect(run.newsCategoryClassification).toEqual({
+      completedAt: "2026-06-16T12:00:01.000Z",
+      startedAt: "2026-06-16T12:00:00.000Z",
+      status: "completed",
+    });
+
+    // It is the value on the persisted run, so it survives the per-operator fan-out copy.
+    const persisted = await repository.loadById(run.id);
+    expect(persisted?.newsCategory).toBe("ACQUIRED");
+  });
+
+  test("persists a failed classification and falls back to VIRAL, leaving the run Complete", async () => {
+    const classifyNewsCategory = vi.fn(async () => buildFailedClassificationResult());
+    const { deps, repository } = buildDeps({ classifyNewsCategory });
+
+    const run = expectRun(await composeAutomatedRun({ sourceTweetUrl }, deps));
+
+    // The stamp falls back to VIRAL and the failed state is persisted, so the ghost
+    // icon + Quiet Failure Details survive reopen — including on an unseen automated run.
+    expect(run.newsCategory).toBe("VIRAL");
+    expect(run.newsCategoryClassification).toMatchObject({
+      debugLog: [
+        "Classifying News Category via test.",
+        "Classification failed and the stamp fell back to VIRAL: Classifier timed out.",
+      ],
+      message: "Classifier timed out.",
+      status: "failed",
+    });
+
+    // The failed classification is NOT a Creative Result Area: the run stays a
+    // Successful, feed-eligible (Complete) run — the success determination is unchanged.
+    expect(run.status).toBe("completed");
+    expect(run.generationResultStates?.textGeneration.status).toBe("completed");
+    const persisted = await repository.loadById(run.id);
+    expect(persisted?.newsCategory).toBe("VIRAL");
+    expect(await repository.list()).toHaveLength(1);
+  });
+
+  test("classifies in parallel with the creative branches and never blocks the run", async () => {
+    let markOrchestrationStarted!: () => void;
+    let markDiscoveryStarted!: () => void;
+    const orchestrationStarted = new Promise<void>((resolve) => {
+      markOrchestrationStarted = resolve;
+    });
+    const discoveryStarted = new Promise<void>((resolve) => {
+      markDiscoveryStarted = resolve;
+    });
+
+    // The classifier settles only once BOTH creative branches have begun, so if
+    // composition awaited it before kicking them off, this run would deadlock and the
+    // test would time out rather than pass.
+    const classifyNewsCategory = vi.fn(async (): Promise<NewsCategoryClassificationResult> => {
+      await Promise.all([orchestrationStarted, discoveryStarted]);
+
+      return buildClassificationResult("DROPPED");
+    });
+    const orchestrateGeneration = vi.fn(async () => {
+      markOrchestrationStarted();
+
+      return buildCompletedPayload();
+    });
+    const discoverNewsLinkedImages = vi.fn(async () => {
+      markDiscoveryStarted();
+
+      return {
+        discoveredAt: "2026-06-05T10:20:00.000Z",
+        newsLinkedImages: buildNewsLinkedImages(),
+      };
+    });
+    const { deps } = buildDeps({
+      classifyNewsCategory,
+      discoverNewsLinkedImages,
+      orchestrateGeneration,
+    });
+
+    const run = expectRun(await composeAutomatedRun({ sourceTweetUrl }, deps));
+
+    // It completed: the classifier ran concurrently with — not before — the creative
+    // branches, its pick is on the run, and the drafts are untouched by it.
+    expect(classifyNewsCategory).toHaveBeenCalledTimes(1);
+    expect(run.newsCategory).toBe("DROPPED");
+    expect(run.status).toBe("completed");
+    expect(run.drafts).toHaveLength(3);
   });
 
   test("records a partial failure (image generation) without retry and without a composable image", async () => {

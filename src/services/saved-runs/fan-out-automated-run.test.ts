@@ -20,6 +20,14 @@ function buildRun(overrides: Partial<SavedGenerationRun> = {}): SavedGenerationR
     id: "run-1",
     label: "Automated run for 12345",
     origin: "automated",
+    // Every automated run now carries a News Category stamp (ADR-0027 / issue 003);
+    // the verbatim copy must hand each operator its own overridable value.
+    newsCategory: "ACQUIRED",
+    newsCategoryClassification: {
+      completedAt: "2026-06-16T12:00:01.000Z",
+      startedAt: "2026-06-16T12:00:00.000Z",
+      status: "completed",
+    },
     imageSet: parseImageSet(buildImageSet()),
     ...overrides,
   } as unknown as SavedGenerationRun;
@@ -111,9 +119,11 @@ describe("fanOutAutomatedRun", () => {
     ]);
 
     for (const operator of [operatorA, operatorB]) {
-      // Same run id, verbatim payload.
+      // Same run id, verbatim payload — including the News Category stamp, so each
+      // operator's copy arrives already stamped and can be overridden in isolation.
       const copy = await repos.create(operator.userId).loadById(run.id);
       expect(copy).toEqual(run);
+      expect(copy?.newsCategory).toBe("ACQUIRED");
 
       // The Selected Image Original plus its four variations were copied byte-for-byte
       // into this operator's storage prefix.
