@@ -30,10 +30,10 @@ these variables with `NEXT_PUBLIC_`.
      (`SUPABASE_URL`), the **anon** key (`SUPABASE_ANON_KEY`), and the **service_role** key
      (`SUPABASE_SERVICE_ROLE_KEY`). The service-role key is secret — server-only, never
      `NEXT_PUBLIC_`.
-   - Apply the database schema. In the Supabase dashboard SQL Editor, run each file in
-     `supabase/migrations/` **in order** (`0001` → `0004`). This creates the run, author-baseline,
+   - Apply the database schema. In the Supabase dashboard SQL Editor, run the single
+     `supabase/migrations/0001_init.sql`. This creates the run, author-baseline,
      cluster, and seen-tweet tables, their row-level-security policies, **and the private
-     `generated-images` storage bucket** (`0002`) — no manual bucket creation needed.
+     `generated-images` storage bucket** — no manual bucket creation needed.
    - Enable email auth. Authentication -> Providers -> **Email** on; the operator signs in with an
      email OTP. For reliable delivery configure SMTP (Authentication -> Emails); the built-in
      sender is heavily rate-limited and is the most common cause of "code could not be sent".
