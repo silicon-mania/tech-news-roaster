@@ -233,12 +233,3 @@ Each lives in code (change, redeploy) except the interval, which lives in `verce
 After any change, redeploy and re-run the real Discovery Sweep smoke (section 6) to
 confirm the new values behave as intended. The fixture suite (`npm test`) stays the
 fast guard against regressions while you tune.
-
-## 9. Visual-joke removal — production cleanup (one-time closeout)
-
-The Visual Joke feature has been removed from the product (ADR-0026). Before this runbook
-is considered fully reconciled with production, an operator must complete the one-time
-cleanup in [visual-joke-production-cleanup.md](visual-joke-production-cleanup.md) — it
-enumerates every environment variable, secret, endpoint, storage bucket, and config item to
-check, each with an action or an explicit "nothing to do" note. Delete that doc **and this
-section** once the checklist is ticked and the final verification passes.
