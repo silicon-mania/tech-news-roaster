@@ -11,6 +11,7 @@ import { GenerationFailureState } from "./generation-failure-state";
 import { ImageGenerationArea } from "./image-generation-area";
 import { ImageGenerationSkeleton } from "./image-generation-skeleton";
 import { NewsCategoryProgress } from "./news-category-progress";
+import { NewsCategorySection } from "./news-category-section";
 import { QuietRunReveals } from "./quiet-run-reveals";
 import { SourceTweetPreview } from "./source-tweet-preview";
 import { TextGenerationSection } from "./text-generation-section";
@@ -20,6 +21,7 @@ type ActiveRunPanelProps = {
   activeRun: GenerationRun | null;
   isUploadGenerating: boolean;
   onDraftTextChange: (draftId: string, text: string) => void;
+  onNewsCategoryChange: (newsCategory: string) => void;
   onSelectedDraftChange: (draftId: string | null) => void;
   onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
@@ -30,6 +32,7 @@ export function ActiveRunPanel({
   activeRun,
   isUploadGenerating,
   onDraftTextChange,
+  onNewsCategoryChange,
   onSelectedDraftChange,
   onSelectedGeneratedImageChange,
   onStartImageGeneration,
@@ -120,6 +123,15 @@ export function ActiveRunPanel({
       className="mx-auto grid w-full max-w-5xl gap-3 self-start">
       {sourceTweetPreview}
       <NewsCategoryProgress run={activeRun} />
+      {/* The News Category editor — the same shared section the Selected Run
+          sidebar uses — as its own compact section in the workspace column. It
+          surfaces once the run is complete, when there is a stamp to refine. */}
+      {isCompleted ? (
+        <NewsCategorySection
+          newsCategory={activeRun.newsCategory}
+          onNewsCategoryChange={onNewsCategoryChange}
+        />
+      ) : null}
       <RunWorkspaceLayout
         imageGenerationArea={imageGenerationArea}
         usersDirection={activeRun.usersDirection}>

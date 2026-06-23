@@ -97,7 +97,7 @@ export function Workspace({
     kind: "idle",
   });
   const runtimeStatus = useRuntimeStatus({ initialRuntimeStatus, runtimeStatusFetcher });
-  const { scheduleRunAutosave } = useRunAutosave(savedRunStore);
+  const { saveRunNow, scheduleRunAutosave } = useRunAutosave(savedRunStore);
   const { streamImageGeneration } = useImageGenerationStream({
     scheduleRunAutosave,
     setRuns,
@@ -371,6 +371,25 @@ export function Workspace({
     scheduleRunAutosave(updatedRun);
   }
 
+  function updateNewsCategory(newsCategory: string) {
+    if (activeRun?.status !== "completed") {
+      return;
+    }
+
+    const updatedRun: GenerationRun = {
+      ...activeRun,
+      newsCategory,
+    };
+
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => (run.id === updatedRun.id ? updatedRun : run)),
+    );
+    // A chip pick is a discrete choice — it saves immediately (like a Selected
+    // Draft / Selected Generated Image switch), not on the debounced free-text
+    // path (ADR-0027).
+    saveRunNow(updatedRun);
+  }
+
   function startImageGeneration(input: ImageGenerationInput) {
     const run = runs.find((candidateRun) => candidateRun.id === input.parentRunId);
 
@@ -476,6 +495,7 @@ export function Workspace({
               activeRun={activeRun}
               isUploadGenerating={generatingRunId !== null}
               onDraftTextChange={updateDraftText}
+              onNewsCategoryChange={updateNewsCategory}
               onSelectedDraftChange={updateSelectedDraft}
               onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
               onStartImageGeneration={startImageGeneration}

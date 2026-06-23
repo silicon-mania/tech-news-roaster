@@ -139,6 +139,41 @@ describe("Selected Run sidebar", () => {
     expect(within(getFeedCard()).queryByText(firstDraftText)).not.toBeInTheDocument();
   });
 
+  test("picking a News Category chip saves immediately and re-stamps the preview live", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = renderFeed([buildCompleteRun()]);
+
+    await openSidebar(user);
+    const sidebar = getSidebar();
+    const newsCategory = within(sidebar).getByRole("region", { name: "News category" });
+    const preview = within(sidebar).getByRole("figure", {
+      name: "Final Quote Tweet Image preview",
+    });
+
+    // The value-less run pre-selects VIRAL, and the composite stamps it.
+    expect(
+      within(newsCategory).getByRole("button", { name: "VIRAL", pressed: true }),
+    ).toBeInTheDocument();
+    expect(within(preview).getByText("VIRAL")).toBeInTheDocument();
+
+    // Pick a different stamp.
+    await user.click(within(newsCategory).getByRole("button", { name: "ACQUIRED" }));
+
+    // The discrete pick persists immediately through the whole-run save...
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "complete-run-1", newsCategory: "ACQUIRED" }),
+      ),
+    );
+    // ...the chip selection moves...
+    expect(
+      within(newsCategory).getByRole("button", { name: "ACQUIRED", pressed: true }),
+    ).toBeInTheDocument();
+    // ...and the preview re-stamps live with the new value.
+    expect(within(preview).getByText("ACQUIRED")).toBeInTheDocument();
+    expect(within(preview).queryByText("VIRAL")).not.toBeInTheDocument();
+  });
+
   test("inline-editing the selected draft autosaves the overwritten text and updates the card", async () => {
     const user = userEvent.setup();
     const savedRunStore = renderFeed([buildCompleteRun({ selectedDraftId: "draft-openai" })]);

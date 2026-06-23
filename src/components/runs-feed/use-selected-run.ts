@@ -44,6 +44,8 @@ type SelectedRun = {
   updateDraftText: (draftId: string, text: string) => void;
   /** Switch the Selected Generated Image variation — updates the card and saves immediately. */
   updateSelectedGeneratedImage: (imageOptionId: string | null) => void;
+  /** Pick the News Category stamp — updates the card and saves immediately. */
+  updateNewsCategory: (newsCategory: string) => void;
   /** Upload an image of the operator's own and generate a new Uploaded Image Set. */
   uploadSelectedRunImage: (file: File) => void;
   /** Whether an Uploaded Image Set generation is in flight (disables the trigger). */
@@ -195,6 +197,22 @@ export function useSelectedRun({
     saveRunNow(updatedRun);
   }
 
+  function updateNewsCategory(newsCategory: string) {
+    if (!selectedRun) {
+      return;
+    }
+
+    const updatedRun: GenerationRun = {
+      ...selectedRun,
+      newsCategory,
+    };
+
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => (run.id === updatedRun.id ? updatedRun : run)),
+    );
+    saveRunNow(updatedRun);
+  }
+
   function uploadSelectedRunImage(file: File) {
     if (!selectedRun) {
       return;
@@ -264,6 +282,7 @@ export function useSelectedRun({
     updateSelectedDraft,
     updateDraftText,
     updateSelectedGeneratedImage,
+    updateNewsCategory,
     uploadSelectedRunImage,
     isUploadGenerating: generatingRunId !== null,
     deleteSelectedRun,
