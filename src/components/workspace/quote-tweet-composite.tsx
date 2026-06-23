@@ -17,7 +17,7 @@ import {
 /**
  * Label auto-fit policy: the label renders at the Figma design size and shrinks
  * in steps down to the legibility floor until it fits the title box. Truncation
- * is disallowed — the fixed label must stay whole.
+ * is disallowed — the News Category stamp must stay whole.
  */
 const titleAutoFit = {
   minScale: 0.4,

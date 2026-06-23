@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   type CompositeRasterizer,
-  finalQuoteTweetImageLabel,
   quoteTweetRainbowStripe,
   rasterizeCompositeToPng,
 } from "@/services/final-quote-tweet-image";
-import { collectCompletedImageSets } from "@/services/generation";
+import { collectCompletedImageSets, resolveNewsCategoryStamp } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { buildFinalQuoteTweetImageDownloadName } from "./image-helpers";
 import { QuoteTweetComposite } from "./quote-tweet-composite";
@@ -35,7 +34,7 @@ const iconButtonClassName =
 /**
  * Sticky bottom-right overlay that renders the run's Final Quote Tweet Image.
  * It owns no selection state — it derives the composite from the run's Selected
- * Generated Image plus the fixed label and re-renders instantly as the image
+ * Generated Image plus its News Category stamp and re-renders instantly as either
  * changes. It mounts only once the run has at least one completed Image Set —
  * source-derived or uploaded (ADR-0025), so an upload-only run still gets its
  * Final Quote Tweet Image; total image failure (no completed sets) leaves it
@@ -125,7 +124,7 @@ export function FinalQuoteTweetImageOverlay({
                   <QuoteTweetComposite
                     imageAlt={selectedVariation.altText ?? selectedVariation.label}
                     imageUrl={selectedVariation.url}
-                    label={finalQuoteTweetImageLabel}
+                    label={resolveNewsCategoryStamp(run.newsCategory)}
                     ref={compositeRef}
                   />
                 </div>

@@ -4,6 +4,8 @@ status: accepted
 
 # Remove Visual Joke Generation
 
+> **Status: amended by [ADR-0027](0027-ai-selected-news-category-stamp.md).** The "editable headline label" rejected below under Considered Options is now adopted: the Final Quote Tweet Image no longer renders the fixed `LABEL GOES HERE` but a **News Category** stamp — a closed ten-value classification, AI-selected by default and operator-overridable. The removal of visual jokes otherwise stands; News Category is a lightweight classification, not a return of the visual-joke surface.
+
 ## Context
 
 A Generation Run used to produce three things: text drafts, a Visual Joke Set

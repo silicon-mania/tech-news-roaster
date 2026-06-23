@@ -9,8 +9,8 @@ import { RunCard } from "./run-card";
 const firstDraftText = "Quote-tweet draft: first saved draft.";
 const secondDraftText = "Quote-tweet draft: second saved draft.";
 const firstVariationAlt = "Launch visual variation 1.";
-// The composite renders the fixed label where the Joke Title once sat (ADR-0026).
-const placeholderLabel = "LABEL GOES HERE";
+// A value-less run renders the VIRAL fallback as its News Category stamp (ADR-0027).
+const fallbackStamp = "VIRAL";
 const sourceTweetText =
   "OpenAI just shipped an agent workspace for product teams, and every incumbent suddenly has to explain why their roadmap still looks like a settings page.";
 
@@ -49,16 +49,23 @@ describe("RunCard", () => {
     expect(screen.queryByText(firstDraftText)).not.toBeInTheDocument();
   });
 
-  test("renders the Final Quote Tweet Image composite with the fixed label and variation", () => {
+  test("renders the Final Quote Tweet Image composite with the News Category stamp and variation", () => {
     render(<RunCard run={buildCardRun()} />);
 
     expect(
       screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
     ).toBeInTheDocument();
-    // The fixed label sits on the first generated variation (the image falls back
-    // since the fixture has no explicit image selection).
-    expect(screen.getByText(placeholderLabel)).toBeInTheDocument();
+    // The value-less fixture renders VIRAL over the first generated variation (the
+    // image falls back since the fixture has no explicit image selection).
+    expect(screen.getByText(fallbackStamp)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: firstVariationAlt })).toBeInTheDocument();
+  });
+
+  test("renders the run's News Category as the stamp, uppercased", () => {
+    render(<RunCard run={buildCardRun({ newsCategory: "acquired" })} />);
+
+    expect(screen.getByText("ACQUIRED")).toBeInTheDocument();
+    expect(screen.queryByText(fallbackStamp)).not.toBeInTheDocument();
   });
 
   test("embeds the Source Tweet as a static, non-interactive quoted post", () => {
@@ -105,7 +112,7 @@ describe("RunCard", () => {
     );
 
     expect(screen.getByText(firstDraftText)).toBeInTheDocument();
-    expect(screen.getByText(placeholderLabel)).toBeInTheDocument();
+    expect(screen.getByText(fallbackStamp)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: firstVariationAlt })).toBeInTheDocument();
   });
 

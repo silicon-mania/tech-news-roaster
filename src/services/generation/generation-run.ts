@@ -17,7 +17,11 @@ import { jokeContextSnapshotSchema } from "./joke-context";
 import { newsLinkedImageSchema } from "./news-linked-image";
 import { draftTarget } from "./providers";
 import { quoteTweetDraftSchema } from "./quote-tweet-draft";
-import { type GenerationResultStates, generationResultStatesSchema } from "./result-states";
+import {
+  type GenerationResultStates,
+  generationResultStatesSchema,
+  newsCategoryClassificationStateSchema,
+} from "./result-states";
 import { generationRunPhaseSchema } from "./run-phase";
 import { nonEmptyTrimmedStringSchema, runLocalIdSchema } from "./schema-primitives";
 
@@ -166,6 +170,18 @@ const savedGenerationRunSchema = z
     // automated runs so a cluster links to the single run it produced; absent on
     // manual runs and runs that predate automated discovery.
     newsCoverageClusterId: nonEmptyTrimmedStringSchema.optional(),
+    // The current News Category stamp on the Final Quote Tweet Image (ADR-0027):
+    // a single flat value — the classifier's pick, an operator override, or a
+    // free custom word. One of the ten lights its chip; any other string is a
+    // custom stamp. Absent on pre-feature runs; read-time consumers resolve it as
+    // `newsCategory ?? "VIRAL"`. Rides the JSONB payload — no column, no migration.
+    newsCategory: nonEmptyTrimmedStringSchema.optional(),
+    // The News Category classifier's terminal result-state, persisted so a
+    // failure surfaces (ghost icon + Quiet Failure Details) on reopen — including
+    // on automated runs the operator never watched. It is NOT a Creative Result
+    // Area: a failed classification still renders VIRAL and never affects the
+    // Successful Run / Complete Run determination.
+    newsCategoryClassification: newsCategoryClassificationStateSchema.optional(),
     seenAt: z.string().datetime().optional(),
     sourceTweetUrl: z.string().url(),
     usersDirection: z.string(),

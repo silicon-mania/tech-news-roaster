@@ -86,7 +86,7 @@ _Avoid_: Pending save, loading item, temporary run
 
 **Run Label**:
 A short generated label used to identify a run in the unified runs list. The default label is replaced by the first provider-generated label that becomes available, and the user does not edit it.
-_Avoid_: Title, custom name, editable name
+_Avoid_: Title, custom name, editable name, News Category
 
 **User's Direction**:
 Optional freeform guidance provided by the user to influence or challenge the creative angle of the text drafts. It does not steer image generation.
@@ -317,8 +317,12 @@ The one generated Image Option — always one of the four variations, never an o
 _Avoid_: Selected Image Original, selected variation, composite image, chosen image
 
 **Final Quote Tweet Image**:
-The shareable image a generation run produces by placing a fixed placeholder label ("LABEL GOES HERE") over the Selected Generated Image, using the fixed Silicon Mania layout while leaving every other visual element of that layout unchanged.
+The shareable image a generation run produces by placing the run's News Category stamp over the Selected Generated Image, using the fixed Silicon Mania layout while leaving every other visual element of that layout unchanged.
 _Avoid_: Quote Tweet image, final card, composite, meme
+
+**News Category**:
+The fixed-vocabulary classification of the source tweet's news, rendered as the headline stamp on the Final Quote Tweet Image. A language model auto-selects one value while the run generates; the operator can override it afterward — re-picking another value or entering a custom word — and the chosen value is the one the run keeps. The ten values are LAUNCHED (a new company appears or leaves stealth), DROPPED (a substantial product or body of work ships — an app, a major release, an album, a model), ACQUIRED (one company buys or merges with another), SIGNED (a notable person joins a different company), FIRED (a person is forced out, or staff are laid off), RESIGNED (a person voluntarily steps down), FUNDED (a company raises a funding round in exchange for shares), PUBLISHED (a lighter editorial or creative piece — an essay, article, blog post, or single song), DRAMA (public controversy fitting none of the above), and VIRAL (the residual when nothing more specific applies, also shown when classification fails).
+_Avoid_: Run Label, label, tag, headline, LABEL GOES HERE
 
 ## Editing
 

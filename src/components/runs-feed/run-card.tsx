@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { QuoteTweetComposite } from "@/components/workspace/quote-tweet-composite";
-import { finalQuoteTweetImageLabel } from "@/services/final-quote-tweet-image";
+import { resolveNewsCategoryStamp } from "@/services/generation";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
 import { formatRelativeTime } from "@/utils/relative-time";
@@ -101,7 +101,7 @@ export function RunCard({ run, onSelect }: RunCardProps) {
             <QuoteTweetComposite
               imageAlt={variation.altText ?? variation.label}
               imageUrl={variation.url}
-              label={finalQuoteTweetImageLabel}
+              label={resolveNewsCategoryStamp(run.newsCategory)}
             />
           </div>
         ) : null}

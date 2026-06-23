@@ -9,9 +9,9 @@ import { buildFinalQuoteTweetImageDownloadName } from "@/components/workspace/im
 import { QuoteTweetComposite } from "@/components/workspace/quote-tweet-composite";
 import {
   type CompositeRasterizer,
-  finalQuoteTweetImageLabel,
   rasterizeCompositeToPng,
 } from "@/services/final-quote-tweet-image";
+import { resolveNewsCategoryStamp } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { resolveRunCardContent } from "./resolve-run-card-content";
 
@@ -101,7 +101,7 @@ export function FinalImageDownload({
         <QuoteTweetComposite
           imageAlt={variation.altText ?? variation.label}
           imageUrl={variation.url}
-          label={finalQuoteTweetImageLabel}
+          label={resolveNewsCategoryStamp(run.newsCategory)}
           ref={compositeRef}
         />
       </div>

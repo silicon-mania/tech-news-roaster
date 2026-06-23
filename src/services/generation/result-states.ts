@@ -106,3 +106,24 @@ export type GenerationResultStates = z.infer<typeof generationResultStatesSchema
 export function parseGenerationResultStates(input: unknown): GenerationResultStates {
   return generationResultStatesSchema.parse(input);
 }
+
+/**
+ * The News Category classifier's terminal result-state (ADR-0027). It reuses the
+ * per-area failed shape (timestamps, message, optional debug log) so it renders
+ * through the same Quiet Failure Details surface, but it is deliberately NOT a
+ * member of {@link generationResultStatesSchema}: a failed classification still
+ * renders `VIRAL`, so it must never count toward — or against — the Successful
+ * Run / Complete Run determination. It rides the saved run directly as
+ * `newsCategoryClassification`. Only the two terminal shapes are persisted; the
+ * step has no not-started/running states on a saved run.
+ */
+export const newsCategoryClassificationStateSchema = z.discriminatedUnion("status", [
+  z
+    .object({
+      completedAt: z.string().datetime(),
+      startedAt: z.string().datetime(),
+      status: z.literal("completed"),
+    })
+    .strict(),
+  resultStageFailedSchema,
+]);

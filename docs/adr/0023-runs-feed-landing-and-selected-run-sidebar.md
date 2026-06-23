@@ -6,6 +6,8 @@ status: accepted
 
 > **Status: amended by [ADR-0026](0026-remove-visual-joke-generation.md).** Visual jokes have been removed. The Selected Run sidebar and Run Card carry no visual joke slot or Joke-Title editing: the sidebar switches the selected draft and the selected generated image, and a Run Card's two slots are the first draft and the first generated variation. A Complete Run is now a draft plus an image variation. The Context below is kept as the original record; the Runs Feed landing page and Selected Run sidebar decision otherwise stands.
 
+> **Status: amended by [ADR-0027](0027-ai-selected-news-category-stamp.md).** The Selected Run sidebar and Run Card now also carry a **News Category** section — ten toggle chips plus a custom field — sharing a component and the autosave path across the sidebar and workspace exactly as the draft and image sections do. The landing-page-and-sidebar decision otherwise stands.
+
 ## Context
 
 The workspace (`workspace.tsx`, mounted at `/`) is the product's landing page: a

@@ -13,9 +13,9 @@ const selectedGeneratedImageFixture = {
   imageOptionId: "image-option-news-linked-image-1-variation-1",
   selectedAt: "2026-06-06T10:17:00.000Z",
 };
-// The composite renders the fixed label where the Joke Title once sat (ADR-0026);
-// the fixture image above is the run's first variation.
-const placeholderLabel = "LABEL GOES HERE";
+// A value-less run renders the VIRAL fallback as its News Category stamp
+// (ADR-0027); the fixture image above is the run's first variation.
+const fallbackStamp = "VIRAL";
 const selectedVariationName = "Launch visual variation 1.";
 
 describe("Workspace final quote tweet image overlay", () => {
@@ -40,11 +40,11 @@ describe("Workspace final quote tweet image overlay", () => {
       }),
     ).not.toBeInTheDocument();
 
-    // Derived composite: the fixed label over the Selected Generated Image.
+    // Derived composite: the News Category stamp over the Selected Generated Image.
     expect(
       within(finalArea).getByRole("figure", { name: "Final Quote Tweet Image preview" }),
     ).toBeInTheDocument();
-    expect(within(finalArea).getByText(placeholderLabel)).toBeInTheDocument();
+    expect(within(finalArea).getByText(fallbackStamp)).toBeInTheDocument();
     expect(within(finalArea).getByRole("img", { name: selectedVariationName })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /download final quote tweet image/i }),
@@ -75,7 +75,7 @@ describe("Workspace final quote tweet image overlay", () => {
       name: /final quote tweet image creative result area/i,
     });
 
-    expect(within(finalArea).getByText(placeholderLabel)).toBeInTheDocument();
+    expect(within(finalArea).getByText(fallbackStamp)).toBeInTheDocument();
     expect(within(finalArea).getByRole("img", { name: selectedVariationName })).toBeInTheDocument();
 
     // Reopening is pure rendering: nothing is regenerated.

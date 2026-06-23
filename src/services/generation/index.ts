@@ -6,6 +6,7 @@ export * from "./generation-run";
 export * from "./image-generation";
 export * from "./image-original-candidate";
 export * from "./joke-context";
+export * from "./news-category";
 export * from "./news-linked-image";
 export * from "./providers";
 export * from "./quote-tweet-draft";

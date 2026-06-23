@@ -19,8 +19,8 @@ const variationTwoFixture = {
   imageOptionId: "image-option-news-linked-image-1-variation-2",
   selectedAt: "2026-06-06T10:18:00.000Z",
 };
-// The composite renders the fixed label where the Joke Title once sat (ADR-0026).
-const placeholderLabel = "LABEL GOES HERE";
+// A value-less run renders the VIRAL fallback as its News Category stamp (ADR-0027).
+const fallbackStamp = "VIRAL";
 
 describe("FinalQuoteTweetImageOverlay", () => {
   test("stays hidden when the run has no generated image set", () => {
@@ -35,7 +35,7 @@ describe("FinalQuoteTweetImageOverlay", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  test("mounts with the placeholder composite from the image alone", () => {
+  test("mounts the composite from the image alone, stamped with the VIRAL fallback", () => {
     // A completed Image Set and a Selected Generated Image are the only inputs;
     // the composite still assembles from them alone.
     render(
@@ -49,7 +49,21 @@ describe("FinalQuoteTweetImageOverlay", () => {
     expect(
       screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(placeholderLabel)).toBeInTheDocument();
+    expect(screen.getByText(fallbackStamp)).toBeInTheDocument();
+  });
+
+  test("stamps the composite with the run's News Category, uppercased", () => {
+    render(
+      <FinalQuoteTweetImageOverlay
+        run={buildCompletedV3Run({
+          newsCategory: "acquired",
+          selectedGeneratedImage: selectedGeneratedImageFixture,
+        })}
+      />,
+    );
+
+    expect(screen.getByText("ACQUIRED")).toBeInTheDocument();
+    expect(screen.queryByText(fallbackStamp)).not.toBeInTheDocument();
   });
 
   test("starts expanded and asks only for the image when none is selected", () => {
@@ -74,8 +88,8 @@ describe("FinalQuoteTweetImageOverlay", () => {
       />,
     );
 
-    // The non-editable label renders whole and nothing clamps it.
-    const title = screen.getByText(placeholderLabel);
+    // The stamp renders whole and nothing clamps it.
+    const title = screen.getByText(fallbackStamp);
 
     expect(title.className).not.toMatch(/truncate|line-clamp/);
 

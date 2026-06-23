@@ -139,6 +139,94 @@ describe("generation run contracts", () => {
     });
 
     expect(parsed.uploadedImageSets).toEqual([]);
+    // A run that predates News Category carries neither field and still parses.
+    expect(parsed.newsCategory).toBeUndefined();
+    expect(parsed.newsCategoryClassification).toBeUndefined();
+  });
+
+  test("round-trips a News Category and its classification result-state in both shapes", () => {
+    const baseRunningRun = {
+      id: "run-news-category",
+      label: "News Category run",
+      sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+      usersDirection: "",
+      status: "running" as const,
+      draftCount: 0,
+      draftTarget: 3 as const,
+      drafts: [],
+    };
+
+    const completed = parseSavedGenerationRun({
+      ...baseRunningRun,
+      newsCategory: "ACQUIRED",
+      newsCategoryClassification: {
+        status: "completed",
+        startedAt: "2026-06-06T10:10:00.000Z",
+        completedAt: "2026-06-06T10:10:05.000Z",
+      },
+    });
+
+    expect(completed).toMatchObject({
+      newsCategory: "ACQUIRED",
+      newsCategoryClassification: { status: "completed" },
+    });
+
+    const failed = parseSavedGenerationRun({
+      ...baseRunningRun,
+      // On failure the resolved stamp falls back to VIRAL while the failed state
+      // carries the debug log for the Quiet Failure Details surface.
+      newsCategory: "VIRAL",
+      newsCategoryClassification: {
+        status: "failed",
+        startedAt: "2026-06-06T10:10:00.000Z",
+        failedAt: "2026-06-06T10:10:05.000Z",
+        message: "News Category classification failed.",
+        debugLog: ["AI Gateway timeout", "step: classify-news-category"],
+      },
+    });
+
+    expect(failed.newsCategoryClassification).toMatchObject({ status: "failed" });
+    // Serialize → re-parse is byte-for-byte stable.
+    expect(parseSavedGenerationRun(JSON.parse(JSON.stringify(failed)))).toEqual(failed);
+  });
+
+  test("a failed News Category classification never breaks a Complete Run", () => {
+    const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
+    const drafts = buildStubbedGenerationEvents({
+      replySignals: buildReplySignals(tweetContext),
+      sourceTweet: tweetContext.sourceTweet,
+      sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+      usersDirection: "",
+    }).flatMap((event) => (event.type === "progress" ? [event.draft] : []));
+
+    // A completed run with all its creative output, plus a failed classification:
+    // classification sits outside the success determination, so the run still
+    // parses as a Complete Run with VIRAL as its stamp.
+    const parsed = parseSavedGenerationRun({
+      id: "run-news-failed",
+      label: "Completed run, failed classification",
+      sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+      usersDirection: "",
+      status: "completed" as const,
+      draftCount: 3,
+      draftTarget: 3 as const,
+      sourceTweet: tweetContext.sourceTweet,
+      savedAt: "2026-06-05T10:30:00.000Z",
+      drafts,
+      newsCategory: "VIRAL",
+      newsCategoryClassification: {
+        status: "failed",
+        startedAt: "2026-06-06T10:10:00.000Z",
+        failedAt: "2026-06-06T10:10:05.000Z",
+        message: "News Category classification failed.",
+      },
+    });
+
+    expect(parsed).toMatchObject({
+      status: "completed",
+      newsCategory: "VIRAL",
+      newsCategoryClassification: { status: "failed" },
+    });
   });
 
   test("accepts a Selected Draft id that names one of the run's drafts and rejects a stray one", () => {

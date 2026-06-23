@@ -17,13 +17,6 @@ export interface TemplateRect {
   readonly height: number;
 }
 
-/**
- * Fixed label the Final Quote Tweet Image renders in its title box (ADR-0026):
- * the composite always shows this literal string — it is not selected, not
- * editable, not persisted.
- */
-export const finalQuoteTweetImageLabel = "LABEL GOES HERE";
-
 /** Fixed portrait frame at native resolution. */
 export const quoteTweetFrame = { width: 3240, height: 4050 } as const;
 

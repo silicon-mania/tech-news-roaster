@@ -8,8 +8,8 @@ import { FinalImageDownload } from "./final-image-download";
 
 // buildCompletedV3Run leaves the generated image unselected, so the composite
 // falls back to the first variation (Automated Selection), exactly as the Run
-// Card does. The composite renders the fixed label where the Joke Title once sat.
-const placeholderLabel = "LABEL GOES HERE";
+// Card does. A value-less run renders the VIRAL fallback as its stamp (ADR-0027).
+const fallbackStamp = "VIRAL";
 const firstVariationAlt = "Launch visual variation 1.";
 
 describe("FinalImageDownload", () => {
@@ -20,8 +20,8 @@ describe("FinalImageDownload", () => {
       screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
     ).toBeInTheDocument();
 
-    // The non-editable label renders whole — nothing truncates or clamps it.
-    const title = screen.getByText(placeholderLabel);
+    // The stamp renders whole — nothing truncates or clamps it.
+    const title = screen.getByText(fallbackStamp);
     expect(title.className).not.toMatch(/truncate|line-clamp/);
 
     expect(screen.getByRole("img", { name: firstVariationAlt })).toHaveAttribute(
@@ -33,9 +33,16 @@ describe("FinalImageDownload", () => {
   test("falls back to the first variation when the run has no explicit image selection", () => {
     render(<FinalImageDownload run={buildCompletedV3Run({ selectedGeneratedImage: null })} />);
 
-    // Matches the Run Card: the fixed label over the first generated variation.
-    expect(screen.getByText(placeholderLabel)).toBeInTheDocument();
+    // Matches the Run Card: the VIRAL fallback stamp over the first variation.
+    expect(screen.getByText(fallbackStamp)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: firstVariationAlt })).toBeInTheDocument();
+  });
+
+  test("renders the run's News Category as the stamp, uppercased", () => {
+    render(<FinalImageDownload run={buildCompletedV3Run({ newsCategory: "acquired" })} />);
+
+    expect(screen.getByText("ACQUIRED")).toBeInTheDocument();
+    expect(screen.queryByText(fallbackStamp)).not.toBeInTheDocument();
   });
 
   test("download captures the preview node and offers a PNG named from the run label", async () => {
