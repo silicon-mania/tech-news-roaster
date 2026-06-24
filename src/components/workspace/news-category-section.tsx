@@ -96,7 +96,7 @@ export function NewsCategorySection({
     newsCategoryClassification?.status === "failed" ? newsCategoryClassification : undefined;
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
       {failedClassification ? (
         <div className="flex">
           <Tooltip>
@@ -117,22 +117,29 @@ export function NewsCategorySection({
           </Tooltip>
         </div>
       ) : null}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-x-2 gap-y-2">
         {newsCategories.map((category) => {
           const isActive = category === activeCategory;
 
           return (
             <Button
               aria-pressed={isActive}
-              className={isActive ? "ring-1 ring-primary/45" : "text-muted-foreground"}
+              // The lit chip reads as a thin outlined box over the dark ground; the
+              // rest are plain muted labels that ink up on hover. Both carry the same
+              // padded footprint, so lighting one never nudges the row.
+              className={
+                isActive
+                  ? "border-muted-foreground/40 tracking-wide"
+                  : "text-muted-foreground tracking-wide"
+              }
               key={category}
               // Re-picking the lit chip is a no-op — VIRAL is the floor, so there is
               // no "deselect to nothing" here, and skipping it avoids a redundant
               // whole-run save.
               onClick={isActive ? undefined : () => onNewsCategoryChange(category)}
-              size="sm"
+              size="lg"
               type="button"
-              variant={isActive ? "secondary" : "ghost"}>
+              variant="ghost">
               {category}
             </Button>
           );
@@ -140,7 +147,7 @@ export function NewsCategorySection({
       </div>
       <Input
         aria-label="Custom news category"
-        className="max-w-xs"
+        className="h-9 max-w-sm"
         maxLength={customNewsCategoryMaxLength}
         // Typing a word de-highlights every chip; clearing the field (no chip lit)
         // snaps back to VIRAL, the residual floor. The field keeps the typed case —
@@ -150,7 +157,7 @@ export function NewsCategorySection({
 
           onNewsCategoryCustomChange(value.trim().length > 0 ? value : defaultNewsCategory);
         }}
-        placeholder="Custom word"
+        placeholder="custom label"
         value={customWord}
       />
       {failedClassification && isFailureOpen ? (
