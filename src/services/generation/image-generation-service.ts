@@ -14,7 +14,12 @@ import {
   selectedImageOriginalFromUpload,
 } from "@/services/generation";
 import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
-import { readConfiguredAiGatewayImageModel, readEnvValue } from "./ai-gateway-models";
+import {
+  type GatewayRunKind,
+  readAiGatewayApiKey,
+  readConfiguredAiGatewayImageModel,
+  readEnvValue,
+} from "./ai-gateway-models";
 import { defaultImagePrompt } from "./default-image-prompt";
 import { describeErrorDetail, summarizeErrorMessage } from "./error-detail";
 
@@ -112,9 +117,12 @@ export async function generateImageSetForRun(
     now?: () => Date;
     prepareSelectedImageOriginal?: SelectedImageOriginalPreparer;
     provider?: ImageVariationProvider;
+    runKind?: GatewayRunKind;
   } = {},
 ): Promise<ImageGenerationServiceResult> {
-  const provider = options.provider ?? createDefaultImageVariationProvider();
+  const provider =
+    options.provider ??
+    createDefaultImageVariationProvider(process.env, options.runKind ?? "manual");
   const result: ImageGenerationServiceResult = {
     imageModelProvenance: provider.imageModelProvenance,
   };
@@ -156,6 +164,7 @@ export async function* streamImageSetForRun(
     now?: () => Date;
     prepareSelectedImageOriginal?: SelectedImageOriginalPreparer;
     provider?: ImageVariationProvider;
+    runKind?: GatewayRunKind;
   } = {},
 ): AsyncGenerator<ImageGenerationServiceStreamEvent> {
   const parsedInput = parseImageGenerationInput(input);
@@ -170,7 +179,9 @@ export async function* streamImageSetForRun(
   });
   const now = options.now ?? (() => new Date());
   const prepare = options.prepareSelectedImageOriginal ?? prepareSelectedImageOriginal;
-  const provider = options.provider ?? createDefaultImageVariationProvider();
+  const provider =
+    options.provider ??
+    createDefaultImageVariationProvider(process.env, options.runKind ?? "manual");
 
   let preparedOriginal: PreparedSelectedImageOriginal | undefined;
   // Which step we are in, so a failure names where it broke (fetching the
@@ -500,9 +511,10 @@ function buildUploadedFailedImageSet({
 
 function createDefaultImageVariationProvider(
   env: ImageModelEnvironment = process.env,
+  runKind: GatewayRunKind = "manual",
 ): ImageVariationProvider {
   const model = readConfiguredAiGatewayImageModel(env);
-  const apiKey = readAiGatewayApiKey(env);
+  const apiKey = readAiGatewayApiKey(env, runKind);
 
   if (!apiKey && env.NODE_ENV !== "production") {
     return createLocalImageVariationProvider(model);
@@ -753,10 +765,6 @@ function toArray(value: unknown): unknown[] {
 
 function readString(value: unknown) {
   return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-function readAiGatewayApiKey(env: ImageModelEnvironment) {
-  return readEnvValue(env.AI_GATEWAY_API_KEY) ?? readEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
 }
 
 function readImageGenerationTimeoutMs(env: ImageModelEnvironment): number {

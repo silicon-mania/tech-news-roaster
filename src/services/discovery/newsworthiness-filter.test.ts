@@ -126,6 +126,25 @@ describe("AI-gateway newsworthiness judge (vendor boundary)", () => {
   });
 });
 
+describe("newsworthiness AI Gateway credential (automated-only)", () => {
+  test("reads the spend-capped automated key", () => {
+    // The filter runs only in the unattended cron, so it bills the automated key.
+    // With only that key set it must still resolve a gateway judge — had it stayed
+    // on the manual resolver, this would fall back to the local heuristic.
+    const judge = createDefaultNewsworthinessJudge({
+      AI_GATEWAY_AUTOMATED_API_KEY: "capped-key",
+    });
+
+    expect(judge.provider).toBe("ai-gateway");
+  });
+
+  test("falls back to the shared key when the automated key is unset", () => {
+    const judge = createDefaultNewsworthinessJudge({ AI_GATEWAY_API_KEY: "gateway-secret" });
+
+    expect(judge.provider).toBe("ai-gateway");
+  });
+});
+
 function gatewayResponse(verdict: { newsworthy: boolean; reason: string }) {
   return Response.json({
     choices: [{ message: { content: JSON.stringify(verdict) } }],

@@ -120,6 +120,28 @@ describe("createDefaultNewsCategoryClassifier", () => {
     expect(classifier.provider).toBe("ai-gateway");
     expect(classifier.model).toBe("anthropic/claude-sonnet-4.6");
   });
+
+  test("an automated run reads the spend-capped automated key", () => {
+    // Only the automated key is set: an automated classification must still find
+    // credentials, proving run kind threads through to key selection.
+    const classifier = createDefaultNewsCategoryClassifier(
+      { AI_GATEWAY_AUTOMATED_API_KEY: "capped-key" },
+      "automated",
+    );
+
+    expect(classifier.provider).toBe("ai-gateway");
+  });
+
+  test("a manual run ignores the automated key", () => {
+    // With only the automated key set, a Workspace run sees no shared credential
+    // and falls back to local — the $5/day cap can never throttle a manual run.
+    const classifier = createDefaultNewsCategoryClassifier(
+      { AI_GATEWAY_AUTOMATED_API_KEY: "capped-key" },
+      "manual",
+    );
+
+    expect(classifier.provider).toBe("local");
+  });
 });
 
 describe("createLocalNewsCategoryClassifier", () => {

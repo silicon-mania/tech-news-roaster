@@ -7,6 +7,7 @@ import {
   type NewsCategoryClassificationState,
   newsCategories,
 } from "@/services/generation";
+import { type GatewayRunKind, readAiGatewayApiKey } from "@/services/generation/ai-gateway-models";
 import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 
 /**
@@ -170,22 +171,28 @@ class NewsCategoryClassifierError extends Error {
 export async function classifyNewsCategory(
   { jokeContextSnapshot }: NewsCategoryClassifierInput,
   {
-    classifier = createDefaultNewsCategoryClassifier(),
+    classifier,
     now = () => new Date(),
+    // Defaults to "manual" (Workspace runs); the Automated Run composition passes
+    // "automated" so the cron's classification call bills the spend-capped key.
+    runKind = "manual",
   }: {
     classifier?: NewsCategoryClassifier;
     now?: () => Date;
+    runKind?: GatewayRunKind;
   } = {},
 ): Promise<NewsCategoryClassificationResult> {
+  const resolvedClassifier =
+    classifier ?? createDefaultNewsCategoryClassifier(process.env, runKind);
   const startedAt = now().toISOString();
   const debugLog = [
     `Classifying News Category for source tweet ${jokeContextSnapshot.sourceTweetId} via ${
-      classifier.provider
-    }${classifier.model ? ` (${classifier.model})` : ""}.`,
+      resolvedClassifier.provider
+    }${resolvedClassifier.model ? ` (${resolvedClassifier.model})` : ""}.`,
   ];
 
   try {
-    const candidate = await classifier.classify({ jokeContextSnapshot });
+    const candidate = await resolvedClassifier.classify({ jokeContextSnapshot });
 
     if (!isNewsCategory(candidate)) {
       throw new NewsCategoryClassifierError(
@@ -228,9 +235,10 @@ export async function classifyNewsCategory(
  */
 export function createDefaultNewsCategoryClassifier(
   env: NewsCategoryClassifierEnvironment = process.env,
+  runKind: GatewayRunKind = "manual",
 ): NewsCategoryClassifier {
   const model = readClassifierModel(env);
-  const apiKey = readAiGatewayApiKey(env);
+  const apiKey = readAiGatewayApiKey(env, runKind);
 
   if (!apiKey && env.NODE_ENV !== "production") {
     return createLocalNewsCategoryClassifier(model);
@@ -402,10 +410,6 @@ function formatErrorMessage(error: unknown) {
 
 function readClassifierModel(env: NewsCategoryClassifierEnvironment) {
   return readEnvValue(env.AI_GATEWAY_ANTHROPIC_MODEL) ?? defaultClassifierModel;
-}
-
-function readAiGatewayApiKey(env: NewsCategoryClassifierEnvironment) {
-  return readEnvValue(env.AI_GATEWAY_API_KEY) ?? readEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
 }
 
 function readClassifierTimeoutMs(env: NewsCategoryClassifierEnvironment) {
