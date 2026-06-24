@@ -110,6 +110,7 @@ export function SelectedRunSidebar({
             <h3 className="title-serif text-foreground text-lg">News category</h3>
             <NewsCategorySection
               newsCategory={run.newsCategory}
+              newsCategoryClassification={run.newsCategoryClassification}
               onNewsCategoryChange={onNewsCategoryChange}
               onNewsCategoryCustomChange={onNewsCategoryCustomChange}
             />

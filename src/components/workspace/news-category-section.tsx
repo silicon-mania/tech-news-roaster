@@ -1,8 +1,18 @@
 "use client";
 
+import { OctagonX } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { defaultNewsCategory, isNewsCategory, newsCategories } from "@/services/generation";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  defaultNewsCategory,
+  isNewsCategory,
+  type NewsCategoryClassificationState,
+  newsCategories,
+} from "@/services/generation";
+import { FailureDetails } from "./failure-details";
+import { TextRevealModal } from "./text-reveal-modal";
 
 /**
  * Cap on the custom stamp word. The composite auto-fits long labels (it shrinks,
@@ -14,6 +24,13 @@ const customNewsCategoryMaxLength = 24;
 type NewsCategorySectionProps = {
   /** The run's current stamp value; an absent value resolves to VIRAL. */
   newsCategory?: string;
+  /**
+   * The classifier's persisted terminal result-state (ADR-0027 / issue 007). When
+   * it is `failed`, the section surfaces a quiet ghost error icon + Quiet Failure
+   * Details reveal — without breaking the run, which still stamps VIRAL. A
+   * `completed` or absent state shows no error affordance.
+   */
+  newsCategoryClassification?: NewsCategoryClassificationState;
   /**
    * Pick a vocabulary chip — sets the run's `newsCategory` to it. Each surface
    * routes this through its immediate save (the same whole-run save a Selected
@@ -48,14 +65,20 @@ type NewsCategorySectionProps = {
  * mutually exclusive. Picking a chip calls `onNewsCategoryChange` (immediate
  * save); editing the field calls `onNewsCategoryCustomChange` (debounced save).
  *
- * Scope: chips and custom field. The classification-failure UI (007) mounts here
- * in a later slice.
+ * When the run's persisted `newsCategoryClassification` is `failed` (issue 007),
+ * the section also shows a quiet ghost error icon that reveals the Quiet Failure
+ * Details — reusing the same {@link FailureDetails} + {@link TextRevealModal}
+ * surface a failed Image Set uses. The failure never breaks the run: it stays a
+ * Complete Run and still stamps VIRAL, so the affordance is the section's only
+ * trace of it, present whenever the run is reopened (including automated runs).
  */
 export function NewsCategorySection({
   newsCategory,
+  newsCategoryClassification,
   onNewsCategoryChange,
   onNewsCategoryCustomChange,
 }: NewsCategorySectionProps) {
+  const [isFailureOpen, setIsFailureOpen] = useState(false);
   // The lit chip: the run's value when it's one of the ten; VIRAL when absent (a
   // pre-feature or value-less run); null for a custom word, which lights no chip.
   const activeCategory =
@@ -65,8 +88,35 @@ export function NewsCategorySection({
   // a lit chip empties it — chip and custom word are mutually exclusive.
   const customWord = activeCategory === null ? (newsCategory ?? "") : "";
 
+  // The classifier's failure, narrowed to its failed shape — present only when the
+  // run carries a `failed` classification. The completed/absent states have nothing
+  // to surface here. Its fields are already a {@link StageFailure}, so it feeds the
+  // shared FailureDetails directly.
+  const failedClassification =
+    newsCategoryClassification?.status === "failed" ? newsCategoryClassification : undefined;
+
   return (
     <div className="grid gap-3">
+      {failedClassification ? (
+        <div className="flex">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label="Open News Category Classification Failure Details"
+                  className="text-destructive/80 hover:text-destructive"
+                  onClick={() => setIsFailureOpen(true)}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                />
+              }>
+              <OctagonX aria-hidden className="size-3.5" strokeWidth={1.75} />
+            </TooltipTrigger>
+            <TooltipContent>News category classification failed</TooltipContent>
+          </Tooltip>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {newsCategories.map((category) => {
           const isActive = category === activeCategory;
@@ -103,6 +153,11 @@ export function NewsCategorySection({
         placeholder="Custom word"
         value={customWord}
       />
+      {failedClassification && isFailureOpen ? (
+        <TextRevealModal title="Quiet Failure Details" onClose={() => setIsFailureOpen(false)}>
+          <FailureDetails failure={failedClassification} />
+        </TextRevealModal>
+      ) : null}
     </div>
   );
 }

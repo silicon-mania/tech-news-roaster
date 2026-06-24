@@ -2,8 +2,28 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
-import { newsCategories } from "@/services/generation";
+import { type NewsCategoryClassificationState, newsCategories } from "@/services/generation";
 import { NewsCategorySection } from "./news-category-section";
+
+// A failed classifier result-state — the shape that lights the section's quiet
+// ghost error icon. Its fields double as the FailureDetails the reveal shows.
+const failedClassification: NewsCategoryClassificationState = {
+  debugLog: ["sent joke context to classifier", "model returned an empty category"],
+  failedAt: "2026-06-24T10:00:05.000Z",
+  message: "Classifier returned no category",
+  startedAt: "2026-06-24T10:00:00.000Z",
+  status: "failed",
+};
+
+// A completed classifier result-state — a success carries nothing to surface, so
+// the section shows no error affordance for it (nor for an absent state).
+const completedClassification: NewsCategoryClassificationState = {
+  completedAt: "2026-06-24T10:00:05.000Z",
+  startedAt: "2026-06-24T10:00:00.000Z",
+  status: "completed",
+};
+
+const failureTriggerName = "Open News Category Classification Failure Details";
 
 // Fills both required callbacks with spies and returns them, so a test only names
 // the one(s) it asserts on. Extra props (e.g. newsCategory) override the defaults.
@@ -122,5 +142,47 @@ describe("NewsCategorySection", () => {
     renderSection();
 
     expect(getCustomField()).toHaveAttribute("maxlength", "24");
+  });
+
+  describe("classification failure affordance", () => {
+    test("renders the ghost error icon when the classification failed", () => {
+      renderSection({ newsCategoryClassification: failedClassification });
+
+      expect(screen.getByRole("button", { name: failureTriggerName })).toBeInTheDocument();
+    });
+
+    test("the Quiet Failure Details reveal exposes the message and debug log", async () => {
+      const user = userEvent.setup();
+      renderSection({ newsCategoryClassification: failedClassification });
+
+      await user.click(screen.getByRole("button", { name: failureTriggerName }));
+
+      // The reveal reuses the shared Quiet Failure Details surface...
+      expect(screen.getByText("Quiet Failure Details")).toBeInTheDocument();
+      // ...exposing the failure message and every debug-log line.
+      expect(screen.getByText(/Classifier returned no category/)).toBeInTheDocument();
+      expect(screen.getByText(/model returned an empty category/)).toBeInTheDocument();
+    });
+
+    test("shows no error affordance for a completed classification", () => {
+      renderSection({ newsCategoryClassification: completedClassification });
+
+      expect(screen.queryByRole("button", { name: failureTriggerName })).not.toBeInTheDocument();
+    });
+
+    test("shows no error affordance when the classification state is absent", () => {
+      renderSection();
+
+      expect(screen.queryByRole("button", { name: failureTriggerName })).not.toBeInTheDocument();
+    });
+
+    test("a failed classification leaves the editor intact — VIRAL still lights", () => {
+      // The failure never breaks the run: the chips still work and VIRAL, the
+      // residual stamp, stays lit alongside the quiet error icon.
+      renderSection({ newsCategoryClassification: failedClassification });
+
+      expect(screen.getByRole("button", { name: "VIRAL", pressed: true })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: failureTriggerName })).toBeInTheDocument();
+    });
   });
 });

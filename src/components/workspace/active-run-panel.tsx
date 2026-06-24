@@ -135,6 +135,7 @@ export function ActiveRunPanel({
           <SectionHeader title="News category" />
           <NewsCategorySection
             newsCategory={activeRun.newsCategory}
+            newsCategoryClassification={activeRun.newsCategoryClassification}
             onNewsCategoryChange={onNewsCategoryChange}
             onNewsCategoryCustomChange={onNewsCategoryCustomChange}
           />
