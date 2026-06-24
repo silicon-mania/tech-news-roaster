@@ -10,8 +10,8 @@ import { getStageFailure } from "./failure-details";
 import { GenerationFailureState } from "./generation-failure-state";
 import { ImageGenerationArea } from "./image-generation-area";
 import { ImageGenerationSkeleton } from "./image-generation-skeleton";
-import { NewsCategoryProgress } from "./news-category-progress";
 import { NewsCategorySection } from "./news-category-section";
+import { NewsCategorySectionSkeleton } from "./news-category-section-skeleton";
 import { QuietRunReveals } from "./quiet-run-reveals";
 import { SectionHeader } from "./section-header";
 import { SourceTweetPreview } from "./source-tweet-preview";
@@ -125,20 +125,28 @@ export function ActiveRunPanel({
       aria-label={isCompleted ? "Completed draft canvas" : undefined}
       className="mx-auto grid w-full max-w-5xl gap-6 self-start">
       {sourceTweetPreview}
-      <NewsCategoryProgress run={activeRun} />
       {/* The News Category editor — the same shared chips the Selected Run sidebar
           uses — as its own section in the workspace column, headed by the same
-          SectionHeader as Text/Image generation so it reads at the same scale. It
-          surfaces once the run is complete, when there is a stamp to refine. */}
-      {isCompleted ? (
-        <section aria-label="News category" className="grid min-w-0 gap-3">
+          SectionHeader as Text/Image generation so it reads at the same scale.
+          While the run is in flight it holds the section's footprint as a skeleton
+          (the classifier result only lands on completion, ADR-0027 / issue 004);
+          once complete the real editor takes its place with no layout shift. */}
+      {isRunning || isCompleted ? (
+        <section
+          aria-busy={isRunning}
+          aria-label="News category"
+          className="mb-6 grid min-w-0 gap-3">
           <SectionHeader title="News category" />
-          <NewsCategorySection
-            newsCategory={activeRun.newsCategory}
-            newsCategoryClassification={activeRun.newsCategoryClassification}
-            onNewsCategoryChange={onNewsCategoryChange}
-            onNewsCategoryCustomChange={onNewsCategoryCustomChange}
-          />
+          {isCompleted ? (
+            <NewsCategorySection
+              newsCategory={activeRun.newsCategory}
+              newsCategoryClassification={activeRun.newsCategoryClassification}
+              onNewsCategoryChange={onNewsCategoryChange}
+              onNewsCategoryCustomChange={onNewsCategoryCustomChange}
+            />
+          ) : (
+            <NewsCategorySectionSkeleton />
+          )}
         </section>
       ) : null}
       <RunWorkspaceLayout
@@ -164,9 +172,14 @@ function RunWorkspaceLayout({
   }
 
   return (
-    <section aria-label="Responsive creative workspace" className="grid items-start gap-6">
+    <section aria-label="Responsive creative workspace" className="grid items-start gap-12">
       <TextGenerationSection usersDirection={usersDirection}>{children}</TextGenerationSection>
-      {imageGenerationArea}
+      {/* Each image-area variant (the picker, its skeleton, the discovery-failure
+          card) is a fragment of header + body. Wrapping it in the same `gap-3` grid
+          TextGenerationSection uses gives its title→content the same gap as every
+          other section, instead of inheriting this section's larger inter-section
+          gap. */}
+      <div className="grid min-w-0 gap-3">{imageGenerationArea}</div>
     </section>
   );
 }
