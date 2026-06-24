@@ -6,8 +6,8 @@ status: accepted
 
 ## Context
 
-Every AI Gateway call in the app authenticated with one credential
-(`AI_GATEWAY_API_KEY`, or `VERCEL_AI_GATEWAY_API_KEY` as an alias). The
+Every AI Gateway call in the app authenticated with one shared credential
+(`AI_GATEWAY_API_KEY`). The
 unattended **Discovery Sweep** ([ADR-0020](0020-automated-discovery-via-api-list-polling.md))
 runs on a Vercel Cron every two hours and spends real gateway credit on each
 **Automated Run** — the **Newsworthiness Filter**, three-provider **Text
@@ -25,12 +25,13 @@ be both "capped for the cron" and "unrestricted for users."
 Split the credential by **run kind** — the same manual/automated distinction a
 run already records as `origin` — and route each to its own Vercel key.
 
-- **Two keys, manual unchanged.** `AI_GATEWAY_API_KEY` stays the **manual** key
-  (Workspace runs; give it no or a high limit). A new
-  `AI_GATEWAY_AUTOMATED_API_KEY` is the **automated** key (the cron; give it the
-  low spend limit). Automated resolution prefers the automated key and **falls
-  back** to `AI_GATEWAY_API_KEY ?? VERCEL_AI_GATEWAY_API_KEY` when it is unset, so
-  deployments keep working on the shared key until the second key is configured.
+- **Two keys, both required, no fallback.** `AI_GATEWAY_API_KEY` is the **manual**
+  key (Workspace runs; no spend limit). `AI_GATEWAY_AUTOMATED_API_KEY` is the
+  **automated** key (the cron; give it the low spend limit). The two are resolved
+  independently with **no fallback between them** — automated never reaches for the
+  manual key — so once the automated key hits its cap the cron stops rather than
+  spilling onto the uncapped manual key. Production must set both. (The former
+  Vercel-provided gateway-key alias is removed entirely.)
 
 - **One resolver, threaded run kind.** A single
   `readAiGatewayApiKey(env, runKind)` in `generation/ai-gateway-models.ts`
@@ -47,10 +48,10 @@ run already records as `origin` — and route each to its own Vercel key.
 - **Deliberately out of scope.** The standalone `/enrich` route
   ([ADR-0012](0012-independent-outside-x-enrichment-endpoint.md)) is modeled as an
   external service with its own credentials; its summarization call keeps the
-  shared key rather than threading run kind across that HTTP boundary. Its spend
+  manual key rather than threading run kind across that HTTP boundary. Its spend
   is marginal and self-throttles once the capped heavy calls stop for the day.
-  The Runtime Readiness status check likewise keeps reading the shared key — the
-  manual key's presence is what governs "live" mode.
+  The Runtime Readiness status check likewise keeps reading the manual key — its
+  presence is what governs "live" mode.
 
 ## Considered Options
 
@@ -68,13 +69,14 @@ run already records as `origin` — and route each to its own Vercel key.
 
 ## Consequences
 
-- Production sets two gateway keys; the user creates the second, caps it in
-  Vercel, and leaves the first uncapped. Until then, the fallback keeps the cron
-  on the shared key (pre-split behavior).
+- Production must set both gateway keys; the automated one is capped in Vercel,
+  the manual one left uncapped. There is no fallback, so a missing automated key
+  fails the cron's gateway calls (in local dev they fall to local providers) — by
+  design, since the whole point is to never bill the manual key for cron work.
 - Because run kind defaults to `"manual"`, the split is additive: the manual
   Workspace paths, their routes, and their tests needed no changes.
 - The Newsworthiness Filter is keyed `"automated"` unconditionally; if it ever
   gains a manual caller, that assumption must be revisited.
-- Key selection is centralized and unit-tested as a matrix (manual never reads
-  the capped key; automated prefers it and falls back), removing five near-
-  duplicate readers.
+- Key selection is centralized and unit-tested as a matrix (manual reads only the
+  manual key, automated only the automated key, neither falls back), removing the
+  duplicated readers and the old Vercel-provided alias.

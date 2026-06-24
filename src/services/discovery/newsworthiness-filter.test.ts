@@ -60,12 +60,12 @@ describe("local newsworthiness judge", () => {
 
 describe("AI-gateway newsworthiness judge (vendor boundary)", () => {
   const previousFetch = globalThis.fetch;
-  const previousApiKey = process.env.AI_GATEWAY_API_KEY;
+  const previousApiKey = process.env.AI_GATEWAY_AUTOMATED_API_KEY;
   const previousModel = process.env.AI_GATEWAY_NEWSWORTHINESS_MODEL;
 
   afterEach(() => {
     globalThis.fetch = previousFetch;
-    restoreEnvValue("AI_GATEWAY_API_KEY", previousApiKey);
+    restoreEnvValue("AI_GATEWAY_AUTOMATED_API_KEY", previousApiKey);
     restoreEnvValue("AI_GATEWAY_NEWSWORTHINESS_MODEL", previousModel);
   });
 
@@ -73,7 +73,7 @@ describe("AI-gateway newsworthiness judge (vendor boundary)", () => {
     const fetcher = vi.fn<typeof fetch>(async () =>
       gatewayResponse({ newsworthy: true, reason: "Funding round." }),
     );
-    process.env.AI_GATEWAY_API_KEY = "gateway-secret";
+    process.env.AI_GATEWAY_AUTOMATED_API_KEY = "gateway-secret";
     process.env.AI_GATEWAY_NEWSWORTHINESS_MODEL = "openai/newsworthiness-model";
     globalThis.fetch = fetcher;
 
@@ -94,7 +94,7 @@ describe("AI-gateway newsworthiness judge (vendor boundary)", () => {
   });
 
   test("parses an 'off-topic' verdict from a normalized gateway response", async () => {
-    process.env.AI_GATEWAY_API_KEY = "gateway-secret";
+    process.env.AI_GATEWAY_AUTOMATED_API_KEY = "gateway-secret";
     globalThis.fetch = vi.fn<typeof fetch>(async () =>
       gatewayResponse({ newsworthy: false, reason: "Personal drama, not news." }),
     );
@@ -106,7 +106,7 @@ describe("AI-gateway newsworthiness judge (vendor boundary)", () => {
   });
 
   test("tolerates a fenced JSON verdict in the gateway content", async () => {
-    process.env.AI_GATEWAY_API_KEY = "gateway-secret";
+    process.env.AI_GATEWAY_AUTOMATED_API_KEY = "gateway-secret";
     globalThis.fetch = vi.fn<typeof fetch>(async () =>
       Response.json({
         choices: [
@@ -127,10 +127,9 @@ describe("AI-gateway newsworthiness judge (vendor boundary)", () => {
 });
 
 describe("newsworthiness AI Gateway credential (automated-only)", () => {
-  test("reads the spend-capped automated key", () => {
+  test("reads the spend-capped automated key, not the manual key", () => {
     // The filter runs only in the unattended cron, so it bills the automated key.
-    // With only that key set it must still resolve a gateway judge — had it stayed
-    // on the manual resolver, this would fall back to the local heuristic.
+    // With only that key set it resolves a gateway judge.
     const judge = createDefaultNewsworthinessJudge({
       AI_GATEWAY_AUTOMATED_API_KEY: "capped-key",
     });
@@ -138,10 +137,10 @@ describe("newsworthiness AI Gateway credential (automated-only)", () => {
     expect(judge.provider).toBe("ai-gateway");
   });
 
-  test("falls back to the shared key when the automated key is unset", () => {
-    const judge = createDefaultNewsworthinessJudge({ AI_GATEWAY_API_KEY: "gateway-secret" });
+  test("does not read the manual key — only the manual key set falls to local", () => {
+    const judge = createDefaultNewsworthinessJudge({ AI_GATEWAY_API_KEY: "manual-key" });
 
-    expect(judge.provider).toBe("ai-gateway");
+    expect(judge.provider).toBe("local");
   });
 });
 

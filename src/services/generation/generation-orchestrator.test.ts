@@ -42,7 +42,6 @@ describe("generation orchestrator", () => {
       AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
       AI_GATEWAY_GOOGLE_MODEL: process.env.AI_GATEWAY_GOOGLE_MODEL,
       AI_GATEWAY_OPENAI_MODEL: process.env.AI_GATEWAY_OPENAI_MODEL,
-      VERCEL_AI_GATEWAY_API_KEY: process.env.VERCEL_AI_GATEWAY_API_KEY,
     };
     const previousFetch = globalThis.fetch;
     const gatewayBodies: unknown[] = [];
@@ -69,7 +68,6 @@ describe("generation orchestrator", () => {
     process.env.AI_GATEWAY_OPENAI_MODEL = "openai/launch";
     process.env.AI_GATEWAY_ANTHROPIC_MODEL = "anthropic/launch";
     process.env.AI_GATEWAY_GOOGLE_MODEL = "google/launch";
-    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
     globalThis.fetch = fetcher;
 
     try {
@@ -100,7 +98,6 @@ describe("generation orchestrator", () => {
       restoreEnvValue("AI_GATEWAY_OPENAI_MODEL", previousEnv.AI_GATEWAY_OPENAI_MODEL);
       restoreEnvValue("AI_GATEWAY_ANTHROPIC_MODEL", previousEnv.AI_GATEWAY_ANTHROPIC_MODEL);
       restoreEnvValue("AI_GATEWAY_GOOGLE_MODEL", previousEnv.AI_GATEWAY_GOOGLE_MODEL);
-      restoreEnvValue("VERCEL_AI_GATEWAY_API_KEY", previousEnv.VERCEL_AI_GATEWAY_API_KEY);
       globalThis.fetch = previousFetch;
     }
   });
@@ -108,7 +105,6 @@ describe("generation orchestrator", () => {
   test("passes the joke context snapshot and User's Direction into text provider prompts", async () => {
     const previousEnv = {
       AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
-      VERCEL_AI_GATEWAY_API_KEY: process.env.VERCEL_AI_GATEWAY_API_KEY,
     };
     const previousFetch = globalThis.fetch;
     const gatewayPrompts: unknown[] = [];
@@ -137,7 +133,6 @@ describe("generation orchestrator", () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
 
     process.env.AI_GATEWAY_API_KEY = "gateway-secret";
-    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
     globalThis.fetch = fetcher;
 
     try {
@@ -164,7 +159,6 @@ describe("generation orchestrator", () => {
       ).toBe(true);
     } finally {
       restoreEnvValue("AI_GATEWAY_API_KEY", previousEnv.AI_GATEWAY_API_KEY);
-      restoreEnvValue("VERCEL_AI_GATEWAY_API_KEY", previousEnv.VERCEL_AI_GATEWAY_API_KEY);
       globalThis.fetch = previousFetch;
     }
   });
@@ -172,7 +166,6 @@ describe("generation orchestrator", () => {
   test("extracts fenced gateway JSON and trims overlong draft text", async () => {
     const previousEnv = {
       AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
-      VERCEL_AI_GATEWAY_API_KEY: process.env.VERCEL_AI_GATEWAY_API_KEY,
     };
     const previousFetch = globalThis.fetch;
     const fetcher = vi.fn(async () =>
@@ -194,7 +187,6 @@ describe("generation orchestrator", () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
 
     process.env.AI_GATEWAY_API_KEY = "gateway-secret";
-    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
     globalThis.fetch = fetcher;
 
     try {
@@ -213,7 +205,6 @@ describe("generation orchestrator", () => {
       });
     } finally {
       restoreEnvValue("AI_GATEWAY_API_KEY", previousEnv.AI_GATEWAY_API_KEY);
-      restoreEnvValue("VERCEL_AI_GATEWAY_API_KEY", previousEnv.VERCEL_AI_GATEWAY_API_KEY);
       globalThis.fetch = previousFetch;
     }
   });
@@ -274,7 +265,6 @@ describe("generation orchestrator", () => {
       AI_GATEWAY_GOOGLE_MODEL: process.env.AI_GATEWAY_GOOGLE_MODEL,
       AI_GATEWAY_OPENAI_MODEL: process.env.AI_GATEWAY_OPENAI_MODEL,
       AI_GATEWAY_TEXT_TIMEOUT_MS: process.env.AI_GATEWAY_TEXT_TIMEOUT_MS,
-      VERCEL_AI_GATEWAY_API_KEY: process.env.VERCEL_AI_GATEWAY_API_KEY,
     };
     const previousFetch = globalThis.fetch;
     const fetcher = vi.fn<typeof fetch>((_input, init) => {
@@ -312,7 +302,6 @@ describe("generation orchestrator", () => {
     process.env.AI_GATEWAY_ANTHROPIC_MODEL = "anthropic/model";
     process.env.AI_GATEWAY_GOOGLE_MODEL = "google/model";
     process.env.AI_GATEWAY_TEXT_TIMEOUT_MS = "50";
-    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
     globalThis.fetch = fetcher;
 
     try {
@@ -336,7 +325,6 @@ describe("generation orchestrator", () => {
       restoreEnvValue("AI_GATEWAY_ANTHROPIC_MODEL", previousEnv.AI_GATEWAY_ANTHROPIC_MODEL);
       restoreEnvValue("AI_GATEWAY_GOOGLE_MODEL", previousEnv.AI_GATEWAY_GOOGLE_MODEL);
       restoreEnvValue("AI_GATEWAY_TEXT_TIMEOUT_MS", previousEnv.AI_GATEWAY_TEXT_TIMEOUT_MS);
-      restoreEnvValue("VERCEL_AI_GATEWAY_API_KEY", previousEnv.VERCEL_AI_GATEWAY_API_KEY);
       globalThis.fetch = previousFetch;
     }
   });

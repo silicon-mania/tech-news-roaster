@@ -8,74 +8,45 @@ describe("readAiGatewayApiKey", () => {
     });
 
     test("defaults to manual when no run kind is passed", () => {
-      // The five pipeline call sites omit the argument on the manual path; the
-      // default must resolve the shared key, never the capped automated key.
+      // The pipeline call sites omit the argument on the manual path; the default
+      // must resolve the manual key, never the capped automated key.
       expect(readAiGatewayApiKey({ AI_GATEWAY_API_KEY: "manual-key" })).toBe(
         readAiGatewayApiKey({ AI_GATEWAY_API_KEY: "manual-key" }, "manual"),
       );
     });
 
-    test("falls back to VERCEL_AI_GATEWAY_API_KEY when AI_GATEWAY_API_KEY is unset", () => {
-      expect(readAiGatewayApiKey({ VERCEL_AI_GATEWAY_API_KEY: "vercel-key" }, "manual")).toBe(
-        "vercel-key",
-      );
-    });
-
-    test("prefers AI_GATEWAY_API_KEY over VERCEL_AI_GATEWAY_API_KEY", () => {
+    test("ignores the automated key — its $5/day cap must not throttle Workspace users", () => {
       expect(
-        readAiGatewayApiKey(
-          { AI_GATEWAY_API_KEY: "manual-key", VERCEL_AI_GATEWAY_API_KEY: "vercel-key" },
-          "manual",
-        ),
-      ).toBe("manual-key");
-    });
-
-    test("never reads the automated key — a $5/day cap on it must not throttle Workspace users", () => {
-      expect(
-        readAiGatewayApiKey(
-          { AI_GATEWAY_AUTOMATED_API_KEY: "capped-key", AI_GATEWAY_API_KEY: "manual-key" },
-          "manual",
-        ),
-      ).toBe("manual-key");
+        readAiGatewayApiKey({ AI_GATEWAY_AUTOMATED_API_KEY: "capped-key" }, "manual"),
+      ).toBeUndefined();
     });
   });
 
   describe("automated runs (the cron / Discovery Sweep)", () => {
-    test("prefers AI_GATEWAY_AUTOMATED_API_KEY", () => {
+    test("uses AI_GATEWAY_AUTOMATED_API_KEY", () => {
+      expect(readAiGatewayApiKey({ AI_GATEWAY_AUTOMATED_API_KEY: "capped-key" }, "automated")).toBe(
+        "capped-key",
+      );
+    });
+
+    test("does NOT fall back to the manual key — once capped, the cron must stop, not spill over", () => {
       expect(
-        readAiGatewayApiKey(
-          { AI_GATEWAY_AUTOMATED_API_KEY: "capped-key", AI_GATEWAY_API_KEY: "manual-key" },
-          "automated",
-        ),
-      ).toBe("capped-key");
-    });
-
-    test("falls back to the shared key when the automated key is unset (pre-split behavior)", () => {
-      expect(readAiGatewayApiKey({ AI_GATEWAY_API_KEY: "manual-key" }, "automated")).toBe(
-        "manual-key",
-      );
-    });
-
-    test("falls back through to VERCEL_AI_GATEWAY_API_KEY when only it is set", () => {
-      expect(readAiGatewayApiKey({ VERCEL_AI_GATEWAY_API_KEY: "vercel-key" }, "automated")).toBe(
-        "vercel-key",
-      );
+        readAiGatewayApiKey({ AI_GATEWAY_API_KEY: "manual-key" }, "automated"),
+      ).toBeUndefined();
     });
   });
 
   describe("absent and blank credentials", () => {
-    test("returns undefined when nothing is configured", () => {
+    test("returns undefined when the relevant key is unset", () => {
       expect(readAiGatewayApiKey({}, "manual")).toBeUndefined();
       expect(readAiGatewayApiKey({}, "automated")).toBeUndefined();
     });
 
-    test("treats whitespace-only values as unset", () => {
+    test("treats a whitespace-only value as unset", () => {
+      expect(readAiGatewayApiKey({ AI_GATEWAY_API_KEY: "   " }, "manual")).toBeUndefined();
       expect(
-        readAiGatewayApiKey(
-          { AI_GATEWAY_AUTOMATED_API_KEY: "   ", AI_GATEWAY_API_KEY: "manual-key" },
-          "automated",
-        ),
-      ).toBe("manual-key");
+        readAiGatewayApiKey({ AI_GATEWAY_AUTOMATED_API_KEY: "   " }, "automated"),
+      ).toBeUndefined();
     });
   });
 });

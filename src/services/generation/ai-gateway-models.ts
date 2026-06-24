@@ -38,24 +38,19 @@ export function readEnvValue(value: string | undefined) {
 }
 
 /**
- * Resolves the AI Gateway credential for a run. Manual runs (the Workspace
- * default) use `AI_GATEWAY_API_KEY ?? VERCEL_AI_GATEWAY_API_KEY` — unchanged.
- * Automated runs prefer `AI_GATEWAY_AUTOMATED_API_KEY` so its Vercel spend limit
- * caps the cron without throttling Workspace users, and fall back to the shared
- * key when it is unset, preserving pre-split behavior until the cron key is
- * configured. Both `enrich/route.ts` and `runtime-status.ts` keep their own
- * shared-key reads — only the in-app generation pipeline splits.
+ * Resolves the AI Gateway credential for a run. The two run kinds map to two
+ * separate, independently-billed Vercel keys with **no fallback between them**:
+ * manual (Workspace) runs use `AI_GATEWAY_API_KEY`, automated (cron) runs use
+ * `AI_GATEWAY_AUTOMATED_API_KEY`. Keeping them distinct lets a spend limit on the
+ * automated key cap the cron without ever touching the manual key. Returns
+ * undefined when the relevant key is unset — local dev then falls back to local
+ * providers; production requires both keys.
  */
 export function readAiGatewayApiKey(
   env: AiGatewayModelEnvironment,
   runKind: GatewayRunKind = "manual",
 ) {
-  const sharedKey =
-    readEnvValue(env.AI_GATEWAY_API_KEY) ?? readEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
-
-  if (runKind === "automated") {
-    return readEnvValue(env.AI_GATEWAY_AUTOMATED_API_KEY) ?? sharedKey;
-  }
-
-  return sharedKey;
+  return runKind === "automated"
+    ? readEnvValue(env.AI_GATEWAY_AUTOMATED_API_KEY)
+    : readEnvValue(env.AI_GATEWAY_API_KEY);
 }
