@@ -126,7 +126,7 @@ export function FinalQuoteTweetImageOverlay({
               <div className="px-2">
                 <div className="overflow-hidden rounded-xl">
                   <QuoteTweetComposite
-                    bandColor={resolveBandColor(run.newsCategory)}
+                    bandColor={resolveBandColor(run.newsCategory, run.newsCategoryColor)}
                     imageAlt={selectedVariation.altText ?? selectedVariation.label}
                     imageUrl={selectedVariation.url}
                     label={resolveNewsCategoryStamp(run.newsCategory)}

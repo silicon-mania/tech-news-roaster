@@ -34,16 +34,18 @@ const failureTriggerName = "Open News Category Classification Failure Details";
 function renderSection(props: Partial<Parameters<typeof NewsCategorySection>[0]> = {}) {
   const onNewsCategoryChange = vi.fn();
   const onNewsCategoryCustomChange = vi.fn();
+  const onNewsCategoryColorChange = vi.fn();
 
-  render(
+  const view = render(
     <NewsCategorySection
       onNewsCategoryChange={onNewsCategoryChange}
       onNewsCategoryCustomChange={onNewsCategoryCustomChange}
+      onNewsCategoryColorChange={onNewsCategoryColorChange}
       {...props}
     />,
   );
 
-  return { onNewsCategoryChange, onNewsCategoryCustomChange };
+  return { onNewsCategoryChange, onNewsCategoryCustomChange, onNewsCategoryColorChange, view };
 }
 
 function getCustomField() {
@@ -139,8 +141,14 @@ describe("NewsCategorySection", () => {
   test("a custom word lights no chip and fills the field — mutually exclusive", () => {
     renderSection({ newsCategory: "breaking" });
 
-    // A value outside the ten lights no chip...
-    expect(screen.queryByRole("button", { pressed: true })).not.toBeInTheDocument();
+    // A value outside the ten lights no chip (the Band color row's active swatch is
+    // a separate control, so scope to the category chips by their bare name)...
+    for (const category of newsCategories) {
+      expect(screen.getByRole("button", { name: category })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    }
     // ...and fills the custom field with the stored (un-cased) word instead.
     expect(getCustomField()).toHaveValue("breaking");
   });
@@ -170,6 +178,102 @@ describe("NewsCategorySection", () => {
     renderSection();
 
     expect(getCustomField()).toHaveAttribute("maxlength", "24");
+  });
+
+  describe("custom-word band color row", () => {
+    test("a custom word reveals the Band color row of ten category swatches", () => {
+      renderSection({ newsCategory: "breaking" });
+
+      // Each swatch is named (and tooltip-named) by the category its color comes
+      // from, so the operator can tint their custom label's band.
+      for (const category of newsCategories) {
+        expect(screen.getByRole("button", { name: `${category} band color` })).toBeInTheDocument();
+      }
+    });
+
+    test("a lit preset chip shows no Band color row — presets have no color control", () => {
+      renderSection({ newsCategory: "ACQUIRED" });
+
+      expect(screen.queryByRole("button", { name: "VIRAL band color" })).not.toBeInTheDocument();
+    });
+
+    test("a value-less run (VIRAL preset) shows no Band color row", () => {
+      renderSection();
+
+      expect(screen.queryByRole("button", { name: "VIRAL band color" })).not.toBeInTheDocument();
+    });
+
+    test("the active swatch defaults to VIRAL when the custom word has no stored color", () => {
+      renderSection({ newsCategory: "breaking" });
+
+      expect(
+        screen.getByRole("button", { name: "VIRAL band color", pressed: true }),
+      ).toBeInTheDocument();
+      // It is the only highlighted swatch.
+      expect(screen.getByRole("button", { name: "DRAMA band color" })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    });
+
+    test("the stored newsCategoryColor is the highlighted swatch", () => {
+      renderSection({ newsCategory: "breaking", newsCategoryColor: "DRAMA" });
+
+      expect(
+        screen.getByRole("button", { name: "DRAMA band color", pressed: true }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "VIRAL band color" })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    });
+
+    test("clicking a swatch invokes the immediate-save callback, never the debounced text one", async () => {
+      const user = userEvent.setup();
+      const { onNewsCategoryColorChange, onNewsCategoryCustomChange, onNewsCategoryChange } =
+        renderSection({ newsCategory: "breaking" });
+
+      await user.click(screen.getByRole("button", { name: "FUNDED band color" }));
+
+      // The color pick rides the same immediate save a chip pick uses — never the
+      // debounced custom-word text path, and never the chip change.
+      expect(onNewsCategoryColorChange).toHaveBeenCalledExactlyOnceWith("FUNDED");
+      expect(onNewsCategoryCustomChange).not.toHaveBeenCalled();
+      expect(onNewsCategoryChange).not.toHaveBeenCalled();
+    });
+
+    test("re-picking the active swatch is a no-op", async () => {
+      const user = userEvent.setup();
+      const { onNewsCategoryColorChange } = renderSection({
+        newsCategory: "breaking",
+        newsCategoryColor: "DRAMA",
+      });
+
+      await user.click(screen.getByRole("button", { name: "DRAMA band color" }));
+
+      // The active color is the floor here, so re-picking it skips a redundant save.
+      expect(onNewsCategoryColorChange).not.toHaveBeenCalled();
+    });
+
+    test("switching from a custom word back to a preset chip hides the row", () => {
+      const noop = vi.fn();
+      const element = (newsCategory: string) => (
+        <NewsCategorySection
+          newsCategory={newsCategory}
+          onNewsCategoryChange={noop}
+          onNewsCategoryCustomChange={noop}
+          onNewsCategoryColorChange={noop}
+        />
+      );
+
+      const { rerender } = render(element("breaking"));
+      // The custom word shows the row...
+      expect(screen.getByRole("button", { name: "VIRAL band color" })).toBeInTheDocument();
+
+      // ...and switching to a preset chip removes it.
+      rerender(element("ACQUIRED"));
+      expect(screen.queryByRole("button", { name: "VIRAL band color" })).not.toBeInTheDocument();
+    });
   });
 
   describe("classification failure affordance", () => {

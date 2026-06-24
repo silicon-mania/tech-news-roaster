@@ -8,6 +8,8 @@ import {
   collectCompletedImageSets,
   draftTarget,
   type ImageGenerationInput,
+  isNewsCategory,
+  type NewsCategory,
 } from "@/services/generation";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { httpSavedRunStore } from "@/services/saved-runs";
@@ -379,6 +381,10 @@ export function Workspace({
     const updatedRun: GenerationRun = {
       ...activeRun,
       newsCategory,
+      // Picking a preset chip restores that category's own color; presets carry no
+      // separate color, so drop any custom-word color the run held (ADR-0029). A
+      // custom word keeps its color across text edits.
+      newsCategoryColor: isNewsCategory(newsCategory) ? undefined : activeRun.newsCategoryColor,
     };
 
     setRuns((currentRuns) =>
@@ -397,6 +403,25 @@ export function Workspace({
   // draft editing), so typing doesn't thrash the store on every keystroke (ADR-0027).
   function updateNewsCategoryCustom(newsCategory: string) {
     applyNewsCategory(newsCategory, scheduleRunAutosave);
+  }
+
+  // Picking a custom word's band color is a discrete choice like a chip pick — it
+  // saves immediately (ADR-0029), never the debounced text path, so the poster
+  // recolors live and the choice persists at once.
+  function updateNewsCategoryColor(newsCategoryColor: NewsCategory) {
+    if (activeRun?.status !== "completed") {
+      return;
+    }
+
+    const updatedRun: GenerationRun = {
+      ...activeRun,
+      newsCategoryColor,
+    };
+
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => (run.id === updatedRun.id ? updatedRun : run)),
+    );
+    saveRunNow(updatedRun);
   }
 
   function startImageGeneration(input: ImageGenerationInput) {
@@ -506,6 +531,7 @@ export function Workspace({
               onDraftTextChange={updateDraftText}
               onNewsCategoryChange={updateNewsCategory}
               onNewsCategoryCustomChange={updateNewsCategoryCustom}
+              onNewsCategoryColorChange={updateNewsCategoryColor}
               onSelectedDraftChange={updateSelectedDraft}
               onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
               onStartImageGeneration={startImageGeneration}

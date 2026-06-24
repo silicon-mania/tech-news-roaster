@@ -7,6 +7,7 @@ import { ImageSetStack, UploadImageButton } from "@/components/image-sets";
 import { Button } from "@/components/ui/button";
 import { DraftComparison } from "@/components/workspace/draft-comparison";
 import { NewsCategorySection } from "@/components/workspace/news-category-section";
+import type { NewsCategory } from "@/services/generation";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
 import { FinalImageDownload } from "./final-image-download";
@@ -22,6 +23,8 @@ type SelectedRunSidebarProps = {
   onNewsCategoryChange: (newsCategory: string) => void;
   /** Edit the run's custom News Category word — saves debounced, re-stamps the preview. */
   onNewsCategoryCustomChange: (newsCategory: string) => void;
+  /** Pick a custom word's band color — saves immediately, recolors the preview. */
+  onNewsCategoryColorChange: (newsCategoryColor: NewsCategory) => void;
   /** Upload an image of the operator's own to generate a new Uploaded Image Set. */
   onUploadImage: (file: File) => void;
   /** Whether an upload generation is in flight (disables the trigger, shows skeleton). */
@@ -59,6 +62,7 @@ export function SelectedRunSidebar({
   onSelectedGeneratedImageChange,
   onNewsCategoryChange,
   onNewsCategoryCustomChange,
+  onNewsCategoryColorChange,
   onUploadImage,
   isUploadGenerating,
   onDelete,
@@ -111,8 +115,10 @@ export function SelectedRunSidebar({
             <NewsCategorySection
               newsCategory={run.newsCategory}
               newsCategoryClassification={run.newsCategoryClassification}
+              newsCategoryColor={run.newsCategoryColor}
               onNewsCategoryChange={onNewsCategoryChange}
               onNewsCategoryCustomChange={onNewsCategoryCustomChange}
+              onNewsCategoryColorChange={onNewsCategoryColorChange}
             />
           </section>
 

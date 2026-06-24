@@ -99,7 +99,7 @@ export function FinalImageDownload({
       </div>
       <div className="overflow-hidden rounded-xl">
         <QuoteTweetComposite
-          bandColor={resolveBandColor(run.newsCategory)}
+          bandColor={resolveBandColor(run.newsCategory, run.newsCategoryColor)}
           imageAlt={variation.altText ?? variation.label}
           imageUrl={variation.url}
           label={resolveNewsCategoryStamp(run.newsCategory)}

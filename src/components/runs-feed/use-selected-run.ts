@@ -11,7 +11,11 @@ import {
 import { toast } from "sonner";
 import { useUploadedImageGeneration } from "@/components/image-sets";
 import { useRunAutosave } from "@/components/workspace/use-run-autosave";
-import { collectCompletedImageSets } from "@/services/generation";
+import {
+  collectCompletedImageSets,
+  isNewsCategory,
+  type NewsCategory,
+} from "@/services/generation";
 import type { GenerationRun, SavedRunStore } from "@/services/workspace";
 
 /**
@@ -48,6 +52,8 @@ type SelectedRun = {
   updateNewsCategory: (newsCategory: string) => void;
   /** Edit the custom News Category word — updates the card and autosaves (debounced). */
   updateNewsCategoryCustom: (newsCategory: string) => void;
+  /** Pick a custom word's band color — updates the card and saves immediately. */
+  updateNewsCategoryColor: (newsCategoryColor: NewsCategory) => void;
   /** Upload an image of the operator's own and generate a new Uploaded Image Set. */
   uploadSelectedRunImage: (file: File) => void;
   /** Whether an Uploaded Image Set generation is in flight (disables the trigger). */
@@ -207,6 +213,10 @@ export function useSelectedRun({
     const updatedRun: GenerationRun = {
       ...selectedRun,
       newsCategory,
+      // Picking a preset chip restores that category's own color; presets carry no
+      // separate color, so drop any custom-word color the run held (ADR-0029). A
+      // custom word keeps its color across text edits.
+      newsCategoryColor: isNewsCategory(newsCategory) ? undefined : selectedRun.newsCategoryColor,
     };
 
     setRuns((currentRuns) =>
@@ -225,6 +235,25 @@ export function useSelectedRun({
   // inline draft editing), so typing doesn't thrash the store.
   function updateNewsCategoryCustom(newsCategory: string) {
     applyNewsCategory(newsCategory, scheduleRunAutosave);
+  }
+
+  // Picking a custom word's band color is a discrete choice like a chip pick — it
+  // saves immediately (ADR-0029), never the debounced text path, so the card
+  // recolors live and the choice persists at once.
+  function updateNewsCategoryColor(newsCategoryColor: NewsCategory) {
+    if (!selectedRun) {
+      return;
+    }
+
+    const updatedRun: GenerationRun = {
+      ...selectedRun,
+      newsCategoryColor,
+    };
+
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => (run.id === updatedRun.id ? updatedRun : run)),
+    );
+    saveRunNow(updatedRun);
   }
 
   function uploadSelectedRunImage(file: File) {
@@ -298,6 +327,7 @@ export function useSelectedRun({
     updateSelectedGeneratedImage,
     updateNewsCategory,
     updateNewsCategoryCustom,
+    updateNewsCategoryColor,
     uploadSelectedRunImage,
     isUploadGenerating: generatingRunId !== null,
     deleteSelectedRun,

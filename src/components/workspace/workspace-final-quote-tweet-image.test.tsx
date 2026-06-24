@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
-import { categoryBandColors } from "@/services/generation";
+import { categoryBandColors, newsCategories } from "@/services/generation";
 import {
   buildCompletedRun,
   buildCompletedV3Run,
@@ -122,8 +122,18 @@ describe("Workspace final quote tweet image overlay", () => {
         expect.objectContaining({ id: "saved-run", newsCategory: "breaking" }),
       ),
     );
-    // ...every chip de-highlights (chip and custom word are mutually exclusive)...
-    expect(within(newsCategory).queryByRole("button", { pressed: true })).not.toBeInTheDocument();
+    // ...every chip de-highlights (chip and custom word are mutually exclusive —
+    // scope to the chips, since the revealed Band color row has its own swatch)...
+    for (const category of newsCategories) {
+      expect(within(newsCategory).getByRole("button", { name: category })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    }
+    // ...the Band color row appears, defaulting to the VIRAL swatch...
+    expect(
+      within(newsCategory).getByRole("button", { name: "VIRAL band color", pressed: true }),
+    ).toBeInTheDocument();
     // ...and the overlay re-stamps live, uppercased to match the vocabulary look.
     expect(within(finalArea).getByText("BREAKING")).toBeInTheDocument();
     expect(within(finalArea).queryByText(fallbackStamp)).not.toBeInTheDocument();

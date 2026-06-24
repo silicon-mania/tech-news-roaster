@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { ImageGenerationInput } from "@/services/generation";
+import type { ImageGenerationInput, NewsCategory } from "@/services/generation";
 import { draftTarget } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { CreativeFailureArea } from "./creative-failure-area";
@@ -24,6 +24,7 @@ type ActiveRunPanelProps = {
   onDraftTextChange: (draftId: string, text: string) => void;
   onNewsCategoryChange: (newsCategory: string) => void;
   onNewsCategoryCustomChange: (newsCategory: string) => void;
+  onNewsCategoryColorChange: (newsCategoryColor: NewsCategory) => void;
   onSelectedDraftChange: (draftId: string | null) => void;
   onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
@@ -36,6 +37,7 @@ export function ActiveRunPanel({
   onDraftTextChange,
   onNewsCategoryChange,
   onNewsCategoryCustomChange,
+  onNewsCategoryColorChange,
   onSelectedDraftChange,
   onSelectedGeneratedImageChange,
   onStartImageGeneration,
@@ -141,8 +143,10 @@ export function ActiveRunPanel({
             <NewsCategorySection
               newsCategory={activeRun.newsCategory}
               newsCategoryClassification={activeRun.newsCategoryClassification}
+              newsCategoryColor={activeRun.newsCategoryColor}
               onNewsCategoryChange={onNewsCategoryChange}
               onNewsCategoryCustomChange={onNewsCategoryCustomChange}
+              onNewsCategoryColorChange={onNewsCategoryColorChange}
             />
           ) : (
             <NewsCategorySectionSkeleton />
