@@ -4,6 +4,8 @@ status: accepted
 
 # AI-Selected News Category Stamp
 
+> **Status: extended by [ADR-0029](0029-category-colored-quote-tweet-template-and-locked-in-logo.md).** The News Category now also carries a **News Category Color** — a band color fixed per category and shown as a swatch on every chip. A custom-word stamp picks one via a new optional `newsCategoryColor` field (default VIRAL). The classification, override, and failure model decided here are unchanged.
+
 ## Context
 
 Since [ADR-0026](0026-remove-visual-joke-generation.md) emptied the visual-joke

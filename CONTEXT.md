@@ -317,12 +317,20 @@ The one generated Image Option — always one of the four variations, never an o
 _Avoid_: Selected Image Original, selected variation, composite image, chosen image
 
 **Final Quote Tweet Image**:
-The shareable image a generation run produces by placing the run's News Category stamp over the Selected Generated Image, using the fixed Silicon Mania layout while leaving every other visual element of that layout unchanged.
+The shareable image a generation run produces by placing the run's News Category stamp — set on a headline band tinted with its News Category Color — over the Selected Generated Image and beneath the fixed Locked-In Logo, using the fixed Silicon Mania layout. Every element's placement is identical across runs and categories; only the stamp text and its band color vary.
 _Avoid_: Quote Tweet image, final card, composite, meme
 
 **News Category**:
-The fixed-vocabulary classification of the source tweet's news, rendered as the headline stamp on the Final Quote Tweet Image. A language model auto-selects one value while the run generates; the operator can override it afterward — re-picking another value or entering a custom word — and the chosen value is the one the run keeps. The ten values are LAUNCHED (a new company appears or leaves stealth), DROPPED (a substantial product or body of work ships — an app, a major release, an album, a model), ACQUIRED (one company buys or merges with another), SIGNED (a notable person joins a different company), FIRED (a person is forced out, or staff are laid off), RESIGNED (a person voluntarily steps down), FUNDED (a company raises a funding round in exchange for shares), PUBLISHED (a lighter editorial or creative piece — an essay, article, blog post, or single song), DRAMA (public controversy fitting none of the above), and VIRAL (the residual when nothing more specific applies, also shown when classification fails).
+The fixed-vocabulary classification of the source tweet's news, rendered as the headline stamp on the Final Quote Tweet Image. A language model auto-selects one value while the run generates; the operator can override it afterward — re-picking another value or entering a custom word — and the chosen value is the one the run keeps. The ten values are LAUNCHED (a new company appears or leaves stealth), DROPPED (a substantial product or body of work ships — an app, a major release, an album, a model), ACQUIRED (one company buys or merges with another), SIGNED (a notable person joins a different company), FIRED (a person is forced out, or staff are laid off), RESIGNED (a person voluntarily steps down), FUNDED (a company raises a funding round in exchange for shares), PUBLISHED (a lighter editorial or creative piece — an essay, article, blog post, or single song), DRAMA (public controversy fitting none of the above), and VIRAL (the residual when nothing more specific applies, also shown when classification fails). Each of the ten also owns a fixed News Category Color used for the stamp's band; a custom-word stamp instead keeps a separately chosen band color.
 _Avoid_: Run Label, label, tag, headline, LABEL GOES HERE
+
+**News Category Color**:
+The signature color of the Final Quote Tweet Image's headline band, fixed per News Category — each of the ten owns exactly one — and shown as a swatch beside that category wherever the stamp is edited, on both editing surfaces. A custom-word stamp has no category, so it carries an operator-chosen band color picked from those same ten, defaulting to the VIRAL color until changed. The set is closed; the band is never a free-form color, and the label text on it is always white.
+_Avoid_: Theme, accent, brand color, hex, palette token
+
+**Locked-In Logo**:
+The fixed brand wordmark pinned to the top-left of every Final Quote Tweet Image, identical across all News Categories and runs and held as a single swappable asset so a rebrand is a file change, not a layout change. It is the current first version of the Locked-In mark and replaces the earlier top-edge brand stripe.
+_Avoid_: Silicon Mania logo, rainbow stripe, per-category badge, News Category stamp
 
 ## Editing
 
