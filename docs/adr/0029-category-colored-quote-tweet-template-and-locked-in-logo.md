@@ -17,7 +17,7 @@ A new Figma template (file `BRspEDx97oRutl2hM0NqpP`, section node `4131:226`, on
 frame per category) reskins the asset. The structure is identical across all ten
 cards except for one thing: the band's color. Each News Category now reads on a
 **band tinted with its own color**; the headline label is **centered, single-line,
-white**, in a new face (**Vina Sans**); the rainbow stripe is gone; and a fixed
+white**, in a new face (**CompactaICG Italic**); the rainbow stripe is gone; and a fixed
 top-left wordmark — **"LOCKED-IN"** — replaces it as the brand mark.
 
 This is an **internal, single-operator tool**: there is no retro-compatibility
@@ -42,16 +42,19 @@ Replace the baked template and give **News Category** a color dimension.
   gradient bitmap. The rainbow stripe and its `rainbow-stripe.png` asset are
   removed.
 
-- **Font.** The label and wordmark use **Vina Sans** (Regular, uppercase,
+- **Font.** The label uses **CompactaICG** (Compacta ICG Italic, weight 500,
   ≈ −0.02em tracking), self-hosted via a hand-written `@font-face` exactly as the
-  current face is bundled. VC Henrietta Condensed is dropped from this asset (and
-  removed entirely if nothing else uses it).
+  current faces are bundled. VC Henrietta Condensed is dropped from this asset but
+  **kept** as the app's editorial section-title serif (`.title-serif`, which still
+  uses it). _(Amended in slice 004: the label face was originally specced as Vina
+  Sans and changed to CompactaICG Italic during implementation — a deliberate design
+  change, the template being expected to keep evolving. Vina Sans was not retained.)_
 
 - **Locked-In Logo.** The top-left wordmark is treated as a **brand logo, not text**
   — committed as a single **SVG** asset pinned at the fixed rect (`x72 y30`, ~`516×204`)
   and rendered as one `<img>`, identical for all ten categories. It is exported with
-  outlined text, so it carries its own shape and does not depend on the Vina Sans
-  font loading. This is the first version of the Locked-In mark; a future rebrand is
+  outlined text, so it carries its own shape and does not depend on any font
+  loading. This is the first version of the Locked-In mark; a future rebrand is
   a **file swap** (+ a size constant if proportions change), never a composite edit.
 
 - **Color model — derived for presets, picked for custom.** A closed
@@ -111,8 +114,9 @@ custom-label case).
   the band/gradient/label/logo all derive from the new template module.
 - One new optional run field, `newsCategoryColor`, meaningful only for custom-word
   stamps; presets derive their color and store nothing.
-- New committed assets: the Locked-In Logo SVG and the Vina Sans font face. Removed:
-  `rainbow-stripe.png` and (if otherwise unused) VC Henrietta Condensed.
+- New committed assets: the Locked-In Logo SVG and the CompactaICG Italic font face.
+  Removed: `rainbow-stripe.png`. VC Henrietta Condensed is kept — it remains the
+  app's editorial section-title serif.
 - Every existing saved run re-renders against the new template on next open/download;
   an old custom-label run shows the VIRAL color until edited. This is accepted.
 - Adding or retuning a band color is a code change in `categoryBandColors` — closed

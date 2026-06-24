@@ -1,12 +1,18 @@
 /**
- * Baked Silicon Mania Quote Tweet template.
+ * Baked Locked-In Quote Tweet template.
  *
- * Extracted once from Figma node 4016-97 (file BRspEDx97oRutl2hM0NqpP) and
- * committed so runtime composition never depends on Figma or its API. All
- * geometry is in the template's native pixel space (top-left origin); both the
- * live preview and the 2x rasterization scale from these numbers.
+ * Re-extracted once from Figma node 4131 (file BRspEDx97oRutl2hM0NqpP) — the
+ * category-frame template — and committed so runtime composition never depends
+ * on Figma or its API. Every category renders the same structure: an image
+ * filling the area above a colored headline band, a vertical fade blending the
+ * two, a centered single-line News Category label (CompactaICG Italic), and the
+ * fixed top-left Locked-In Logo. Only the band color and the label text change.
  *
- * See docs/adr/0018-deterministic-derived-final-quote-tweet-image.md.
+ * All geometry is in the template's native pixel space (top-left origin); both
+ * the live preview and the 2x rasterization scale from these numbers.
+ *
+ * See docs/adr/0029-category-colored-quote-tweet-template-and-locked-in-logo.md
+ * (amends docs/adr/0018-deterministic-derived-final-quote-tweet-image.md).
  */
 
 /** A rectangle in the template's native pixel space. */
@@ -20,77 +26,93 @@ export interface TemplateRect {
 /** Fixed portrait frame at native resolution. */
 export const quoteTweetFrame = { width: 3240, height: 4050 } as const;
 
-/** Top region the Selected Generated Image fills (cover, center anchor). */
+/**
+ * Colored headline band (Figma `fill-rectangle`) pinned to the bottom of the
+ * frame. It carries no color of its own here — the composite tints it at
+ * runtime with the run's resolved band color (ADR-0029), surfaced as the
+ * composite's background showing through below the image region.
+ */
+export const quoteTweetBand: TemplateRect = {
+  x: 0,
+  y: 2997,
+  width: 3240,
+  height: 1053,
+};
+
+/** Region the Selected Generated Image fills (cover, center) — everything above the band. */
 export const quoteTweetImageRegion: TemplateRect = {
   x: 0,
   y: 0,
   width: 3240,
-  height: 2762,
-};
-
-/** Bottom black band that holds the Joke Title. */
-export const quoteTweetTitleBand: TemplateRect = {
-  x: 0,
-  y: 2762,
-  width: 3240,
-  height: 1288,
-};
-
-/** Title text box inside the band (left-aligned, white, auto-fit). */
-export const quoteTweetTitleBox: TemplateRect = {
-  x: 292,
-  y: 2838,
-  width: 2790,
-  height: 896,
+  height: 2997, // == quoteTweetBand.y — the image meets the band top
 };
 
 /**
- * Vertical gradient that fades the image into the band (transparent -> black,
- * top to bottom). It overlaps the bottom of the image region and the top of the
- * band so the seam between picture and band is invisible.
+ * Centered label box inside the band (Figma `news-category` text). The News
+ * Category label is centered horizontally and vertically and renders on a
+ * single line, shrinking to fit this width rather than truncating. The band is
+ * inset symmetrically so even the widest preset (PUBLISHED, ~2442px at the
+ * design size) clears it with slack for Figma↔browser metric drift; a longer
+ * custom word shrinks to fit.
+ */
+export const quoteTweetLabelBox: TemplateRect = {
+  x: 240,
+  y: 3051,
+  width: 2760,
+  height: 946,
+};
+
+/**
+ * Vertical fade that blends the image into the band (Figma `Rectangle 124`):
+ * transparent at the top, the resolved band color at the bottom. Reproduced as
+ * a CSS gradient (not a baked bitmap) so it always tracks the runtime band
+ * color. It overlaps the bottom of the image region and meets the band top, so
+ * the seam between picture and band is invisible.
  */
 export const quoteTweetBandGradient = {
   x: 0,
-  y: 2132,
+  y: 2186,
   width: 3240,
-  height: 647,
+  height: 811, // 2186 + 811 == quoteTweetBand.y
   angleDeg: 180,
-  from: "rgba(0, 0, 0, 0)",
-  to: "rgba(0, 0, 0, 1)",
 } as const;
 
 /**
- * Rainbow brand stripe pinned to the top edge. Committed as a bitmap because
- * its segment widths and hues are brand-exact; `segments` records the sampled
- * colors for reference and fallback only.
+ * The Locked-In Logo — the fixed top-left brand mark (Figma `top-left-logo`).
+ * Committed as an SVG with outlined text (vector paths, no `<text>`), so it is
+ * font-independent and crisp at the 2x rasterization, and a future rebrand is a
+ * file swap (plus this rect if the proportions change). Rendered as one `<img>`,
+ * identical on every category and run.
  */
-export const quoteTweetRainbowStripe = {
-  src: "/assets/quote-tweet/rainbow-stripe.png",
-  x: -3,
-  y: -23,
-  width: 3243,
-  height: 53,
-  segments: ["#5dbe3d", "#f5c518", "#f08a1c", "#e63d38", "#9a3db3", "#1fa8e8"],
+export const quoteTweetLogo = {
+  src: "/assets/quote-tweet/locked-in-logo.svg",
+  x: 72,
+  y: 30,
+  width: 516,
+  height: 204,
 } as const;
 
-/** Flat colors used by the static layers. */
+/** Flat colors used by the static layers. The band color is a runtime prop. */
 export const quoteTweetColors = {
-  band: "#000000",
-  title: "#FFFFFF",
+  /** The label text — a single white constant on every band (ADR-0029 needs no per-category foreground). */
+  label: "#FFFFFF",
 } as const;
 
 /**
- * Exact title typography from Figma. `fontSizePx` is the design ceiling the
- * composition auto-fits down from; the Joke Title never renders larger. The
- * font face itself is bundled and registered via a hand-written @font-face
- * (see src/app/globals.css), not next/font.
+ * Label typography. The face is **CompactaICG** (Compacta ICG Italic) — a
+ * deliberate change from Figma's Vina Sans during slice 004 (see ADR-0029), the
+ * template being expected to keep evolving. `fontSizePx` is the design ceiling
+ * the composition auto-fits down from, so the label never renders larger and
+ * shrinks to fit the label box on a single line. The face is bundled and
+ * registered via a hand-written @font-face (see src/app/globals.css), not
+ * next/font.
  */
-export const quoteTweetTitleTypography = {
-  fontFamily: "VC Henrietta Condensed",
-  fontWeight: 400,
-  fontStyle: "normal",
-  fontSizePx: 320,
-  lineHeightPx: 320,
+export const quoteTweetLabelTypography = {
+  fontFamily: "CompactaICG",
+  fontWeight: 500,
+  fontStyle: "italic",
+  fontSizePx: 778, // design ceiling the label auto-fits down from; the cqw scaling makes the exact value moot
+  lineHeightPx: 778,
   letterSpacingEm: -0.02,
-  textAlign: "left",
+  textAlign: "center",
 } as const;

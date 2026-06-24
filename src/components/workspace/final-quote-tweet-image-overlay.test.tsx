@@ -156,7 +156,7 @@ describe("FinalQuoteTweetImageOverlay", () => {
     expect(screen.getByRole("img", { name: "Platform visual variation 1." })).toBeInTheDocument();
   });
 
-  test("collapses to the rainbow strip and expands again on demand", async () => {
+  test("collapses to the logo peek and expands again on demand", async () => {
     const user = userEvent.setup();
 
     render(

@@ -65,22 +65,23 @@ export function resolveNewsCategoryStamp(newsCategory?: string): string {
  * Color — the hex the Final Quote Tweet Image tints its headline band with
  * (ADR-0029). One closed map keyed by the vocabulary, mirroring how
  * `newsCategories` is the one vocabulary tuple: there is no second palette and
- * no competing CSS-variable set. The values sit in the existing Tailwind v4
- * palette; slice 004's design review reconciles the rendered poster against the
- * Figma frame. The label text on every band is a single white constant
- * (`quoteTweetColors.title`) — the design needs no per-category foreground.
+ * no competing CSS-variable set. The values are taken from the Figma category
+ * frames (file BRspEDx97oRutl2hM0NqpP, node 4131), reconciled against the
+ * rendered poster in slice 004's design review. The label text on every band is
+ * a single white constant (`quoteTweetColors.label`) — the design needs no
+ * per-category foreground.
  */
 export const categoryBandColors: Record<NewsCategory, string> = {
-  LAUNCHED: "#047857",
-  DROPPED: "#991b1b",
-  ACQUIRED: "#1d4ed8",
-  SIGNED: "#4338ca",
-  FIRED: "#c2410c",
-  RESIGNED: "#334155",
-  FUNDED: "#0f766e",
-  PUBLISHED: "#6d28d9",
-  DRAMA: "#a21caf",
-  VIRAL: "#0284c7",
+  LAUNCHED: "#052e16",
+  DROPPED: "#fe7710",
+  ACQUIRED: "#ff0000",
+  SIGNED: "#5dbe3d",
+  FIRED: "#450a0a",
+  RESIGNED: "#17b084",
+  FUNDED: "#164e63",
+  PUBLISHED: "#1e3a8a",
+  DRAMA: "#4c1d95",
+  VIRAL: "#831843",
 };
 
 /**

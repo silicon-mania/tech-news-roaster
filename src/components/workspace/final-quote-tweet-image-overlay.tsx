@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   type CompositeRasterizer,
-  quoteTweetRainbowStripe,
+  quoteTweetLogo,
   rasterizeCompositeToPng,
 } from "@/services/final-quote-tweet-image";
 import {
@@ -70,6 +70,7 @@ export function FinalQuoteTweetImageOverlay({
     run.selectedGeneratedImage ?? null,
   );
   const downloadName = buildFinalQuoteTweetImageDownloadName(run.label);
+  const bandColor = resolveBandColor(run.newsCategory, run.newsCategoryColor);
 
   async function downloadComposite() {
     const compositeNode = compositeRef.current;
@@ -126,7 +127,7 @@ export function FinalQuoteTweetImageOverlay({
               <div className="px-2">
                 <div className="overflow-hidden rounded-xl">
                   <QuoteTweetComposite
-                    bandColor={resolveBandColor(run.newsCategory, run.newsCategoryColor)}
+                    bandColor={bandColor}
                     imageAlt={selectedVariation.altText ?? selectedVariation.label}
                     imageUrl={selectedVariation.url}
                     label={resolveNewsCategoryStamp(run.newsCategory)}
@@ -171,15 +172,19 @@ export function FinalQuoteTweetImageOverlay({
               <Maximize2 aria-hidden className="size-4" strokeWidth={1.75} />
             </span>
           </span>
-          <Image
-            alt=""
-            aria-hidden
-            className="h-auto w-full"
-            height={quoteTweetRainbowStripe.height}
-            src={quoteTweetRainbowStripe.src}
-            unoptimized
-            width={quoteTweetRainbowStripe.width}
-          />
+          <span
+            className="flex items-center justify-center px-6 py-4"
+            style={{ backgroundColor: bandColor }}>
+            <Image
+              alt=""
+              aria-hidden
+              className="h-6 w-auto object-contain"
+              height={quoteTweetLogo.height}
+              src={quoteTweetLogo.src}
+              unoptimized
+              width={quoteTweetLogo.width}
+            />
+          </span>
         </button>
       )}
     </section>
