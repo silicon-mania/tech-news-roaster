@@ -52,11 +52,14 @@ const titleTextStyle: CSSProperties = {
 };
 
 export function QuoteTweetComposite({
+  bandColor,
   imageAlt,
   imageUrl,
   label,
   ref,
 }: {
+  /** The resolved News Category Color tinting the headline band and gradient. */
+  bandColor: string;
   imageAlt: string;
   imageUrl: string;
   label: string;
@@ -112,7 +115,7 @@ export function QuoteTweetComposite({
       ref={ref}
       style={{
         aspectRatio: `${quoteTweetFrame.width} / ${quoteTweetFrame.height}`,
-        backgroundColor: quoteTweetColors.band,
+        backgroundColor: bandColor,
         containerType: "inline-size",
       }}>
       <Image
@@ -128,7 +131,7 @@ export function QuoteTweetComposite({
         aria-hidden
         style={{
           ...frameRectStyle(quoteTweetBandGradient),
-          background: `linear-gradient(${quoteTweetBandGradient.angleDeg}deg, ${quoteTweetBandGradient.from}, ${quoteTweetBandGradient.to})`,
+          background: `linear-gradient(${quoteTweetBandGradient.angleDeg}deg, ${quoteTweetBandGradient.from}, ${bandColor})`,
         }}
       />
       <Image

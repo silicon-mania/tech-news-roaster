@@ -11,7 +11,11 @@ import {
   quoteTweetRainbowStripe,
   rasterizeCompositeToPng,
 } from "@/services/final-quote-tweet-image";
-import { collectCompletedImageSets, resolveNewsCategoryStamp } from "@/services/generation";
+import {
+  collectCompletedImageSets,
+  resolveBandColor,
+  resolveNewsCategoryStamp,
+} from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { buildFinalQuoteTweetImageDownloadName } from "./image-helpers";
 import { QuoteTweetComposite } from "./quote-tweet-composite";
@@ -122,6 +126,7 @@ export function FinalQuoteTweetImageOverlay({
               <div className="px-2">
                 <div className="overflow-hidden rounded-xl">
                   <QuoteTweetComposite
+                    bandColor={resolveBandColor(run.newsCategory)}
                     imageAlt={selectedVariation.altText ?? selectedVariation.label}
                     imageUrl={selectedVariation.url}
                     label={resolveNewsCategoryStamp(run.newsCategory)}

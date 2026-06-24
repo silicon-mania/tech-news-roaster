@@ -59,3 +59,46 @@ export function resolveNewsCategory(newsCategory?: string): string {
 export function resolveNewsCategoryStamp(newsCategory?: string): string {
   return resolveNewsCategory(newsCategory).toUpperCase();
 }
+
+/**
+ * The single source of truth mapping each News Category to its News Category
+ * Color — the hex the Final Quote Tweet Image tints its headline band with
+ * (ADR-0029). One closed map keyed by the vocabulary, mirroring how
+ * `newsCategories` is the one vocabulary tuple: there is no second palette and
+ * no competing CSS-variable set. The values sit in the existing Tailwind v4
+ * palette; slice 004's design review reconciles the rendered poster against the
+ * Figma frame. The label text on every band is a single white constant
+ * (`quoteTweetColors.title`) — the design needs no per-category foreground.
+ */
+export const categoryBandColors: Record<NewsCategory, string> = {
+  LAUNCHED: "#047857",
+  DROPPED: "#991b1b",
+  ACQUIRED: "#1d4ed8",
+  SIGNED: "#4338ca",
+  FIRED: "#c2410c",
+  RESIGNED: "#334155",
+  FUNDED: "#0f766e",
+  PUBLISHED: "#6d28d9",
+  DRAMA: "#a21caf",
+  VIRAL: "#0284c7",
+};
+
+/**
+ * The band color the Final Quote Tweet Image tints its headline band with for a
+ * given run's stamp (ADR-0029). A preset stamp (one of the ten) reads in its own
+ * category color; a custom word reads in the operator-picked `newsCategoryColor`,
+ * defaulting to the VIRAL color so a custom label always has a band. An absent
+ * stamp (a pre-feature run, or a classification that failed back to VIRAL) also
+ * resolves to the VIRAL color. The custom path keys off `newsCategoryColor`, not
+ * the label text, so it is unaffected by the custom word's casing.
+ *
+ * The three composite consumers resolve this from the run and thread it through
+ * `QuoteTweetComposite`'s `bandColor` prop, the same way they thread `label`.
+ */
+export function resolveBandColor(newsCategory?: string, newsCategoryColor?: NewsCategory): string {
+  if (newsCategory !== undefined && isNewsCategory(newsCategory)) {
+    return categoryBandColors[newsCategory];
+  }
+
+  return categoryBandColors[newsCategoryColor ?? defaultNewsCategory];
+}
