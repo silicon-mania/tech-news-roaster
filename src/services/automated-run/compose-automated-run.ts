@@ -265,18 +265,24 @@ export async function composeAutomatedRun(
     sourceTweet,
     startedAt: creativeStartedAt,
   });
-  const orchestrationPromise = orchestrate({
-    jokeContextSnapshot,
-    sourceTweet,
-    sourceTweetUrl: input.sourceTweetUrl,
-    usersDirection: "",
-  })
+  const orchestrationPromise = orchestrate(
+    {
+      jokeContextSnapshot,
+      sourceTweet,
+      sourceTweetUrl: input.sourceTweetUrl,
+      usersDirection: "",
+    },
+    // An Automated Run bills the spend-capped automated key for every AI Gateway
+    // call (Text Generation, classification, Image Generation), isolating the
+    // cron's spend from Workspace users on the shared key.
+    { runKind: "automated" },
+  )
     .then((run) => ({ run, status: "fulfilled" as const }))
     .catch((error: unknown) => ({ error, status: "rejected" as const }));
   // The classifier reads only the snapshot, so it never steers the drafts. It
   // never throws — on any failure it yields a failed state plus a VIRAL fallback —
   // so it needs no rejection guard and can never block the run from completing.
-  const classificationPromise = classify({ jokeContextSnapshot }, { now });
+  const classificationPromise = classify({ jokeContextSnapshot }, { now, runKind: "automated" });
 
   const discoveryResult = await discoveryPromise;
   const orchestrationResult = await orchestrationPromise;
@@ -321,7 +327,7 @@ export async function composeAutomatedRun(
         },
         parentRun: { id: runId, imageOriginalCandidates },
       },
-      { now },
+      { now, runKind: "automated" },
     );
 
     imageModelProvenance = imageGenerationResult.imageModelProvenance;

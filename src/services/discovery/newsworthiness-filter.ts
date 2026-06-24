@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readAiGatewayApiKey } from "@/services/generation/ai-gateway-models";
 import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
 
 /**
@@ -105,7 +106,9 @@ export function createDefaultNewsworthinessJudge(
   env: NewsworthinessEnvironment = process.env,
 ): NewsworthinessJudge {
   const model = readConfiguredModel(env);
-  const apiKey = readAiGatewayApiKey(env);
+  // The Newsworthiness Filter runs only inside the unattended Discovery Sweep
+  // (cron), so it always bills the spend-capped automated key.
+  const apiKey = readAiGatewayApiKey(env, "automated");
 
   if (!apiKey && env.NODE_ENV !== "production") {
     return createLocalNewsworthinessJudge(model);
@@ -365,10 +368,6 @@ function countSignals(text: string, words: Set<string>, phrases: string[]): numb
 
 function readConfiguredModel(env: NewsworthinessEnvironment) {
   return readEnvValue(env.AI_GATEWAY_NEWSWORTHINESS_MODEL) ?? defaultNewsworthinessModel;
-}
-
-function readAiGatewayApiKey(env: NewsworthinessEnvironment) {
-  return readEnvValue(env.AI_GATEWAY_API_KEY) ?? readEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
 }
 
 function readNewsworthinessTimeoutMs(env: NewsworthinessEnvironment) {

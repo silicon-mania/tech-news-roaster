@@ -11,7 +11,11 @@ import {
 } from "@/services/generation";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import { fetchWithTimeout, readTimeoutMs } from "@/utils/fetch-with-timeout";
-import { readConfiguredAiGatewayModels, readEnvValue } from "./ai-gateway-models";
+import {
+  type GatewayRunKind,
+  readAiGatewayApiKey,
+  readConfiguredAiGatewayModels,
+} from "./ai-gateway-models";
 
 type GenerationProviderOutput = {
   angle: string;
@@ -45,11 +49,16 @@ export type GenerationOrchestratorInput = {
 
 export type GenerationOrchestrator = (
   input: GenerationOrchestratorInput,
+  options?: GenerationOrchestratorOptions,
 ) => Promise<CompletedGenerationRunPayload>;
 
-type GenerationOrchestratorOptions = {
+export type GenerationOrchestratorOptions = {
   now?: () => Date;
   providers?: GenerationProvider[];
+  // Which AI Gateway credential the providers authenticate with. Defaults to
+  // "manual" (Workspace runs); the Automated Run composition passes "automated"
+  // so the cron's Text Generation bills the spend-capped key.
+  runKind?: GatewayRunKind;
 };
 
 // Each Text Generation provider call (and the Provider Fallback call, which
@@ -105,6 +114,7 @@ export async function orchestrateThreeProviderGeneration(
   options: GenerationOrchestratorOptions = {},
 ): Promise<CompletedGenerationRunPayload> {
   const now = options.now ?? (() => new Date());
+  const runKind = options.runKind ?? "manual";
   const textGenerationStartedAt = now().toISOString();
 
   // Text Generation is the orchestrator's only Creative Result Area: it runs the
@@ -112,7 +122,7 @@ export async function orchestrateThreeProviderGeneration(
   // completes, which surfaces as a failed run to the caller. The stream route and
   // the Automated Run composition fold in News-Linked Image Discovery and Image
   // Generation around this call.
-  const { drafts, fallbackDisclosure } = await generateDrafts(input, options.providers);
+  const { drafts, fallbackDisclosure } = await generateDrafts(input, options.providers, runKind);
   const label = buildRunLabel(input.sourceTweetUrl);
 
   return parseCompletedGenerationRunPayload({
@@ -131,8 +141,9 @@ export async function orchestrateThreeProviderGeneration(
 async function generateDrafts(
   input: GenerationOrchestratorInput,
   providerOptions?: GenerationProvider[],
+  runKind: GatewayRunKind = "manual",
 ) {
-  const providers = providerOptions ?? createDefaultGenerationProviders();
+  const providers = providerOptions ?? createDefaultGenerationProviders(runKind);
   const providerById = new Map(providers.map((provider) => [provider.id, provider]));
   const providerResults = await Promise.allSettled(
     generationProviderIds.map(async (providerId) => {
@@ -263,8 +274,10 @@ function buildCreativeResultStates({
   };
 }
 
-function createDefaultGenerationProviders(): GenerationProvider[] {
-  const gatewayKey = readAiGatewayApiKey();
+function createDefaultGenerationProviders(
+  runKind: GatewayRunKind = "manual",
+): GenerationProvider[] {
+  const gatewayKey = readAiGatewayApiKey(process.env, runKind);
 
   if (!gatewayKey && process.env.NODE_ENV !== "production") {
     return createLocalGenerationProviders();
@@ -277,16 +290,19 @@ function createDefaultGenerationProviders(): GenerationProvider[] {
       displayName: "OpenAI",
       id: "openai",
       model: configuredModels.openai,
+      runKind,
     }),
     createGatewayGenerationProvider({
       displayName: "Anthropic",
       id: "anthropic",
       model: configuredModels.anthropic,
+      runKind,
     }),
     createGatewayGenerationProvider({
       displayName: "Google",
       id: "google",
       model: configuredModels.google,
+      runKind,
     }),
   ];
 }
@@ -311,17 +327,19 @@ function createGatewayGenerationProvider({
   displayName,
   id,
   model,
+  runKind,
 }: {
   displayName: GenerationProvider["displayName"];
   id: GenerationProviderId;
   model: string;
+  runKind: GatewayRunKind;
 }): GenerationProvider {
   return {
     displayName,
     id,
     model,
     async generate(input) {
-      const apiKey = readAiGatewayApiKey();
+      const apiKey = readAiGatewayApiKey(process.env, runKind);
 
       if (!apiKey) {
         throw new Error("AI Gateway credentials are not configured.");
@@ -557,13 +575,6 @@ function truncateAtWordBoundary(value: string, maxCharacters: number) {
 
 function enforceAttentionLength(value: string) {
   return truncateAtWordBoundary(value, 280);
-}
-
-function readAiGatewayApiKey() {
-  return (
-    readEnvValue(process.env.AI_GATEWAY_API_KEY) ??
-    readEnvValue(process.env.VERCEL_AI_GATEWAY_API_KEY)
-  );
 }
 
 function readTextGenerationTimeoutMs() {

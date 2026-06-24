@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { ImageSetStack, UploadImageButton } from "@/components/image-sets";
 import { Button } from "@/components/ui/button";
 import { DraftComparison } from "@/components/workspace/draft-comparison";
+import { NewsCategorySection } from "@/components/workspace/news-category-section";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
 import { FinalImageDownload } from "./final-image-download";
@@ -17,6 +18,10 @@ type SelectedRunSidebarProps = {
   onSelectedDraftChange: (draftId: string | null) => void;
   onDraftTextChange: (draftId: string, text: string) => void;
   onSelectedGeneratedImageChange: (imageOptionId: string | null) => void;
+  /** Pick the run's News Category stamp — saves immediately, re-stamps the preview. */
+  onNewsCategoryChange: (newsCategory: string) => void;
+  /** Edit the run's custom News Category word — saves debounced, re-stamps the preview. */
+  onNewsCategoryCustomChange: (newsCategory: string) => void;
   /** Upload an image of the operator's own to generate a new Uploaded Image Set. */
   onUploadImage: (file: File) => void;
   /** Whether an upload generation is in flight (disables the trigger, shows skeleton). */
@@ -30,7 +35,9 @@ type SelectedRunSidebarProps = {
  * workspace direction panel) without dimming the feed, so the selected card stays
  * visible as the live preview and every edit reflects on it instantly.
  *
- * It renders the shell plus, top-to-bottom: a Final image section — a preview of
+ * It renders the shell plus, top-to-bottom: a News Category section — the shared
+ * {@link NewsCategorySection} chips that stamp the Final Quote Tweet Image's
+ * headline, sitting directly above it; a Final image section — a preview of
  * the run's Final Quote Tweet Image with a Download action that saves it as the
  * same lossless PNG the workspace offers ({@link FinalImageDownload}); a compact
  * Source post reference that opens the original tweet on X in a new tab; a Text
@@ -50,6 +57,8 @@ export function SelectedRunSidebar({
   onSelectedDraftChange,
   onDraftTextChange,
   onSelectedGeneratedImageChange,
+  onNewsCategoryChange,
+  onNewsCategoryCustomChange,
   onUploadImage,
   isUploadGenerating,
   onDelete,
@@ -93,6 +102,19 @@ export function SelectedRunSidebar({
               <X aria-hidden className="size-4" strokeWidth={1.75} />
             </Button>
           </header>
+
+          {/* The News Category section sits next to the artifact it stamps —
+              directly above the Final Quote Tweet Image (ADR-0027). Its heading
+              matches the sidebar's other sections (compact h3). */}
+          <section aria-label="News category" className="grid min-w-0 gap-3">
+            <h3 className="title-serif text-foreground text-lg">News category</h3>
+            <NewsCategorySection
+              newsCategory={run.newsCategory}
+              newsCategoryClassification={run.newsCategoryClassification}
+              onNewsCategoryChange={onNewsCategoryChange}
+              onNewsCategoryCustomChange={onNewsCategoryCustomChange}
+            />
+          </section>
 
           <FinalImageDownload run={run} />
 

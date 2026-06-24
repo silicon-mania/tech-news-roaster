@@ -97,7 +97,7 @@ export function Workspace({
     kind: "idle",
   });
   const runtimeStatus = useRuntimeStatus({ initialRuntimeStatus, runtimeStatusFetcher });
-  const { scheduleRunAutosave } = useRunAutosave(savedRunStore);
+  const { saveRunNow, scheduleRunAutosave } = useRunAutosave(savedRunStore);
   const { streamImageGeneration } = useImageGenerationStream({
     scheduleRunAutosave,
     setRuns,
@@ -371,6 +371,34 @@ export function Workspace({
     scheduleRunAutosave(updatedRun);
   }
 
+  function applyNewsCategory(newsCategory: string, save: (run: GenerationRun) => void) {
+    if (activeRun?.status !== "completed") {
+      return;
+    }
+
+    const updatedRun: GenerationRun = {
+      ...activeRun,
+      newsCategory,
+    };
+
+    setRuns((currentRuns) =>
+      currentRuns.map((run) => (run.id === updatedRun.id ? updatedRun : run)),
+    );
+    save(updatedRun);
+  }
+
+  // A chip pick is a discrete choice — it saves immediately (like a Selected Draft
+  // / Selected Generated Image switch), not on the debounced free-text path (ADR-0027).
+  function updateNewsCategory(newsCategory: string) {
+    applyNewsCategory(newsCategory, saveRunNow);
+  }
+
+  // A custom-word edit is free text — it rides the debounced autosave (like inline
+  // draft editing), so typing doesn't thrash the store on every keystroke (ADR-0027).
+  function updateNewsCategoryCustom(newsCategory: string) {
+    applyNewsCategory(newsCategory, scheduleRunAutosave);
+  }
+
   function startImageGeneration(input: ImageGenerationInput) {
     const run = runs.find((candidateRun) => candidateRun.id === input.parentRunId);
 
@@ -476,6 +504,8 @@ export function Workspace({
               activeRun={activeRun}
               isUploadGenerating={generatingRunId !== null}
               onDraftTextChange={updateDraftText}
+              onNewsCategoryChange={updateNewsCategory}
+              onNewsCategoryCustomChange={updateNewsCategoryCustom}
               onSelectedDraftChange={updateSelectedDraft}
               onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
               onStartImageGeneration={startImageGeneration}

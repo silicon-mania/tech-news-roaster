@@ -11,7 +11,9 @@ import { GenerationFailureState } from "./generation-failure-state";
 import { ImageGenerationArea } from "./image-generation-area";
 import { ImageGenerationSkeleton } from "./image-generation-skeleton";
 import { NewsCategoryProgress } from "./news-category-progress";
+import { NewsCategorySection } from "./news-category-section";
 import { QuietRunReveals } from "./quiet-run-reveals";
+import { SectionHeader } from "./section-header";
 import { SourceTweetPreview } from "./source-tweet-preview";
 import { TextGenerationSection } from "./text-generation-section";
 import { TextGenerationSkeleton } from "./text-generation-skeleton";
@@ -20,6 +22,8 @@ type ActiveRunPanelProps = {
   activeRun: GenerationRun | null;
   isUploadGenerating: boolean;
   onDraftTextChange: (draftId: string, text: string) => void;
+  onNewsCategoryChange: (newsCategory: string) => void;
+  onNewsCategoryCustomChange: (newsCategory: string) => void;
   onSelectedDraftChange: (draftId: string | null) => void;
   onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
@@ -30,6 +34,8 @@ export function ActiveRunPanel({
   activeRun,
   isUploadGenerating,
   onDraftTextChange,
+  onNewsCategoryChange,
+  onNewsCategoryCustomChange,
   onSelectedDraftChange,
   onSelectedGeneratedImageChange,
   onStartImageGeneration,
@@ -117,9 +123,24 @@ export function ActiveRunPanel({
   return (
     <section
       aria-label={isCompleted ? "Completed draft canvas" : undefined}
-      className="mx-auto grid w-full max-w-5xl gap-3 self-start">
+      className="mx-auto grid w-full max-w-5xl gap-6 self-start">
       {sourceTweetPreview}
       <NewsCategoryProgress run={activeRun} />
+      {/* The News Category editor — the same shared chips the Selected Run sidebar
+          uses — as its own section in the workspace column, headed by the same
+          SectionHeader as Text/Image generation so it reads at the same scale. It
+          surfaces once the run is complete, when there is a stamp to refine. */}
+      {isCompleted ? (
+        <section aria-label="News category" className="grid min-w-0 gap-3">
+          <SectionHeader title="News category" />
+          <NewsCategorySection
+            newsCategory={activeRun.newsCategory}
+            newsCategoryClassification={activeRun.newsCategoryClassification}
+            onNewsCategoryChange={onNewsCategoryChange}
+            onNewsCategoryCustomChange={onNewsCategoryCustomChange}
+          />
+        </section>
+      ) : null}
       <RunWorkspaceLayout
         imageGenerationArea={imageGenerationArea}
         usersDirection={activeRun.usersDirection}>
@@ -143,7 +164,7 @@ function RunWorkspaceLayout({
   }
 
   return (
-    <section aria-label="Responsive creative workspace" className="grid items-start gap-4">
+    <section aria-label="Responsive creative workspace" className="grid items-start gap-6">
       <TextGenerationSection usersDirection={usersDirection}>{children}</TextGenerationSection>
       {imageGenerationArea}
     </section>

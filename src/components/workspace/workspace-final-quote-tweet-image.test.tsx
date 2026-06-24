@@ -51,6 +51,76 @@ describe("Workspace final quote tweet image overlay", () => {
     ).toBeInTheDocument();
   });
 
+  test("picking a News Category chip saves immediately and re-stamps the overlay live", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore();
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })],
+      savedRunStore,
+    });
+
+    const newsCategory = screen.getByRole("region", { name: "News category" });
+    const finalArea = screen.getByRole("region", {
+      name: /final quote tweet image creative result area/i,
+    });
+
+    // The value-less run pre-selects VIRAL, and the overlay composite stamps it.
+    expect(
+      within(newsCategory).getByRole("button", { name: "VIRAL", pressed: true }),
+    ).toBeInTheDocument();
+    expect(within(finalArea).getByText(fallbackStamp)).toBeInTheDocument();
+
+    // Pick a different stamp from the workspace's own copy of the shared section.
+    await user.click(within(newsCategory).getByRole("button", { name: "DROPPED" }));
+
+    // The chip pick persists immediately (not on the debounced free-text path)...
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "saved-run", newsCategory: "DROPPED" }),
+      ),
+    );
+    // ...and the overlay re-stamps live with the new value.
+    expect(within(finalArea).getByText("DROPPED")).toBeInTheDocument();
+    expect(within(finalArea).queryByText(fallbackStamp)).not.toBeInTheDocument();
+  });
+
+  test("typing a custom News Category word persists it (debounced) and re-stamps the overlay uppercased", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = createMemorySavedRunStore();
+
+    renderWorkspace({
+      initialActiveRunId: "saved-run",
+      initialRuns: [buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })],
+      savedRunStore,
+    });
+
+    const newsCategory = screen.getByRole("region", { name: "News category" });
+    const finalArea = screen.getByRole("region", {
+      name: /final quote tweet image creative result area/i,
+    });
+
+    // Type a word outside the ten into the custom field.
+    await user.type(
+      within(newsCategory).getByRole("textbox", { name: "Custom news category" }),
+      "breaking",
+    );
+
+    // The free-text edit persists through the debounced autosave (not the immediate
+    // chip path), storing the word with the typed case...
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "saved-run", newsCategory: "breaking" }),
+      ),
+    );
+    // ...every chip de-highlights (chip and custom word are mutually exclusive)...
+    expect(within(newsCategory).queryByRole("button", { pressed: true })).not.toBeInTheDocument();
+    // ...and the overlay re-stamps live, uppercased to match the vocabulary look.
+    expect(within(finalArea).getByText("BREAKING")).toBeInTheDocument();
+    expect(within(finalArea).queryByText(fallbackStamp)).not.toBeInTheDocument();
+  });
+
   test("reopening a saved run with a selected image renders the composite without re-running generation", async () => {
     const onStartGenerationRun = vi.fn();
     const onStartImageGeneration = vi.fn();

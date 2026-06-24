@@ -174,7 +174,9 @@ describe("Workspace draft editing", () => {
         name: /show visible rationale for draft 1/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /publish/i })).toBeNull();
+    // Word-bounded so it still guards against a "Publish" action without matching
+    // the News Category section's PUBLISHED stamp chip.
+    expect(screen.queryByRole("button", { name: /\bpublish\b/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /export/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /export/i })).toBeNull();
     expect(screen.queryByLabelText(/language/i)).not.toBeInTheDocument();
