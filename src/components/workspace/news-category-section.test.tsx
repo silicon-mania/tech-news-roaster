@@ -2,7 +2,11 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
-import { type NewsCategoryClassificationState, newsCategories } from "@/services/generation";
+import {
+  categoryBandColors,
+  type NewsCategoryClassificationState,
+  newsCategories,
+} from "@/services/generation";
 import { NewsCategorySection } from "./news-category-section";
 
 // A failed classifier result-state — the shape that lights the section's quiet
@@ -56,6 +60,30 @@ describe("NewsCategorySection", () => {
     for (const category of newsCategories) {
       expect(screen.getByRole("button", { name: category })).toBeInTheDocument();
     }
+  });
+
+  test("renders every chip's News Category Color swatch — even unselected", () => {
+    renderSection();
+
+    // Each chip wears its band color as an at-rest swatch, so the whole
+    // category→color mapping reads before the operator picks anything.
+    for (const category of newsCategories) {
+      const chip = screen.getByRole("button", { name: category });
+      const swatch = chip.querySelector('[data-slot="news-category-swatch"]');
+
+      expect(swatch).toBeInTheDocument();
+      expect(swatch).toHaveStyle({ backgroundColor: categoryBandColors[category] });
+    }
+  });
+
+  test("the lit chip reads in its own band color", () => {
+    renderSection({ newsCategory: "ACQUIRED" });
+
+    // The active selection fills with its News Category Color, so it — and the band
+    // color it stamps on the poster — is unmistakable.
+    expect(screen.getByRole("button", { name: "ACQUIRED", pressed: true })).toHaveStyle({
+      backgroundColor: categoryBandColors.ACQUIRED,
+    });
   });
 
   test("pre-selects the chip matching the run's current value", () => {

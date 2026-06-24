@@ -5,7 +5,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import {
+  categoryBandColors,
   defaultNewsCategory,
   isNewsCategory,
   type NewsCategoryClassificationState,
@@ -120,26 +122,42 @@ export function NewsCategorySection({
       <div className="flex flex-wrap gap-x-2 gap-y-2">
         {newsCategories.map((category) => {
           const isActive = category === activeCategory;
+          // Every chip wears its News Category Color (ADR-0029) as an at-rest swatch,
+          // so the whole category→color mapping reads before picking; the lit chip
+          // fills with that same color so the active selection — and the band color it
+          // stamps on the poster — is unmistakable.
+          const bandColor = categoryBandColors[category];
 
           return (
             <Button
               aria-pressed={isActive}
-              // The lit chip reads as a thin outlined box over the dark ground; the
-              // rest are plain muted labels that ink up on hover. Both carry the same
+              // Inactive chips are plain muted labels that ink up on hover; the lit
+              // chip fills with its band color and reads in white. Both carry the same
               // padded footprint, so lighting one never nudges the row.
-              className={
+              className={cn(
+                "tracking-wide",
                 isActive
-                  ? "border-muted-foreground/40 tracking-wide"
-                  : "text-muted-foreground tracking-wide"
-              }
+                  ? "border-transparent text-white hover:text-white"
+                  : "text-muted-foreground",
+              )}
               key={category}
               // Re-picking the lit chip is a no-op — VIRAL is the floor, so there is
               // no "deselect to nothing" here, and skipping it avoids a redundant
               // whole-run save.
               onClick={isActive ? undefined : () => onNewsCategoryChange(category)}
               size="lg"
+              // The band color is an arbitrary hex from the closed map, so it rides an
+              // inline style, not a utility class. On the lit chip it fills the chip
+              // (inline beats the ghost hover-bg); the swatch wears it on every chip.
+              style={isActive ? { backgroundColor: bandColor } : undefined}
               type="button"
               variant="ghost">
+              <span
+                aria-hidden
+                className="size-2.5 shrink-0 rounded-sm"
+                data-slot="news-category-swatch"
+                style={{ backgroundColor: bandColor }}
+              />
               {category}
             </Button>
           );
