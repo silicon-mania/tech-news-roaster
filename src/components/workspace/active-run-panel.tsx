@@ -23,6 +23,7 @@ type ActiveRunPanelProps = {
   isUploadGenerating: boolean;
   onDraftTextChange: (draftId: string, text: string) => void;
   onNewsCategoryChange: (newsCategory: string) => void;
+  onNewsCategoryCustomChange: (newsCategory: string) => void;
   onSelectedDraftChange: (draftId: string | null) => void;
   onSelectedGeneratedImageChange: (runId: string, imageOptionId: string | null) => void;
   onStartImageGeneration: (input: ImageGenerationInput) => void;
@@ -34,6 +35,7 @@ export function ActiveRunPanel({
   isUploadGenerating,
   onDraftTextChange,
   onNewsCategoryChange,
+  onNewsCategoryCustomChange,
   onSelectedDraftChange,
   onSelectedGeneratedImageChange,
   onStartImageGeneration,
@@ -134,6 +136,7 @@ export function ActiveRunPanel({
           <NewsCategorySection
             newsCategory={activeRun.newsCategory}
             onNewsCategoryChange={onNewsCategoryChange}
+            onNewsCategoryCustomChange={onNewsCategoryCustomChange}
           />
         </section>
       ) : null}

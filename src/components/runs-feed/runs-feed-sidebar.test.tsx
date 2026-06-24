@@ -174,6 +174,42 @@ describe("Selected Run sidebar", () => {
     expect(within(preview).queryByText("VIRAL")).not.toBeInTheDocument();
   });
 
+  test("typing a custom News Category word autosaves it (debounced) and re-stamps the preview uppercased", async () => {
+    const user = userEvent.setup();
+    const savedRunStore = renderFeed([buildCompleteRun()]);
+
+    await openSidebar(user);
+    const sidebar = getSidebar();
+    const newsCategory = within(sidebar).getByRole("region", { name: "News category" });
+    const preview = within(sidebar).getByRole("figure", {
+      name: "Final Quote Tweet Image preview",
+    });
+
+    // The value-less run pre-selects VIRAL.
+    expect(
+      within(newsCategory).getByRole("button", { name: "VIRAL", pressed: true }),
+    ).toBeInTheDocument();
+
+    // Type a word outside the ten into the custom field.
+    await user.type(
+      within(newsCategory).getByRole("textbox", { name: "Custom news category" }),
+      "breaking",
+    );
+
+    // The free-text edit autosaves through the debounced path (not the immediate
+    // chip path), storing the word with the typed case...
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "complete-run-1", newsCategory: "breaking" }),
+      ),
+    );
+    // ...the chip selection clears (mutually exclusive)...
+    expect(within(newsCategory).queryByRole("button", { pressed: true })).not.toBeInTheDocument();
+    // ...and the preview re-stamps live, uppercased.
+    expect(within(preview).getByText("BREAKING")).toBeInTheDocument();
+    expect(within(preview).queryByText("VIRAL")).not.toBeInTheDocument();
+  });
+
   test("inline-editing the selected draft autosaves the overwritten text and updates the card", async () => {
     const user = userEvent.setup();
     const savedRunStore = renderFeed([buildCompleteRun({ selectedDraftId: "draft-openai" })]);

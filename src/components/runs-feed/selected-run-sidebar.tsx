@@ -20,6 +20,8 @@ type SelectedRunSidebarProps = {
   onSelectedGeneratedImageChange: (imageOptionId: string | null) => void;
   /** Pick the run's News Category stamp — saves immediately, re-stamps the preview. */
   onNewsCategoryChange: (newsCategory: string) => void;
+  /** Edit the run's custom News Category word — saves debounced, re-stamps the preview. */
+  onNewsCategoryCustomChange: (newsCategory: string) => void;
   /** Upload an image of the operator's own to generate a new Uploaded Image Set. */
   onUploadImage: (file: File) => void;
   /** Whether an upload generation is in flight (disables the trigger, shows skeleton). */
@@ -56,6 +58,7 @@ export function SelectedRunSidebar({
   onDraftTextChange,
   onSelectedGeneratedImageChange,
   onNewsCategoryChange,
+  onNewsCategoryCustomChange,
   onUploadImage,
   isUploadGenerating,
   onDelete,
@@ -108,6 +111,7 @@ export function SelectedRunSidebar({
             <NewsCategorySection
               newsCategory={run.newsCategory}
               onNewsCategoryChange={onNewsCategoryChange}
+              onNewsCategoryCustomChange={onNewsCategoryCustomChange}
             />
           </section>
 

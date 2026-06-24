@@ -51,6 +51,7 @@ export function RunsFeed({
     updateDraftText,
     updateSelectedGeneratedImage,
     updateNewsCategory,
+    updateNewsCategoryCustom,
     uploadSelectedRunImage,
     isUploadGenerating,
     deleteSelectedRun,
@@ -155,6 +156,7 @@ export function RunsFeed({
         onDelete={deleteSelectedRun}
         onDraftTextChange={updateDraftText}
         onNewsCategoryChange={updateNewsCategory}
+        onNewsCategoryCustomChange={updateNewsCategoryCustom}
         onSelectedDraftChange={updateSelectedDraft}
         onSelectedGeneratedImageChange={updateSelectedGeneratedImage}
         onUploadImage={uploadSelectedRunImage}

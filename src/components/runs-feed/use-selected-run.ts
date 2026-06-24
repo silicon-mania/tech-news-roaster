@@ -46,6 +46,8 @@ type SelectedRun = {
   updateSelectedGeneratedImage: (imageOptionId: string | null) => void;
   /** Pick the News Category stamp — updates the card and saves immediately. */
   updateNewsCategory: (newsCategory: string) => void;
+  /** Edit the custom News Category word — updates the card and autosaves (debounced). */
+  updateNewsCategoryCustom: (newsCategory: string) => void;
   /** Upload an image of the operator's own and generate a new Uploaded Image Set. */
   uploadSelectedRunImage: (file: File) => void;
   /** Whether an Uploaded Image Set generation is in flight (disables the trigger). */
@@ -197,7 +199,7 @@ export function useSelectedRun({
     saveRunNow(updatedRun);
   }
 
-  function updateNewsCategory(newsCategory: string) {
+  function applyNewsCategory(newsCategory: string, save: (run: GenerationRun) => void) {
     if (!selectedRun) {
       return;
     }
@@ -210,7 +212,19 @@ export function useSelectedRun({
     setRuns((currentRuns) =>
       currentRuns.map((run) => (run.id === updatedRun.id ? updatedRun : run)),
     );
-    saveRunNow(updatedRun);
+    save(updatedRun);
+  }
+
+  // A chip pick is a discrete choice — it saves immediately (like a Selected
+  // Draft / Selected Generated Image switch).
+  function updateNewsCategory(newsCategory: string) {
+    applyNewsCategory(newsCategory, saveRunNow);
+  }
+
+  // A custom-word edit is free text — it rides the debounced autosave (like
+  // inline draft editing), so typing doesn't thrash the store.
+  function updateNewsCategoryCustom(newsCategory: string) {
+    applyNewsCategory(newsCategory, scheduleRunAutosave);
   }
 
   function uploadSelectedRunImage(file: File) {
@@ -283,6 +297,7 @@ export function useSelectedRun({
     updateDraftText,
     updateSelectedGeneratedImage,
     updateNewsCategory,
+    updateNewsCategoryCustom,
     uploadSelectedRunImage,
     isUploadGenerating: generatingRunId !== null,
     deleteSelectedRun,
