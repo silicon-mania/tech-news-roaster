@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { categoryBandColors } from "@/services/generation";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
 import { buildCompletedV3Run } from "../workspace/workspace-test-utils";
@@ -66,6 +67,22 @@ describe("RunCard", () => {
 
     expect(screen.getByText("ACQUIRED")).toBeInTheDocument();
     expect(screen.queryByText(fallbackStamp)).not.toBeInTheDocument();
+  });
+
+  test("tints the composite band with the run's News Category Color", () => {
+    render(<RunCard run={buildCardRun({ newsCategory: "ACQUIRED" })} />);
+
+    expect(screen.getByRole("figure", { name: "Final Quote Tweet Image preview" })).toHaveStyle({
+      backgroundColor: categoryBandColors.ACQUIRED,
+    });
+  });
+
+  test("tints the band with the VIRAL color for a value-less run", () => {
+    render(<RunCard run={buildCardRun()} />);
+
+    expect(screen.getByRole("figure", { name: "Final Quote Tweet Image preview" })).toHaveStyle({
+      backgroundColor: categoryBandColors.VIRAL,
+    });
   });
 
   test("embeds the Source Tweet as a static, non-interactive quoted post", () => {

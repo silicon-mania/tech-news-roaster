@@ -14,6 +14,7 @@ import {
   imageOriginalCandidateTarget,
 } from "./image-original-candidate";
 import { jokeContextSnapshotSchema } from "./joke-context";
+import { newsCategories } from "./news-category";
 import { newsLinkedImageSchema } from "./news-linked-image";
 import { draftTarget } from "./providers";
 import { quoteTweetDraftSchema } from "./quote-tweet-draft";
@@ -155,6 +156,12 @@ export const completedGenerationRunPayloadSchema = z
     });
   });
 
+// The ten-value News Category vocabulary as a schema. It validates the optional
+// News Category Color a custom-word stamp carries — which of the ten categories'
+// color tints the band — so a stored color is always a real vocabulary value.
+// Built from the one `newsCategories` tuple; no second list.
+const newsCategorySchema = z.enum(newsCategories);
+
 const runOriginSchema = z.enum(["manual", "automated"]);
 
 // Which image prompt fed image generation. Manual runs steer with the operator's
@@ -190,6 +197,13 @@ const savedGenerationRunSchema = z
     // Area: a failed classification still renders VIRAL and never affects the
     // Successful Run / Complete Run determination.
     newsCategoryClassification: newsCategoryClassificationStateSchema.optional(),
+    // The News Category Color the operator picked for a custom-word stamp
+    // (ADR-0029): which of the ten categories' color tints the headline band when
+    // the stamp isn't one of the ten. Optional and derived-on-read — absent on
+    // preset and automated runs (their band color derives from the category), and
+    // a custom word with none resolves to the VIRAL color. Rides the JSONB payload
+    // — no column, no migration, mirroring how `newsCategory` was added (ADR-0027).
+    newsCategoryColor: newsCategorySchema.optional(),
     seenAt: z.string().datetime().optional(),
     sourceTweetUrl: z.string().url(),
     usersDirection: z.string(),

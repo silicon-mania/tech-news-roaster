@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
+import { categoryBandColors, newsCategories } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { buildCompletedV3Run, createMemorySavedRunStore } from "../workspace/workspace-test-utils";
 import { RunsFeed } from "./runs-feed";
@@ -203,11 +204,61 @@ describe("Selected Run sidebar", () => {
         expect.objectContaining({ id: "complete-run-1", newsCategory: "breaking" }),
       ),
     );
-    // ...the chip selection clears (mutually exclusive)...
-    expect(within(newsCategory).queryByRole("button", { pressed: true })).not.toBeInTheDocument();
+    // ...the chip selection clears (mutually exclusive — scope to the chips, since
+    // the now-revealed Band color row carries its own active swatch)...
+    for (const category of newsCategories) {
+      expect(within(newsCategory).getByRole("button", { name: category })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    }
+    // ...the Band color row appears, defaulting to the VIRAL swatch...
+    expect(
+      within(newsCategory).getByRole("button", { name: "VIRAL band color", pressed: true }),
+    ).toBeInTheDocument();
     // ...and the preview re-stamps live, uppercased.
     expect(within(preview).getByText("BREAKING")).toBeInTheDocument();
     expect(within(preview).queryByText("VIRAL")).not.toBeInTheDocument();
+  });
+
+  test("picking a custom word's band color saves immediately and recolors the preview live", async () => {
+    const user = userEvent.setup();
+    // Open a run already carrying a custom word, so the Band color row is present.
+    const savedRunStore = renderFeed([buildCompleteRun({ newsCategory: "breaking" })]);
+
+    await openSidebar(user);
+    const sidebar = getSidebar();
+    const newsCategory = within(sidebar).getByRole("region", { name: "News category" });
+    const preview = within(sidebar).getByRole("figure", {
+      name: "Final Quote Tweet Image preview",
+    });
+
+    // With no stored color the row defaults to VIRAL, and the band reads VIRAL's color.
+    expect(
+      within(newsCategory).getByRole("button", { name: "VIRAL band color", pressed: true }),
+    ).toBeInTheDocument();
+    expect(preview).toHaveStyle({ backgroundColor: categoryBandColors.VIRAL });
+
+    // Pick a different band color.
+    await user.click(within(newsCategory).getByRole("button", { name: "DRAMA band color" }));
+
+    // It persists immediately through the whole-run save (the chip path, not the
+    // debounced text path), keeping the custom word and naming the picked color...
+    await waitFor(() =>
+      expect(savedRunStore.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "complete-run-1",
+          newsCategory: "breaking",
+          newsCategoryColor: "DRAMA",
+        }),
+      ),
+    );
+    // ...the active swatch moves...
+    expect(
+      within(newsCategory).getByRole("button", { name: "DRAMA band color", pressed: true }),
+    ).toBeInTheDocument();
+    // ...and the preview band recolors live.
+    expect(preview).toHaveStyle({ backgroundColor: categoryBandColors.DRAMA });
   });
 
   test("inline-editing the selected draft autosaves the overwritten text and updates the card", async () => {

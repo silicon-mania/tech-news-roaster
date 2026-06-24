@@ -139,9 +139,10 @@ describe("generation run contracts", () => {
     });
 
     expect(parsed.uploadedImageSets).toEqual([]);
-    // A run that predates News Category carries neither field and still parses.
+    // A run that predates News Category carries none of its fields and still parses.
     expect(parsed.newsCategory).toBeUndefined();
     expect(parsed.newsCategoryClassification).toBeUndefined();
+    expect(parsed.newsCategoryColor).toBeUndefined();
   });
 
   test("round-trips a News Category and its classification result-state in both shapes", () => {
@@ -188,6 +189,39 @@ describe("generation run contracts", () => {
     expect(failed.newsCategoryClassification).toMatchObject({ status: "failed" });
     // Serialize → re-parse is byte-for-byte stable.
     expect(parseSavedGenerationRun(JSON.parse(JSON.stringify(failed)))).toEqual(failed);
+  });
+
+  test("round-trips a custom-word News Category Color and rejects a non-vocabulary one", () => {
+    const baseRunningRun = {
+      id: "run-band-color",
+      label: "Band color run",
+      sourceTweetUrl: "https://x.com/siliconmania/status/2468",
+      usersDirection: "",
+      status: "running" as const,
+      draftCount: 0,
+      draftTarget: 3 as const,
+      drafts: [],
+    };
+
+    // A custom-label run carries the operator's picked color, and it survives a
+    // serialize → re-parse round trip through the JSONB payload.
+    const colored = parseSavedGenerationRun({
+      ...baseRunningRun,
+      newsCategory: "ai bubble",
+      newsCategoryColor: "DRAMA",
+    });
+    expect(colored.newsCategoryColor).toBe("DRAMA");
+    expect(parseSavedGenerationRun(JSON.parse(JSON.stringify(colored)))).toEqual(colored);
+
+    // A custom-label run with no stored color leaves the field absent — it resolves
+    // to the VIRAL color on read.
+    const noColor = parseSavedGenerationRun({ ...baseRunningRun, newsCategory: "ai bubble" });
+    expect(noColor.newsCategoryColor).toBeUndefined();
+
+    // The color must name one of the ten vocabulary values; a stray string is rejected.
+    expect(() =>
+      parseSavedGenerationRun({ ...baseRunningRun, newsCategoryColor: "MAUVE" }),
+    ).toThrow();
   });
 
   test("a failed News Category classification never breaks a Complete Run", () => {

@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
+import { categoryBandColors, newsCategories } from "@/services/generation";
 import {
   buildCompletedRun,
   buildCompletedV3Run,
@@ -66,11 +67,15 @@ describe("Workspace final quote tweet image overlay", () => {
       name: /final quote tweet image creative result area/i,
     });
 
-    // The value-less run pre-selects VIRAL, and the overlay composite stamps it.
+    // The value-less run pre-selects VIRAL, and the overlay composite stamps it
+    // over the VIRAL band color.
     expect(
       within(newsCategory).getByRole("button", { name: "VIRAL", pressed: true }),
     ).toBeInTheDocument();
     expect(within(finalArea).getByText(fallbackStamp)).toBeInTheDocument();
+    expect(
+      within(finalArea).getByRole("figure", { name: "Final Quote Tweet Image preview" }),
+    ).toHaveStyle({ backgroundColor: categoryBandColors.VIRAL });
 
     // Pick a different stamp from the workspace's own copy of the shared section.
     await user.click(within(newsCategory).getByRole("button", { name: "DROPPED" }));
@@ -81,9 +86,12 @@ describe("Workspace final quote tweet image overlay", () => {
         expect.objectContaining({ id: "saved-run", newsCategory: "DROPPED" }),
       ),
     );
-    // ...and the overlay re-stamps live with the new value.
+    // ...and the overlay re-stamps and recolors its band live with the new value.
     expect(within(finalArea).getByText("DROPPED")).toBeInTheDocument();
     expect(within(finalArea).queryByText(fallbackStamp)).not.toBeInTheDocument();
+    expect(
+      within(finalArea).getByRole("figure", { name: "Final Quote Tweet Image preview" }),
+    ).toHaveStyle({ backgroundColor: categoryBandColors.DROPPED });
   });
 
   test("typing a custom News Category word persists it (debounced) and re-stamps the overlay uppercased", async () => {
@@ -114,8 +122,18 @@ describe("Workspace final quote tweet image overlay", () => {
         expect.objectContaining({ id: "saved-run", newsCategory: "breaking" }),
       ),
     );
-    // ...every chip de-highlights (chip and custom word are mutually exclusive)...
-    expect(within(newsCategory).queryByRole("button", { pressed: true })).not.toBeInTheDocument();
+    // ...every chip de-highlights (chip and custom word are mutually exclusive —
+    // scope to the chips, since the revealed Band color row has its own swatch)...
+    for (const category of newsCategories) {
+      expect(within(newsCategory).getByRole("button", { name: category })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    }
+    // ...the Band color row appears, defaulting to the VIRAL swatch...
+    expect(
+      within(newsCategory).getByRole("button", { name: "VIRAL band color", pressed: true }),
+    ).toBeInTheDocument();
     // ...and the overlay re-stamps live, uppercased to match the vocabulary look.
     expect(within(finalArea).getByText("BREAKING")).toBeInTheDocument();
     expect(within(finalArea).queryByText(fallbackStamp)).not.toBeInTheDocument();

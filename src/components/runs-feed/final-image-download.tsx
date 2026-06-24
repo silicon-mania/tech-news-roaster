@@ -11,7 +11,7 @@ import {
   type CompositeRasterizer,
   rasterizeCompositeToPng,
 } from "@/services/final-quote-tweet-image";
-import { resolveNewsCategoryStamp } from "@/services/generation";
+import { resolveBandColor, resolveNewsCategoryStamp } from "@/services/generation";
 import type { GenerationRun } from "@/services/workspace";
 import { resolveRunCardContent } from "./resolve-run-card-content";
 
@@ -99,6 +99,7 @@ export function FinalImageDownload({
       </div>
       <div className="overflow-hidden rounded-xl">
         <QuoteTweetComposite
+          bandColor={resolveBandColor(run.newsCategory, run.newsCategoryColor)}
           imageAlt={variation.altText ?? variation.label}
           imageUrl={variation.url}
           label={resolveNewsCategoryStamp(run.newsCategory)}

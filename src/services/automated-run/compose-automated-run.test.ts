@@ -305,10 +305,14 @@ describe("composeAutomatedRun", () => {
       startedAt: "2026-06-16T12:00:00.000Z",
       status: "completed",
     });
+    // An automated run's band color derives from the classified category — it never
+    // picks a custom-word color, so it stores none (ADR-0029).
+    expect(run.newsCategoryColor).toBeUndefined();
 
     // It is the value on the persisted run, so it survives the per-operator fan-out copy.
     const persisted = await repository.loadById(run.id);
     expect(persisted?.newsCategory).toBe("ACQUIRED");
+    expect(persisted?.newsCategoryColor).toBeUndefined();
   });
 
   test("persists a failed classification and falls back to VIRAL, leaving the run Complete", async () => {

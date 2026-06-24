@@ -5,17 +5,27 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Bundled Silicon Mania title serif, baked from Figma node 4016-97 and
- * committed under public/fonts (intentionally NOT next/font). Registered once
- * here so both the Final Quote Tweet Image preview and its html-to-image
- * rasterization resolve the exact face. See
- * src/services/final-quote-tweet-image/template.ts.
+ * Bundled brand faces, committed under public/fonts (intentionally NOT
+ * next/font) and registered once here so they resolve identically in the app,
+ * the Final Quote Tweet Image preview, and its html-to-image rasterization.
+ *
+ * - VC Henrietta Condensed — the editorial section-title serif (`.title-serif`).
+ * - CompactaICG — the Final Quote Tweet Image label face (Compacta ICG Italic).
+ *   See src/services/final-quote-tweet-image/template.ts.
  */
 @font-face {
   font-family: "VC Henrietta Condensed";
   src: url("/fonts/vc-henrietta-condensed.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "CompactaICG";
+  src: url("/fonts/compacta-icg-italic.ttf") format("truetype");
+  font-weight: 500;
+  font-style: italic;
   font-display: swap;
 }
 

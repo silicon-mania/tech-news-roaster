@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
+import { categoryBandColors } from "@/services/generation";
 import { buildCompletedV3Run } from "../workspace/workspace-test-utils";
 import { FinalImageDownload } from "./final-image-download";
 
@@ -43,6 +44,14 @@ describe("FinalImageDownload", () => {
 
     expect(screen.getByText("ACQUIRED")).toBeInTheDocument();
     expect(screen.queryByText(fallbackStamp)).not.toBeInTheDocument();
+  });
+
+  test("tints the composite band with the run's News Category Color", () => {
+    render(<FinalImageDownload run={buildCompletedV3Run({ newsCategory: "FUNDED" })} />);
+
+    expect(screen.getByRole("figure", { name: "Final Quote Tweet Image preview" })).toHaveStyle({
+      backgroundColor: categoryBandColors.FUNDED,
+    });
   });
 
   test("download captures the preview node and offers a PNG named from the run label", async () => {

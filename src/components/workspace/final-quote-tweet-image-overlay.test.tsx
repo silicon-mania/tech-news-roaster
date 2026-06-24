@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
+import { categoryBandColors } from "@/services/generation";
 import { FinalQuoteTweetImageOverlay } from "./final-quote-tweet-image-overlay";
 import {
   buildCompletedRun,
@@ -64,6 +65,33 @@ describe("FinalQuoteTweetImageOverlay", () => {
 
     expect(screen.getByText("ACQUIRED")).toBeInTheDocument();
     expect(screen.queryByText(fallbackStamp)).not.toBeInTheDocument();
+  });
+
+  test("tints the composite band with the run's News Category Color", () => {
+    render(
+      <FinalQuoteTweetImageOverlay
+        run={buildCompletedV3Run({
+          newsCategory: "ACQUIRED",
+          selectedGeneratedImage: selectedGeneratedImageFixture,
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("figure", { name: "Final Quote Tweet Image preview" })).toHaveStyle({
+      backgroundColor: categoryBandColors.ACQUIRED,
+    });
+  });
+
+  test("tints the band with the VIRAL fallback color when the run has no News Category", () => {
+    render(
+      <FinalQuoteTweetImageOverlay
+        run={buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })}
+      />,
+    );
+
+    expect(screen.getByRole("figure", { name: "Final Quote Tweet Image preview" })).toHaveStyle({
+      backgroundColor: categoryBandColors.VIRAL,
+    });
   });
 
   test("starts expanded and asks only for the image when none is selected", () => {
@@ -128,7 +156,7 @@ describe("FinalQuoteTweetImageOverlay", () => {
     expect(screen.getByRole("img", { name: "Platform visual variation 1." })).toBeInTheDocument();
   });
 
-  test("collapses to the rainbow strip and expands again on demand", async () => {
+  test("collapses to the logo peek and expands again on demand", async () => {
     const user = userEvent.setup();
 
     render(

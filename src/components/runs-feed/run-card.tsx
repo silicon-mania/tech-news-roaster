@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { QuoteTweetComposite } from "@/components/workspace/quote-tweet-composite";
-import { resolveNewsCategoryStamp } from "@/services/generation";
+import { resolveBandColor, resolveNewsCategoryStamp } from "@/services/generation";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
 import { formatRelativeTime } from "@/utils/relative-time";
@@ -99,6 +99,7 @@ export function RunCard({ run, onSelect }: RunCardProps) {
         {variation ? (
           <div className="overflow-hidden rounded-xl">
             <QuoteTweetComposite
+              bandColor={resolveBandColor(run.newsCategory, run.newsCategoryColor)}
               imageAlt={variation.altText ?? variation.label}
               imageUrl={variation.url}
               label={resolveNewsCategoryStamp(run.newsCategory)}

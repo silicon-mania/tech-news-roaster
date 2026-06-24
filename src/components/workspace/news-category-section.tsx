@@ -5,9 +5,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import {
+  categoryBandColors,
   defaultNewsCategory,
   isNewsCategory,
+  type NewsCategory,
   type NewsCategoryClassificationState,
   newsCategories,
 } from "@/services/generation";
@@ -45,6 +48,20 @@ type NewsCategorySectionProps = {
    * back to VIRAL, the residual floor.
    */
   onNewsCategoryCustomChange: (newsCategory: string) => void;
+  /**
+   * The News Category Color picked for a custom-word stamp (ADR-0029) — names
+   * which category's color tints the band. Only meaningful while a custom word is
+   * active; defaults to VIRAL when absent. Ignored for a lit preset chip, whose
+   * color derives from the category itself.
+   */
+  newsCategoryColor?: NewsCategory;
+  /**
+   * Pick the custom word's band color — sets the run's `newsCategoryColor`. Each
+   * surface routes this through its immediate save (the same whole-run save a chip
+   * pick uses), never the debounced custom-word text path, so the poster recolors
+   * live and the choice persists at once.
+   */
+  onNewsCategoryColorChange: (newsCategoryColor: NewsCategory) => void;
 };
 
 /**
@@ -65,6 +82,12 @@ type NewsCategorySectionProps = {
  * mutually exclusive. Picking a chip calls `onNewsCategoryChange` (immediate
  * save); editing the field calls `onNewsCategoryCustomChange` (debounced save).
  *
+ * A custom word also reveals a "Band color" row of the same ten News Category
+ * Colors (ADR-0029), so the operator can tint the poster's band for their custom
+ * label; the active swatch (defaulting to VIRAL) is ringed, and picking one calls
+ * `onNewsCategoryColorChange` (immediate save). A lit preset chip shows no row —
+ * presets derive their color from the category and have no separate color control.
+ *
  * When the run's persisted `newsCategoryClassification` is `failed` (issue 007),
  * the section also shows a quiet ghost error icon that reveals the Quiet Failure
  * Details — reusing the same {@link FailureDetails} + {@link TextRevealModal}
@@ -77,6 +100,8 @@ export function NewsCategorySection({
   newsCategoryClassification,
   onNewsCategoryChange,
   onNewsCategoryCustomChange,
+  newsCategoryColor,
+  onNewsCategoryColorChange,
 }: NewsCategorySectionProps) {
   const [isFailureOpen, setIsFailureOpen] = useState(false);
   // The lit chip: the run's value when it's one of the ten; VIRAL when absent (a
@@ -87,6 +112,12 @@ export function NewsCategorySection({
   // The custom field holds the run's value only when no chip is lit (a free word);
   // a lit chip empties it — chip and custom word are mutually exclusive.
   const customWord = activeCategory === null ? (newsCategory ?? "") : "";
+
+  // Whether the Band color row shows: only for a custom word (no lit chip). The
+  // ringed swatch is the picked color, defaulting to VIRAL — the same floor the
+  // band itself resolves to when no color is stored.
+  const isCustomWord = activeCategory === null;
+  const activeBandColor = newsCategoryColor ?? defaultNewsCategory;
 
   // The classifier's failure, narrowed to its failed shape — present only when the
   // run carries a `failed` classification. The completed/absent states have nothing
@@ -120,26 +151,42 @@ export function NewsCategorySection({
       <div className="flex flex-wrap gap-x-2 gap-y-2">
         {newsCategories.map((category) => {
           const isActive = category === activeCategory;
+          // Every chip wears its News Category Color (ADR-0029) as an at-rest swatch,
+          // so the whole category→color mapping reads before picking; the lit chip
+          // fills with that same color so the active selection — and the band color it
+          // stamps on the poster — is unmistakable.
+          const bandColor = categoryBandColors[category];
 
           return (
             <Button
               aria-pressed={isActive}
-              // The lit chip reads as a thin outlined box over the dark ground; the
-              // rest are plain muted labels that ink up on hover. Both carry the same
+              // Inactive chips are plain muted labels that ink up on hover; the lit
+              // chip fills with its band color and reads in white. Both carry the same
               // padded footprint, so lighting one never nudges the row.
-              className={
+              className={cn(
+                "tracking-wide",
                 isActive
-                  ? "border-muted-foreground/40 tracking-wide"
-                  : "text-muted-foreground tracking-wide"
-              }
+                  ? "border-transparent text-white hover:text-white"
+                  : "text-muted-foreground",
+              )}
               key={category}
               // Re-picking the lit chip is a no-op — VIRAL is the floor, so there is
               // no "deselect to nothing" here, and skipping it avoids a redundant
               // whole-run save.
               onClick={isActive ? undefined : () => onNewsCategoryChange(category)}
               size="lg"
+              // The band color is an arbitrary hex from the closed map, so it rides an
+              // inline style, not a utility class. On the lit chip it fills the chip
+              // (inline beats the ghost hover-bg); the swatch wears it on every chip.
+              style={isActive ? { backgroundColor: bandColor } : undefined}
               type="button"
               variant="ghost">
+              <span
+                aria-hidden
+                className="size-2.5 shrink-0 rounded-sm"
+                data-slot="news-category-swatch"
+                style={{ backgroundColor: bandColor }}
+              />
               {category}
             </Button>
           );
@@ -160,6 +207,50 @@ export function NewsCategorySection({
         placeholder="custom label"
         value={customWord}
       />
+      {isCustomWord ? (
+        <div className="grid gap-2" data-slot="news-category-band-color-row">
+          <span className="text-muted-foreground text-xs">Band color</span>
+          <div className="flex flex-wrap gap-2">
+            {newsCategories.map((category) => {
+              const isActiveColor = category === activeBandColor;
+
+              return (
+                <Tooltip key={category}>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        // Named by its category so the swatch is understandable
+                        // without the tooltip; distinct from the chip's bare name.
+                        aria-label={`${category} band color`}
+                        aria-pressed={isActiveColor}
+                        className={cn(
+                          "size-7 rounded-md p-0",
+                          isActiveColor &&
+                            "ring-2 ring-foreground ring-offset-2 ring-offset-background",
+                        )}
+                        // Re-picking the active color is a no-op — it would only
+                        // fire a redundant immediate save.
+                        onClick={
+                          isActiveColor ? undefined : () => onNewsCategoryColorChange(category)
+                        }
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      />
+                    }>
+                    <span
+                      aria-hidden
+                      className="size-full rounded-[inherit]"
+                      style={{ backgroundColor: categoryBandColors[category] }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>{category}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
       {failedClassification && isFailureOpen ? (
         <TextRevealModal title="Quiet Failure Details" onClose={() => setIsFailureOpen(false)}>
           <FailureDetails failure={failedClassification} />
