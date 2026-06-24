@@ -457,10 +457,9 @@ function readDomain(url: string) {
 }
 
 function readAiGatewayApiKey() {
-  return (
-    readEnvValue(process.env.AI_GATEWAY_API_KEY) ??
-    readEnvValue(process.env.VERCEL_AI_GATEWAY_API_KEY)
-  );
+  // The /enrich summarization is part of the manual surface, so it bills the
+  // manual key.
+  return readEnvValue(process.env.AI_GATEWAY_API_KEY);
 }
 
 function readAiGatewayBaseUrl() {

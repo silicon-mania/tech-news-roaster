@@ -80,8 +80,7 @@ export async function readRuntimeStatus({
   const twitterApiIoApiKey = hasEnvValue(env.TWITTERAPI_IO_API_KEY);
   const outsideXEnrichmentApiKey = hasEnvValue(env.OUTSIDE_X_ENRICHMENT_API_KEY);
   const outsideXEnrichmentEndpoint = hasEnvValue(env.OUTSIDE_X_ENRICHMENT_ENDPOINT);
-  const aiGatewayApiKey =
-    hasEnvValue(env.AI_GATEWAY_API_KEY) || hasEnvValue(env.VERCEL_AI_GATEWAY_API_KEY);
+  const aiGatewayApiKey = hasEnvValue(env.AI_GATEWAY_API_KEY);
   const supabaseUrl = hasEnvValue(env.SUPABASE_URL);
   const supabaseAnonKey = hasEnvValue(env.SUPABASE_ANON_KEY);
   const supabaseServiceRoleKey = hasEnvValue(env.SUPABASE_SERVICE_ROLE_KEY);

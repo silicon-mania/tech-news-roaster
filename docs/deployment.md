@@ -12,8 +12,10 @@ these variables with `NEXT_PUBLIC_`.
 
 2. Vercel AI Gateway
    - In Vercel, enable AI Gateway for the team/project that will host this app.
-   - Create an AI Gateway key for `AI_GATEWAY_API_KEY` or use the Vercel-provided
-     `VERCEL_AI_GATEWAY_API_KEY`.
+   - Create **two** AI Gateway keys: one for `AI_GATEWAY_API_KEY` (manual
+     Workspace runs, no spend limit) and a separate one for
+     `AI_GATEWAY_AUTOMATED_API_KEY` (automated/cron runs, with a spend limit such
+     as $5/day). They are billed independently with no fallback between them.
    - Confirm the model catalog contains the text models and image model you
      plan to deploy.
 
@@ -49,7 +51,8 @@ for the Production environment:
 
 ```bash
 TWITTERAPI_IO_API_KEY=<twitterapi.io key>
-AI_GATEWAY_API_KEY=<vercel ai gateway key>
+AI_GATEWAY_API_KEY=<vercel ai gateway key for manual runs; no spend limit>
+AI_GATEWAY_AUTOMATED_API_KEY=<separate vercel ai gateway key for automated/cron runs; set a spend limit, e.g. $5/day>
 AI_GATEWAY_OPENAI_MODEL=openai/gpt-5.4-mini
 AI_GATEWAY_ANTHROPIC_MODEL=anthropic/claude-sonnet-4.6
 AI_GATEWAY_GOOGLE_MODEL=google/gemini-3-flash
@@ -90,8 +93,9 @@ OUTSIDE_X_ENRICHMENT_MODEL=google/gemini-3-flash
 
 Notes:
 
-- Set either `AI_GATEWAY_API_KEY` or `VERCEL_AI_GATEWAY_API_KEY`; `AI_GATEWAY_API_KEY` is the
-  clearest manual dashboard entry.
+- Set both `AI_GATEWAY_API_KEY` (manual, uncapped) and `AI_GATEWAY_AUTOMATED_API_KEY` (automated,
+  spend-capped). They are independent — automated never falls back to the manual key — so a capped
+  cron can never throttle Workspace users.
 - If you change any model ID, make sure `/api/runtime-status` reports that model as available
   before running a production smoke test.
 - If the outside-X endpoint is hosted somewhere else, set `OUTSIDE_X_ENRICHMENT_ENDPOINT` to that

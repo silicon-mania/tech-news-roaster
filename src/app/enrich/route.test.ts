@@ -33,7 +33,6 @@ describe("outside-X enrichment route", () => {
     process.env.OUTSIDE_X_ENRICHMENT_API_KEY = "enrichment-secret";
     process.env.SERPER_API_KEY = "serper-secret";
     delete process.env.AI_GATEWAY_API_KEY;
-    delete process.env.VERCEL_AI_GATEWAY_API_KEY;
     globalThis.fetch = vi.fn(async (input, init) => {
       fetchRequests.push({
         body: JSON.parse(String(init?.body)),
