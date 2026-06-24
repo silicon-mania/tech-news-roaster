@@ -1,23 +1,19 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { newsCategories } from "@/services/generation";
 import { NewsCategorySection } from "./news-category-section";
 
-function getSection() {
-  return screen.getByRole("region", { name: "News category" });
-}
-
+// The component owns only its chips (the surface supplies the labeled section and
+// heading), so these tests query the chips straight off the render.
 describe("NewsCategorySection", () => {
   test("renders the ten vocabulary values as chips", () => {
     render(<NewsCategorySection onNewsCategoryChange={vi.fn()} />);
 
-    const chips = within(getSection()).getAllByRole("button");
-
-    expect(chips).toHaveLength(newsCategories.length);
+    expect(screen.getAllByRole("button")).toHaveLength(newsCategories.length);
     for (const category of newsCategories) {
-      expect(within(getSection()).getByRole("button", { name: category })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: category })).toBeInTheDocument();
     }
   });
 
@@ -25,20 +21,16 @@ describe("NewsCategorySection", () => {
     render(<NewsCategorySection newsCategory="ACQUIRED" onNewsCategoryChange={vi.fn()} />);
 
     // The matching chip is the lit one...
-    expect(
-      within(getSection()).getByRole("button", { name: "ACQUIRED", pressed: true }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ACQUIRED", pressed: true })).toBeInTheDocument();
     // ...and it is the only one.
-    expect(within(getSection()).getAllByRole("button", { pressed: true })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(1);
   });
 
   test("pre-selects VIRAL when the run carries no value", () => {
     render(<NewsCategorySection onNewsCategoryChange={vi.fn()} />);
 
-    expect(
-      within(getSection()).getByRole("button", { name: "VIRAL", pressed: true }),
-    ).toBeInTheDocument();
-    expect(within(getSection()).getAllByRole("button", { pressed: true })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "VIRAL", pressed: true })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(1);
   });
 
   test("clicking a chip invokes the change with that value", async () => {
@@ -48,7 +40,7 @@ describe("NewsCategorySection", () => {
       <NewsCategorySection newsCategory="VIRAL" onNewsCategoryChange={onNewsCategoryChange} />,
     );
 
-    await user.click(within(getSection()).getByRole("button", { name: "LAUNCHED" }));
+    await user.click(screen.getByRole("button", { name: "LAUNCHED" }));
 
     expect(onNewsCategoryChange).toHaveBeenCalledExactlyOnceWith("LAUNCHED");
   });
@@ -60,7 +52,7 @@ describe("NewsCategorySection", () => {
       <NewsCategorySection newsCategory="FUNDED" onNewsCategoryChange={onNewsCategoryChange} />,
     );
 
-    await user.click(within(getSection()).getByRole("button", { name: "FUNDED" }));
+    await user.click(screen.getByRole("button", { name: "FUNDED" }));
 
     expect(onNewsCategoryChange).not.toHaveBeenCalled();
   });

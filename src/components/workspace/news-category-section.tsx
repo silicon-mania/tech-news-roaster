@@ -22,6 +22,11 @@ type NewsCategorySectionProps = {
  * pattern {@link DraftComparison} and `ImageSetStack` established — so the
  * operator never relearns it between surfaces.
  *
+ * Like DraftComparison, this owns only its content (the chips); each surface
+ * wraps it in its own "News category" section with a heading sized to match that
+ * surface's siblings — the workspace's large `SectionHeader`, the sidebar's
+ * compact `h3`.
+ *
  * The chip matching the run's value is pre-selected; an absent (pre-feature or
  * value-less) run lights VIRAL, the residual. Picking a chip calls
  * `onNewsCategoryChange`.
@@ -40,29 +45,26 @@ export function NewsCategorySection({
     newsCategory == null ? defaultNewsCategory : isNewsCategory(newsCategory) ? newsCategory : null;
 
   return (
-    <section aria-label="News category" className="grid min-w-0 gap-3">
-      <h3 className="title-serif text-foreground text-lg">News category</h3>
-      <div className="flex flex-wrap gap-2">
-        {newsCategories.map((category) => {
-          const isActive = category === activeCategory;
+    <div className="flex flex-wrap gap-2">
+      {newsCategories.map((category) => {
+        const isActive = category === activeCategory;
 
-          return (
-            <Button
-              aria-pressed={isActive}
-              className={isActive ? "ring-1 ring-primary/45" : "text-muted-foreground"}
-              key={category}
-              // Re-picking the lit chip is a no-op — VIRAL is the floor, so there
-              // is no "deselect to nothing" here, and skipping it avoids a
-              // redundant whole-run save.
-              onClick={isActive ? undefined : () => onNewsCategoryChange(category)}
-              size="sm"
-              type="button"
-              variant={isActive ? "secondary" : "ghost"}>
-              {category}
-            </Button>
-          );
-        })}
-      </div>
-    </section>
+        return (
+          <Button
+            aria-pressed={isActive}
+            className={isActive ? "ring-1 ring-primary/45" : "text-muted-foreground"}
+            key={category}
+            // Re-picking the lit chip is a no-op — VIRAL is the floor, so there is
+            // no "deselect to nothing" here, and skipping it avoids a redundant
+            // whole-run save.
+            onClick={isActive ? undefined : () => onNewsCategoryChange(category)}
+            size="sm"
+            type="button"
+            variant={isActive ? "secondary" : "ghost"}>
+            {category}
+          </Button>
+        );
+      })}
+    </div>
   );
 }

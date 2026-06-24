@@ -101,11 +101,15 @@ export function SelectedRunSidebar({
           </header>
 
           {/* The News Category section sits next to the artifact it stamps —
-              directly above the Final Quote Tweet Image (ADR-0027). */}
-          <NewsCategorySection
-            newsCategory={run.newsCategory}
-            onNewsCategoryChange={onNewsCategoryChange}
-          />
+              directly above the Final Quote Tweet Image (ADR-0027). Its heading
+              matches the sidebar's other sections (compact h3). */}
+          <section aria-label="News category" className="grid min-w-0 gap-3">
+            <h3 className="title-serif text-foreground text-lg">News category</h3>
+            <NewsCategorySection
+              newsCategory={run.newsCategory}
+              onNewsCategoryChange={onNewsCategoryChange}
+            />
+          </section>
 
           <FinalImageDownload run={run} />
 

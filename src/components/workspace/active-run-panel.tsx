@@ -13,6 +13,7 @@ import { ImageGenerationSkeleton } from "./image-generation-skeleton";
 import { NewsCategoryProgress } from "./news-category-progress";
 import { NewsCategorySection } from "./news-category-section";
 import { QuietRunReveals } from "./quiet-run-reveals";
+import { SectionHeader } from "./section-header";
 import { SourceTweetPreview } from "./source-tweet-preview";
 import { TextGenerationSection } from "./text-generation-section";
 import { TextGenerationSkeleton } from "./text-generation-skeleton";
@@ -120,17 +121,21 @@ export function ActiveRunPanel({
   return (
     <section
       aria-label={isCompleted ? "Completed draft canvas" : undefined}
-      className="mx-auto grid w-full max-w-5xl gap-3 self-start">
+      className="mx-auto grid w-full max-w-5xl gap-6 self-start">
       {sourceTweetPreview}
       <NewsCategoryProgress run={activeRun} />
-      {/* The News Category editor — the same shared section the Selected Run
-          sidebar uses — as its own compact section in the workspace column. It
+      {/* The News Category editor — the same shared chips the Selected Run sidebar
+          uses — as its own section in the workspace column, headed by the same
+          SectionHeader as Text/Image generation so it reads at the same scale. It
           surfaces once the run is complete, when there is a stamp to refine. */}
       {isCompleted ? (
-        <NewsCategorySection
-          newsCategory={activeRun.newsCategory}
-          onNewsCategoryChange={onNewsCategoryChange}
-        />
+        <section aria-label="News category" className="grid min-w-0 gap-3">
+          <SectionHeader title="News category" />
+          <NewsCategorySection
+            newsCategory={activeRun.newsCategory}
+            onNewsCategoryChange={onNewsCategoryChange}
+          />
+        </section>
       ) : null}
       <RunWorkspaceLayout
         imageGenerationArea={imageGenerationArea}
@@ -155,7 +160,7 @@ function RunWorkspaceLayout({
   }
 
   return (
-    <section aria-label="Responsive creative workspace" className="grid items-start gap-4">
+    <section aria-label="Responsive creative workspace" className="grid items-start gap-6">
       <TextGenerationSection usersDirection={usersDirection}>{children}</TextGenerationSection>
       {imageGenerationArea}
     </section>
