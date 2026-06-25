@@ -1,6 +1,11 @@
 import "server-only";
 
 import { readPrimaryOperatorEmail } from "@/services/auth";
+import {
+  composeAndFanOutAutomatedRun,
+  createFanOutAccumulator,
+  type FanOutSummary,
+} from "@/services/automated-run/compose-and-fan-out-automated-run";
 import { composeAutomatedRun } from "@/services/automated-run/compose-automated-run";
 import { isDiscoverySweepReady, readRuntimeStatus } from "@/services/runtime-status";
 import { fanOutAutomatedRun } from "@/services/saved-runs/fan-out-automated-run";
@@ -129,22 +134,6 @@ export type DiscoverySweepDependencies = {
   env?: SweepEnvironment;
 };
 
-/** How many of this sweep's Automated Runs were copied to one signed-in operator. The
- *  anchor is excluded — it holds each composed original, not a copy. */
-type FanOutOperatorCount = {
-  email: string;
-  userId: string;
-  copied: number;
-  failed: number;
-};
-
-/** The fan-out outcome of a sweep: per-operator copy counts, plus the allowlisted
- *  operators skipped for not having an account yet. */
-type FanOutSummary = {
-  perOperator: FanOutOperatorCount[];
-  skippedUnprovisioned: string[];
-};
-
 export type DiscoverySweepResult =
   | { status: "not-ready" }
   | { status: "unauthorized" }
@@ -230,20 +219,10 @@ export async function runDiscoverySweep(
   // logged — forward-only, no backfill. Per-operator copy counts (anchor excluded, since
   // it holds each original) accumulate across the runs this sweep starts.
   const fanOutTargets = await resolveFanOut();
-  const copyCountByOwnerId = new Map<string, FanOutOperatorCount>();
-
-  for (const target of fanOutTargets.targets) {
-    if (target.userId === anchorOwnerId) {
-      continue;
-    }
-
-    copyCountByOwnerId.set(target.userId, {
-      email: target.email,
-      userId: target.userId,
-      copied: 0,
-      failed: 0,
-    });
-  }
+  const fanOutAccumulator = createFanOutAccumulator({
+    anchorOwnerId,
+    targets: fanOutTargets.targets,
+  });
 
   for (const email of fanOutTargets.skipped) {
     logger({ event: "fan-out-skip-unprovisioned", email });
@@ -346,17 +325,17 @@ export async function runDiscoverySweep(
     }
 
     const clusterId = createClusterId();
-    const composed = await compose(
-      {
-        sourceTweetUrl: discovered.url,
-        newsCoverageClusterId: clusterId,
-      },
-      // The sweep is unattended (no operator session): compose must resolve the
-      // Operator Account headlessly, the same way as the discovery stores below.
-      { operatorSession: resolveHeadlessOperatorSession, env },
+
+    // Compose the run under the headless anchor and fan it out — the single shared
+    // unit the bot-ingest route uses too, so "discovery sweep minus the discovery"
+    // and the sweep generate runs through exactly the same path.
+    const launched = await composeAndFanOutAutomatedRun(
+      { sourceTweetUrl: discovered.url, newsCoverageClusterId: clusterId },
+      { anchorOwnerId, targets: fanOutTargets.targets },
+      { compose, fanOut, env },
     );
 
-    if ("unauthorized" in composed) {
+    if ("unauthorized" in launched) {
       // The gate cleared but the operator became unresolvable mid-sweep; stop rather
       // than persist a half-linked cluster.
       return { status: "unauthorized" };
@@ -371,7 +350,7 @@ export async function runDiscoverySweep(
         sourceText: cluster.sourceText,
         memberTweetIds: cluster.memberTweetIds,
         earliestCreatedAt: cluster.earliestCreatedAt,
-        runId: composed.run.id,
+        runId: launched.run.id,
         createdAt: linkedAt,
         updatedAt: linkedAt,
       }),
@@ -379,40 +358,19 @@ export async function runDiscoverySweep(
     await seenTweet.markSeen(cluster.memberTweetIds);
 
     startedRuns.push({
-      runId: composed.run.id,
+      runId: launched.run.id,
       clusterId,
       sourceTweetId: cluster.sourceTweet.id,
       sourceTweetUrl: discovered.url,
       authorRelativeScore: scoreByTweetId.get(cluster.sourceTweet.id) ?? 0,
     });
 
-    // Fan the finished run out to the other signed-in operators (best-effort per
-    // operator). The anchor already holds this original — fanOut filters it out. A
-    // failed copy is logged and isolated: that operator misses just this one run.
-    const copyOutcomes = await fanOut(
-      { run: composed.run, anchorOwnerId, targets: fanOutTargets.targets },
-      { env },
-    );
-
-    for (const outcome of copyOutcomes) {
-      const counts = copyCountByOwnerId.get(outcome.userId);
-
-      if (!counts) {
-        continue; // defensive: fanOut already excludes the anchor.
-      }
-
-      if (outcome.status === "copied") {
-        counts.copied += 1;
-      } else {
-        counts.failed += 1;
-        logger({
-          event: "fan-out-copy-failed",
-          email: outcome.email,
-          runId: composed.run.id,
-          error: outcome.error,
-        });
-      }
-    }
+    // Tally the per-operator copies. A failed copy is logged and isolated: that
+    // operator misses just this one run.
+    fanOutAccumulator.record(launched.outcomes, {
+      onCopyFailed: ({ email, error }) =>
+        logger({ event: "fan-out-copy-failed", email, runId: launched.run.id, error }),
+    });
   }
 
   return {
@@ -420,10 +378,7 @@ export async function runDiscoverySweep(
     startedRuns,
     droppedByCap,
     joinedExistingClusters: plan.joinedExisting.length,
-    fanOut: {
-      perOperator: [...copyCountByOwnerId.values()],
-      skippedUnprovisioned: fanOutTargets.skipped,
-    },
+    fanOut: fanOutAccumulator.summary(fanOutTargets.skipped),
   };
 }
 
