@@ -70,4 +70,16 @@ describe("operator gate", () => {
       }),
     ).toEqual({ type: "allow" });
   });
+
+  test("leaves the bearer-authenticated bot-ingest route public to the session gate", () => {
+    // The external bot's request carries no operator session — it authenticates with
+    // BOT_INGEST_SECRET inside the route — so the session gate must not 401 it first.
+    expect(
+      resolveOperatorGate({
+        hasOperator: false,
+        isConfigured: true,
+        pathname: "/api/bot-ingest",
+      }),
+    ).toEqual({ type: "allow" });
+  });
 });

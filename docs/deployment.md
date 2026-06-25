@@ -69,6 +69,12 @@ DISCOVERY_SOURCE_LIST_IDS=<comma-separated operator-owned X List ids>
 CRON_SECRET=<long random secret protecting the sweep route>
 ```
 
+Optional (bot-triggered runs):
+
+```bash
+BOT_INGEST_SECRET=<long random secret protecting the /api/bot-ingest route>
+```
+
 The model IDs above (`gpt-5.4-mini`, `claude-sonnet-4.6`, `gemini-3-flash`,
 `gemini-2.5-flash-image`) are the **current code defaults** and are shown as examples — they may
 change. Confirm the live values against `/api/runtime-status`, which reports each configured model
@@ -179,6 +185,43 @@ The sweep runs unattended as a **Vercel Cron job** that hits the secured
   image model as `available: true` before relying on unattended sweeps. (The gate checks
   boundaries, not whether the operator has signed in —
   that is the separate `unauthorized` case above.)
+
+## 5b. Bot-triggered automated runs (optional)
+
+Besides the scheduled sweep, an external bot can hand the app a single tweet to run —
+"discovery sweep minus the discovery". It `POST`s to the secured `/api/bot-ingest`
+route, which composes the **same** server-driven Automated Run a sweep would (same
+generation pipeline, same headless Primary Operator anchor, same fan-out to the other
+signed-in operators) — it just skips the sweep/cluster/rank stages because the bot has
+already chosen the tweet.
+
+- **Authentication.** Set a long random `BOT_INGEST_SECRET` (e.g. `openssl rand -hex 32`),
+  separate from `CRON_SECRET` so the bot's access rotates independently. The bot sends it
+  as `Authorization: Bearer <BOT_INGEST_SECRET>`. The route refuses any request without
+  the matching bearer; with no secret set it refuses outright in production.
+- **Request.** `POST` JSON `{ "tweetUrl": "<x.com or twitter.com status URL>" }`. A
+  malformed body or non-status URL is rejected with `400` before any paid work runs.
+- **Response.** `200` with `{ "status": "completed", "runId": "...", "runStatus": "completed" | "failed", "fanOut": {...} }`.
+  `runStatus` reports whether the composition itself succeeded — a failed run is still
+  persisted and visible in the feed (HTTP is still `200`).
+- **Readiness gate.** Honors the same Runtime Readiness Gate as the sweep, but returns
+  `503` (not the sweep's benign `200`) when the gate holds, so a synchronous bot caller
+  gets a clear retry signal. An unresolvable Operator Account is `500` — the same
+  Primary-Operator-must-exist-first rule as the sweep applies (section 5).
+- **Duration.** The route sets `maxDuration = 800` — one composition fits the same
+  envelope as a single sweep run.
+
+Trigger one by hand (substitute your domain + secret):
+
+```bash
+curl -i -X POST https://<your-production-domain>/api/bot-ingest \
+  -H "Authorization: Bearer $BOT_INGEST_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{ "tweetUrl": "https://x.com/<author>/status/<id>" }'
+```
+
+The started run appears in the **Runs Feed** as **automated** and **unseen**, exactly
+like a sweep-started run — verify it as in section 7.
 
 ## 6. Real Discovery Sweep smoke
 
