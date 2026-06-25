@@ -19,6 +19,7 @@ import {
 import type { GenerationRun } from "@/services/workspace";
 import { buildFinalQuoteTweetImageDownloadName } from "./image-helpers";
 import { QuoteTweetComposite } from "./quote-tweet-composite";
+import { resolveOverlayReadiness } from "./quote-tweet-readiness";
 import { findSelectedVariation } from "./quote-tweet-selection";
 import { useQuoteTweetOverlayState } from "./use-quote-tweet-overlay-state";
 
@@ -71,6 +72,7 @@ export function FinalQuoteTweetImageOverlay({
   );
   const downloadName = buildFinalQuoteTweetImageDownloadName(run.label);
   const bandColor = resolveBandColor(run.newsCategory, run.newsCategoryColor);
+  const readiness = resolveOverlayReadiness(run, Boolean(selectedVariation));
 
   async function downloadComposite() {
     const compositeNode = compositeRef.current;
@@ -187,6 +189,34 @@ export function FinalQuoteTweetImageOverlay({
           </span>
         </button>
       )}
+      {/*
+       * On-air readiness cue (Signal Desk Phase 4): strictly additive chrome around
+       * the one sanctioned light island (ADR-0030). It is derived from the run and
+       * never touches the matted card, the composite, or the download path — the
+       * dot/peek-label is decorative (aria-hidden), and the sibling live region
+       * carries the state in words so it is never conveyed by color alone.
+       */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-2 left-3 z-10 flex items-center">
+        {isExpanded ? (
+          <span
+            className={`size-2 rounded-full ${
+              readiness.isProgram ? "bg-signal-green" : "bg-zinc-300"
+            }`}
+          />
+        ) : (
+          <span
+            className={`display-locked text-[10px] leading-none tracking-wide ${
+              readiness.isProgram ? "text-signal-green" : "text-zinc-400"
+            }`}>
+            {readiness.peekLabel}
+          </span>
+        )}
+      </span>
+      <span className="sr-only" role="status">
+        {readiness.statusLabel}
+      </span>
     </section>
   );
 }
