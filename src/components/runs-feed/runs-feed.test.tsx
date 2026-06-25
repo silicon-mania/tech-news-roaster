@@ -104,6 +104,27 @@ describe("Runs Feed", () => {
     ).not.toBeInTheDocument();
   });
 
+  test("renders the LOCKED IN brand mark in the masthead", async () => {
+    const savedRunStore = createMemorySavedRunStore([buildCompleteRun(1)]);
+
+    render(<RunsFeed savedRunStore={savedRunStore} />);
+
+    // The masthead wordmark is the committed LOCKED IN logo (alt = the brand name),
+    // living in the feed header beside the actions.
+    const wordmark = await screen.findByRole("img", { name: "LOCKED IN" });
+    expect(wordmark.closest("header")).not.toBeNull();
+  });
+
+  test("surfaces a derived status readout — loaded count, cadence, and freshness", async () => {
+    const savedRunStore = createMemorySavedRunStore([buildCompleteRun(1), buildCompleteRun(2)]);
+
+    render(<RunsFeed savedRunStore={savedRunStore} />);
+
+    const deck = await screen.findByText(/auto-sweep 2h/i);
+    expect(deck).toHaveTextContent("2 runs");
+    expect(deck).toHaveTextContent(/last generated/i);
+  });
+
   test("shows the resolved selected draft text on each card", async () => {
     const savedRunStore = createMemorySavedRunStore([buildCompleteRun(1)]);
 

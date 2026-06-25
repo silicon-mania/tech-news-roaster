@@ -26,7 +26,7 @@ export function DirectionPanel({ id, title, isOpen, children }: DirectionPanelPr
       id={id}
       inert={!isOpen}>
       <div className="grid gap-3">
-        <h2 className="title-serif text-foreground text-xl md:text-2xl">{title}</h2>
+        <h2 className="display-locked text-foreground text-xl md:text-2xl">{title}</h2>
         {children}
       </div>
     </aside>

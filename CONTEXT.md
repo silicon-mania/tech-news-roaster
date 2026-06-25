@@ -325,7 +325,7 @@ The fixed-vocabulary classification of the source tweet's news, rendered as the 
 _Avoid_: Run Label, label, tag, headline, LABEL GOES HERE
 
 **News Category Color**:
-The signature color of the Final Quote Tweet Image's headline band, fixed per News Category — each of the ten owns exactly one — and shown as a swatch beside that category wherever the stamp is edited, on both editing surfaces. A custom-word stamp has no category, so it carries an operator-chosen band color picked from those same ten, defaulting to the VIRAL color until changed. The set is closed; the band is never a free-form color, and the label text on it is always white.
+The signature color of the Final Quote Tweet Image's headline band, fixed per News Category — each of the ten owns exactly one. Wherever the stamp is edited, the category chips are monochrome at rest and the selected chip fills with its band color; a custom-word stamp, which has no category, instead reveals a swatch row of all ten colors and carries an operator-chosen one, defaulting to the VIRAL color until changed. The set is closed; the band is never a free-form color, and the label text on it is always white.
 _Avoid_: Theme, accent, brand color, hex, palette token
 
 **Locked-In Logo**:

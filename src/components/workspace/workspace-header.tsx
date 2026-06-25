@@ -18,7 +18,7 @@ export function WorkspaceHeader({ compact = false }: WorkspaceHeaderProps) {
           height={32}
           className="size-7 rounded-lg sm:size-8"
         />
-        <h1 className="title-serif text-2xl text-foreground sm:text-3xl">Auto-news</h1>
+        <h1 className="display-locked text-2xl text-foreground sm:text-3xl">Auto-news</h1>
       </header>
     );
   }
@@ -34,7 +34,7 @@ export function WorkspaceHeader({ compact = false }: WorkspaceHeaderProps) {
         className="size-16 rounded-2xl shadow-lg shadow-black/30 sm:size-[72px]"
       />
       <div className="grid gap-2">
-        <h1 className="title-serif text-4xl text-foreground sm:text-6xl">Auto-news</h1>
+        <h1 className="display-locked text-4xl text-foreground sm:text-6xl">Auto-news</h1>
         <p className="text-base text-muted-foreground sm:text-lg">
           generate the next Viral Quote Tweet based on a news
         </p>

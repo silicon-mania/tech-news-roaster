@@ -45,7 +45,7 @@ export function SectionHeader({
 
   return (
     <div className="flex min-w-0 items-center justify-between gap-2">
-      <h1 className="title-serif text-2xl text-foreground md:text-3xl">{title}</h1>
+      <h1 className="display-locked text-2xl text-foreground md:text-3xl">{title}</h1>
       {actions || directionToggle ? (
         <div className="flex shrink-0 items-center gap-1">
           {actions}

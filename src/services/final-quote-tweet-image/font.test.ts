@@ -40,8 +40,15 @@ describe("bundled quote tweet assets", () => {
   });
 
   test("drops the old rainbow stripe asset", () => {
-    // VC Henrietta Condensed is intentionally NOT dropped — it stays as the app's
-    // editorial section-title serif (`.title-serif`); only this asset stopped using it.
     expect(existsSync(oldStripePath)).toBe(false);
+  });
+
+  test("retires the Henrietta section-title serif once every header uses the display tier", () => {
+    // ADR-0030 Phase 5: all headers moved to the CompactaICG display tier
+    // (`.display-locked`), so the bundled Henrietta face and its `@font-face`
+    // registration were removed — the font system keeps no dead tier.
+    const henriettaPath = resolve(repoRoot, "public/fonts/vc-henrietta-condensed.otf");
+    expect(existsSync(henriettaPath)).toBe(false);
+    expect(globalsCss).not.toContain("vc-henrietta-condensed.otf");
   });
 });

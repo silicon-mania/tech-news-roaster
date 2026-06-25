@@ -2,6 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { StageScoreboard } from "@/components/control-room/stage-scoreboard";
 import { useUploadedImageGeneration } from "@/components/image-sets";
 import type { CompositeRasterizer } from "@/services/final-quote-tweet-image";
 import {
@@ -510,7 +511,7 @@ export function Workspace({
           isRunsSidebarPinned ? "pl-3 sm:pl-8 lg:pl-[20rem]" : "pl-3 sm:pl-8 lg:pl-10"
         } ${openDirectionPanelId ? "pr-3 sm:pr-8 lg:pr-[20rem]" : "pr-3 sm:pr-8 lg:pr-10"}`}>
         {hasRuns ? (
-          <div className="mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl grid-rows-[auto_auto_1fr] gap-4 sm:min-h-[calc(100vh-3rem)] sm:gap-6">
+          <div className="mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl grid-rows-[auto_auto_auto_1fr] gap-4 sm:min-h-[calc(100vh-3rem)] sm:gap-6">
             <WorkspaceHeader compact />
 
             <GenerationRunForm
@@ -524,6 +525,14 @@ export function Workspace({
               onSubmit={submitSourceTweet}
               onUsersDirectionChange={updateUsersDirection}
             />
+
+            {/* The honest live readout: the run's pipeline, only while in flight. A
+                stable wrapper holds this grid row (the scoreboard itself renders
+                nothing off-pipeline) so the Active Run panel keeps the 1fr track and
+                the run form's position is unchanged — no remount on the first run. */}
+            <div>
+              <StageScoreboard run={activeRun} />
+            </div>
 
             <ActiveRunPanel
               activeRun={activeRun}

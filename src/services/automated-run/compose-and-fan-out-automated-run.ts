@@ -15,7 +15,7 @@ type Environment = Readonly<Record<string, string | undefined>>;
  * How many of a batch's Automated Runs were copied to one signed-in operator. The
  * anchor is excluded — it holds each composed original, not a copy.
  */
-export type FanOutOperatorCount = {
+type FanOutOperatorCount = {
   email: string;
   userId: string;
   copied: number;

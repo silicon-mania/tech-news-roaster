@@ -64,17 +64,15 @@ describe("NewsCategorySection", () => {
     }
   });
 
-  test("renders every chip's News Category Color swatch — even unselected", () => {
+  test("chips are monochrome at rest — no at-rest color swatch", () => {
     renderSection();
 
-    // Each chip wears its band color as an at-rest swatch, so the whole
-    // category→color mapping reads before the operator picks anything.
+    // Signal Desk (ADR-0030): chips are plain labels at rest; color appears only on
+    // the lit chip, so a color on a chip always means "selected", never decoration.
     for (const category of newsCategories) {
       const chip = screen.getByRole("button", { name: category });
-      const swatch = chip.querySelector('[data-slot="news-category-swatch"]');
 
-      expect(swatch).toBeInTheDocument();
-      expect(swatch).toHaveStyle({ backgroundColor: categoryBandColors[category] });
+      expect(chip.querySelector('[data-slot="news-category-swatch"]')).toBeNull();
     }
   });
 

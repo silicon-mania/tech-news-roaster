@@ -151,10 +151,10 @@ export function NewsCategorySection({
       <div className="flex flex-wrap gap-x-2 gap-y-2">
         {newsCategories.map((category) => {
           const isActive = category === activeCategory;
-          // Every chip wears its News Category Color (ADR-0029) as an at-rest swatch,
-          // so the whole category→color mapping reads before picking; the lit chip
-          // fills with that same color so the active selection — and the band color it
-          // stamps on the poster — is unmistakable.
+          // The lit chip fills with its News Category Color so the active selection —
+          // and the band color it stamps on the poster — is unmistakable. Chips are
+          // otherwise monochrome at rest (ADR-0030): color means "selected", never
+          // at-rest decoration.
           const bandColor = categoryBandColors[category];
 
           return (
@@ -176,17 +176,11 @@ export function NewsCategorySection({
               onClick={isActive ? undefined : () => onNewsCategoryChange(category)}
               size="lg"
               // The band color is an arbitrary hex from the closed map, so it rides an
-              // inline style, not a utility class. On the lit chip it fills the chip
-              // (inline beats the ghost hover-bg); the swatch wears it on every chip.
+              // inline style, not a utility class — filling only the lit chip (inline
+              // beats the ghost hover-bg).
               style={isActive ? { backgroundColor: bandColor } : undefined}
               type="button"
               variant="ghost">
-              <span
-                aria-hidden
-                className="size-2.5 shrink-0 rounded-sm"
-                data-slot="news-category-swatch"
-                style={{ backgroundColor: bandColor }}
-              />
               {category}
             </Button>
           );

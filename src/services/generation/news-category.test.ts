@@ -68,13 +68,22 @@ describe("News Category vocabulary", () => {
 });
 
 describe("News Category Color", () => {
-  test("categoryBandColors gives every one of the ten categories a distinct color", () => {
+  test("maps the ten categories onto the six LOCKED IN signal colors (ADR-0030)", () => {
     for (const category of newsCategories) {
       expect(categoryBandColors[category]).toMatch(/^#[0-9a-f]{6}$/i);
     }
 
-    const colors = newsCategories.map((category) => categoryBandColors[category]);
-    expect(new Set(colors).size).toBe(newsCategories.length);
+    // Color is a signal, not a unique key: ten categories share six signal hues,
+    // and the category word disambiguates (the Run Card prints it beside the
+    // stripe; the composite stamps it on the band).
+    const distinct = new Set(newsCategories.map((category) => categoryBandColors[category]));
+    expect(distinct.size).toBe(6);
+
+    // The semantic groupings that deliberately share a hue.
+    expect(categoryBandColors.LAUNCHED).toBe(categoryBandColors.DROPPED);
+    expect(categoryBandColors.SIGNED).toBe(categoryBandColors.FIRED);
+    expect(categoryBandColors.FIRED).toBe(categoryBandColors.RESIGNED);
+    expect(categoryBandColors.DRAMA).toBe(categoryBandColors.VIRAL);
   });
 
   test("resolveBandColor reads a preset stamp in its own category color", () => {

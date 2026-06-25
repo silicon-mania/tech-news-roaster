@@ -72,16 +72,16 @@ export function resolveNewsCategoryStamp(newsCategory?: string): string {
  * per-category foreground.
  */
 export const categoryBandColors: Record<NewsCategory, string> = {
-  LAUNCHED: "#052e16",
-  DROPPED: "#fe7710",
-  ACQUIRED: "#ff0000",
-  SIGNED: "#5dbe3d",
-  FIRED: "#450a0a",
-  RESIGNED: "#17b084",
-  FUNDED: "#164e63",
-  PUBLISHED: "#1e3a8a",
-  DRAMA: "#4c1d95",
-  VIRAL: "#831843",
+  LAUNCHED: "#9C27B0",
+  DROPPED: "#9C27B0",
+  ACQUIRED: "#FF7A1A",
+  SIGNED: "#E63946",
+  FIRED: "#E63946",
+  RESIGNED: "#E63946",
+  FUNDED: "#1EA7F0",
+  PUBLISHED: "#FFC20E",
+  DRAMA: "#6ACB3C",
+  VIRAL: "#6ACB3C",
 };
 
 /**

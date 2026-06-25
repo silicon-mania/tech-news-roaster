@@ -270,4 +270,132 @@ describe("FinalQuoteTweetImageOverlay", () => {
       await screen.findByText("Couldn't download the final quote tweet image"),
     ).toBeInTheDocument();
   });
+
+  describe("on-air readiness cue", () => {
+    // The run's first draft id, the operator's explicit Selected Draft when picked.
+    const selectedDraftId = "draft-openai";
+    const standbyStatus = "Standby — episode not ready";
+    const programStatus = "Program — episode ready";
+
+    test("reads standby when a draft is selected but no image resolves", () => {
+      render(
+        <FinalQuoteTweetImageOverlay
+          run={buildCompletedV3Run({ selectedDraftId, selectedGeneratedImage: null })}
+        />,
+      );
+
+      expect(screen.getByText(standbyStatus)).toHaveRole("status");
+      expect(screen.queryByText(programStatus)).not.toBeInTheDocument();
+    });
+
+    test("reads standby when an image is selected but no draft is", () => {
+      render(
+        <FinalQuoteTweetImageOverlay
+          run={buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })}
+        />,
+      );
+
+      expect(screen.getByText(standbyStatus)).toHaveRole("status");
+      expect(screen.queryByText(programStatus)).not.toBeInTheDocument();
+    });
+
+    test("reads standby, in words, when neither a draft nor an image resolves", () => {
+      render(
+        <FinalQuoteTweetImageOverlay run={buildCompletedV3Run({ selectedGeneratedImage: null })} />,
+      );
+
+      expect(screen.getByText(standbyStatus)).toHaveRole("status");
+    });
+
+    test("reads program, in green, when both a draft and an image resolve", () => {
+      const { container } = render(
+        <FinalQuoteTweetImageOverlay
+          run={buildCompletedV3Run({
+            selectedDraftId,
+            selectedGeneratedImage: selectedGeneratedImageFixture,
+          })}
+        />,
+      );
+
+      expect(screen.getByText(programStatus)).toHaveRole("status");
+      expect(screen.queryByText(standbyStatus)).not.toBeInTheDocument();
+      // The expanded dot turns the green signal hue only in program.
+      expect(container.querySelector(".bg-signal-green")).toBeInTheDocument();
+    });
+
+    test("collapsed peek reads STANDBY when not ready", async () => {
+      const user = userEvent.setup();
+
+      render(
+        <FinalQuoteTweetImageOverlay
+          run={buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })}
+        />,
+      );
+      await user.click(screen.getByRole("button", { name: "Collapse final quote tweet image" }));
+
+      const peekLabel = screen.getByText("STANDBY");
+
+      expect(peekLabel).toBeInTheDocument();
+      expect(peekLabel).not.toHaveClass("text-signal-green");
+      expect(screen.queryByText("PGM")).not.toBeInTheDocument();
+    });
+
+    test("collapsed peek reads PGM, in green, when ready", async () => {
+      const user = userEvent.setup();
+
+      render(
+        <FinalQuoteTweetImageOverlay
+          run={buildCompletedV3Run({
+            selectedDraftId,
+            selectedGeneratedImage: selectedGeneratedImageFixture,
+          })}
+        />,
+      );
+      await user.click(screen.getByRole("button", { name: "Collapse final quote tweet image" }));
+
+      expect(screen.getByText("PGM")).toHaveClass("text-signal-green");
+      expect(screen.queryByText("STANDBY")).not.toBeInTheDocument();
+    });
+
+    test("recomputes live when the selected draft changes, with no stale state", () => {
+      const { rerender } = render(
+        <FinalQuoteTweetImageOverlay
+          run={buildCompletedV3Run({
+            selectedDraftId,
+            selectedGeneratedImage: selectedGeneratedImageFixture,
+          })}
+        />,
+      );
+
+      expect(screen.getByText(programStatus)).toBeInTheDocument();
+
+      rerender(
+        <FinalQuoteTweetImageOverlay
+          run={buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })}
+        />,
+      );
+
+      expect(screen.getByText(standbyStatus)).toBeInTheDocument();
+      expect(screen.queryByText(programStatus)).not.toBeInTheDocument();
+    });
+
+    test("leaves the download and collapse controls intact alongside the cue", () => {
+      render(
+        <FinalQuoteTweetImageOverlay
+          run={buildCompletedV3Run({
+            selectedDraftId,
+            selectedGeneratedImage: selectedGeneratedImageFixture,
+          })}
+        />,
+      );
+
+      expect(screen.getByText(programStatus)).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Download final quote tweet image" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Collapse final quote tweet image" }),
+      ).toBeInTheDocument();
+    });
+  });
 });

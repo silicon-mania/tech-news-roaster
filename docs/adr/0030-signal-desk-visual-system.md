@@ -1,0 +1,173 @@
+---
+status: accepted
+---
+
+# Signal Desk Visual System — Silent Canvas, Signal Tokens, Condensed-Italic Display Tier
+
+## Context
+
+The app inherited a generic dark-editorial skin: a near-black background washed
+with an always-on accent-blue gradient and faint vertical pinstripes, a cyan
+`--accent` used as the one decorative color, and **VC Henrietta Condensed** as the
+section-title serif. Meanwhile the product's signature output — the **Final Quote
+Tweet Image** ([ADR-0029](0029-category-colored-quote-tweet-template-and-locked-in-logo.md))
+— already speaks a different, sharper language: a heavy condensed italic face
+(**CompactaICG**) and a per-**News Category** band color. A brand "visual guide"
+("LOCKED IN") names that language explicitly: *black and white are the brand,
+color is the signal*; heavy/condensed/italic display type; a six-hue signal palette
+carrying meaning; graphic-first, declarative, broadcast energy.
+
+Two facts made adoption low-risk and obvious:
+
+1. `categoryBandColors` (the source of truth in `news-category.ts`) already
+   collapsed to the **six** LOCKED IN signal hexes across the ten categories (commit
+   "Change colors"). The color taxonomy the brand prescribes already lives in the
+   code — it just never reached the UI chrome, only the poster band.
+2. CompactaICG is already bundled and `@font-face`-registered; the brand's display
+   voice is one CSS class away.
+
+The redesign was explored as four directions (broadcast control room, editorial
+newsprint, signal-minimal, sports-network HUD) and judged by three lenses
+(UX-pragmatist, brand-purist, repo-engineer). **Signal Minimal** won unanimously:
+its core idea *is* the existing constraints (minimalist, avoid borders, one palette,
+dark-only) rather than chrome layered on top.
+
+## Decision
+
+Adopt **"Signal Desk"** as the app's visual direction and land it as a thin tracer
+slice (this ADR + the Run Card + the tokens), staging the rest.
+
+- **Silent canvas.** `--background` flattens to brand black `#0a0a0a`; the `body`
+  accent-blue gradient wash and the vertical pinstripe are **removed**. The page is
+  silent neutral type on near-black so the only color on screen is a run's signal —
+  its card stripe and the X Quote Repost poster.
+
+- **One color system — named signal tokens.** Add `--signal-green` `#6acb3c`,
+  `--signal-yellow` `#ffc20e`, `--signal-orange` `#ff7a1a`, `--signal-red`
+  `#e63946`, `--signal-purple` `#9c27b0`, `--signal-blue` `#1ea7f0`, exposed in
+  `@theme inline` as `--color-signal-*` for static utilities. These **mirror**
+  `categoryBandColors`, which stays the authoritative source for per-run band colors
+  (no second palette, per CLAUDE.md). The semantic **status** tokens are reconciled
+  onto the same hues — `--success` → green, `--warning` → yellow, `--danger` → red —
+  so run-state color and category color are one system.
+
+- **Color is a hint, never a unique key.** Six hues map to ten categories
+  (RED = SIGNED/FIRED/RESIGNED, GREEN = DRAMA/VIRAL, PURPLE = LAUNCHED/DROPPED), so
+  the category **word** always accompanies the color. The Run Card prints the word
+  beside its stripe; the composite stamps it on the band. (This corrects a now-stale
+  test that asserted "ten distinct colors.")
+
+- **Condensed-italic display tier.** Promote CompactaICG from composite-label-only
+  to a UI display class: `--font-display` + `.display-locked` (heavy condensed
+  italic, all-caps). Used for UI "signal words" — first use is the Run Card's News
+  Category label.
+
+- **Run Card reskin (the tracer).** Drop the `rounded-xl bg-card` panel and the
+  embedded-tweet full border; the card becomes a borderless type block with a single
+  angular `SignalStripe` (a new feature-shared primitive) on the left flying the
+  run's News Category Color — the **same hex** the composite bands with. At rest the
+  stripe is low-alpha; on hover/focus it lifts to full saturation, replacing the
+  near-invisible `hover:bg-foreground/[0.03]` as the click affordance. The embedded
+  Source Tweet becomes a `border-left` pull-quote; the footer becomes a small-caps,
+  letter-spaced caption above a single hairline rule (the one sanctioned `--line`
+  use). The hardcoded fake engagement counts (18 / 7 / 124 / 12.4K) — which
+  masqueraded as data on every identical card — are **dropped**.
+
+- **`::selection`** moves off accent-blue to a neutral foreground tint.
+
+### Staged (explicitly deferred from this slice)
+
+- **Repointing `.title-serif` from Henrietta to the display tier** (masthead +
+  section headers). The display tier is introduced now; section titles migrate when
+  the masthead/section-header surfaces are reworked.
+- **Retiring blue from `--primary` / `--ring` / the verified tick.** Reserving blue
+  strictly for the FUNDED signal means remapping app-wide accent usages (buttons,
+  links, focus rings) — a call-site audit kept out of this tracer. The verified
+  BadgeCheck stays blue for now (a real X post's check is blue).
+- **Masthead wordmark + signal bug, derived status readout, sidebar handoff stripe,
+  Workspace stage scoreboard, overlay readiness dot** — later phases.
+
+### Phases 4–5 landed
+
+All staged items above shipped on `feat/signal-desk-redesign`. The two phases that
+carried open design decisions:
+
+- **Phase 4 — overlay readiness cue.** A PROGRAM / STANDBY on-air dot on the Final
+  Quote Tweet Image overlay turns `--signal-green` only when a Selected Draft *and* a
+  Selected Generated Image both resolve; the collapsed peek reads `PGM` / `STANDBY`.
+  Additive chrome only — the matted light card and the composite are untouched.
+
+- **Phase 5 — decorative blue retired, one title voice, motion/containment verified.**
+  - `--accent` / `--accent-strong` (and therefore `--primary` / `--ring`) are remapped
+    to `var(--foreground)`. The ~12 `text-/bg-/ring-primary` call-sites were audited;
+    each follows the neutral primary intentionally. `::selection` was already neutral
+    (Phase 1). **The only blue left on screen renders the FUNDED signal.**
+  - **Decision — verified ✓ stays X-blue.** The Run Card mimics a real X post, so its
+    verified check keeps an *explicit* X-badge blue (`#1d9bf0`) hardcoded on the icon —
+    decoupled from both the neutral UI accent and the FUNDED `--signal-blue`, so
+    retiring decorative blue never touches it and it never reads as a category signal.
+    A sanctioned "X-chrome" exception (like the one light overlay), not a second palette
+    — CLAUDE.md records it. Rejected: neutralizing the tick (strictest "blue = FUNDED
+    only") made the card read less like a genuine X post for no real clarity gain.
+  - The **waiting-for-image-selection** status dot moved off the retired blue to a dim
+    neutral (`bg-foreground/55`), distinct from the bright running dot and the muted idle
+    dot; the phase is named in the dot's `title`, so color stays a hint. The latent
+    `text-accent` sign-in link (which resolved to `--panel-strong`, near-invisible) was
+    fixed to `text-foreground`.
+  - **One title voice.** The five remaining `.title-serif` (Henrietta) surfaces — the
+    workspace "Auto-news" masthead, the Selected Run sidebar headings, sign-in, the
+    direction panel, and the final-image heading — moved to `.display-locked`. Accessible
+    names are unchanged (the display tier uppercases via CSS only).
+  - **Decision — Henrietta deleted, not aliased.** With nothing referencing
+    `.title-serif`, the class, its `@font-face`, the now-unused `--font-editorial-serif`,
+    and the `public/fonts/vc-henrietta-condensed.otf` asset were all removed — the font
+    system keeps no dead tier. Rejected: keeping `.title-serif` as an alias (a dead tier
+    plus a bundled face nothing renders).
+  - **Graceful degradation — verified, no code.** The global `prefers-reduced-motion`
+    block is *unlayered*, so it outranks Tailwind's layered `.animate-pulse` /
+    `.animate-spin` utilities in the cascade — the stage-scoreboard pulse settles to
+    opacity 1 and the signal stripe's `transition-opacity` goes instant. The stripe is a
+    `clip-path` polygon inside a fixed `w-1.5` `shrink-0` grid track, so it can't clip a
+    neighbour or reflow the `columns-1 lg:columns-2` masonry at any width. Confirmed by a
+    manual screenshot pass — there is no automated seam (by design, no CSS-value tests).
+
+This **amends** [ADR-0029](0029-category-colored-quote-tweet-template-and-locked-in-logo.md):
+CompactaICG is now a general UI display face, not composite-label-only; the
+"Henrietta is kept as the section-title serif" note is reversed — Henrietta was
+removed in Phase 5 and every title now renders in the display tier; and the News
+Category chips drop their at-rest color swatch (ADR-0029 "Editing UI") — chips are
+monochrome at rest, lighting their color only on the selected chip. The custom-word
+"Band color" row keeps its swatches, and the lit chip still fills with its color.
+The **load-bearing** artifact is untouched: `QuoteTweetComposite`, `template.ts`
+geometry (3240×4050), the auto-fit label, rasterization, and the sanctioned light
+overlay are unchanged.
+
+## Considered Options
+
+- **Editorial Newsprint (full light inversion).** The most brand-faithful to the
+  guide pages (cream paper, black ink), but it reverses the documented dark-only
+  rule, forces re-auditing every `dark:` utility and ghost-button hover state, and
+  strands the one sanctioned light island. Rejected: a whole-app reskin milestone
+  for UX wins the dark direction delivers nearly for free.
+- **Broadcast ticker / always-on live status rail.** Rejected: the Runs Feed renders
+  only Complete Runs and never polls; in-flight phase state lives only in the
+  Workspace. A "live" rail on the feed would over-promise realtime that does not
+  exist. (The honest live surface — a Workspace stage scoreboard — is deferred to a
+  later phase where phase data genuinely exists.)
+- **A second decorative palette / new color variables.** Rejected: CLAUDE.md's
+  cardinal rule. The signal tokens mirror the authoritative `categoryBandColors`.
+
+## Consequences
+
+- One flat near-black canvas; no decorative gradient. A new `SignalStripe` primitive
+  (`src/components/signal/`) owns the angular shape and at-rest/lit states, reused by
+  the sidebar and Workspace in later phases.
+- Status colors shift hue (success/warning/danger now ride the signal palette);
+  visible in the Workspace status messages — intended, on-brand, reversible.
+- Near-monochrome legibility leans entirely on whitespace and type hierarchy;
+  spacing discipline is non-negotiable.
+- The display tier styles every title in the app; the Henrietta serif tier was removed
+  in Phase 5 (no `.title-serif`, no `@font-face`, no bundled face). CLAUDE.md's token
+  list and the font-system memory are updated to match.
+- Adding or retuning a signal hue remains a code change in `categoryBandColors` (the
+  `--signal-*` vars mirror it), closed and code-owned.

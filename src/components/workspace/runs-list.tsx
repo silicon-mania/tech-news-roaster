@@ -135,7 +135,10 @@ function getStatusDotClass(run: GenerationRun) {
   }
 
   if (run.phase === "waiting-for-image-selection") {
-    return "bg-accent-strong/80";
+    // Needs the operator to pick an image. Decorative blue retired (ADR-0030
+    // Phase 5): a dim neutral, distinct from the bright running dot and the muted
+    // idle dot — the phase is named in the dot's title, so color stays a hint.
+    return "bg-foreground/55";
   }
 
   return "bg-muted-foreground/40";

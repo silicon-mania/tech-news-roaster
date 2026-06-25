@@ -115,7 +115,7 @@ export function SignInForm() {
             <p className="text-muted-foreground/70 text-xs">
               Sent to {email}.{" "}
               <button
-                className="text-accent underline-offset-4 hover:underline"
+                className="text-foreground underline-offset-4 hover:underline"
                 onClick={changeEmail}
                 type="button">
                 Use a different email
