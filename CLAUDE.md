@@ -38,9 +38,11 @@ read [CONTEXT.md](CONTEXT.md) and the ADRs under [docs/adr/](docs/adr/).
   **word**. Reach for color only when it *means* a category or a run state — the
   canvas is otherwise silent neutral type on near-black (no decorative washes).
 - **Display tier.** `.display-locked` / `--font-display` (CompactaICG, heavy
-  condensed italic, all-caps) is the brand "signal word" voice — e.g. the Run
-  Card's News Category label. `.title-serif` (Henrietta) still styles section
-  titles; its migration to the display tier is staged (ADR-0030).
+  condensed italic, all-caps) is the brand "signal word" voice — the Run Card's
+  News Category label, the masthead wordmark, and the workspace `SectionHeader`
+  titles. `.title-serif` (Henrietta) still styles the remaining headers (the
+  sidebar sections, the "Auto-news" workspace masthead, sign-in, the direction
+  panel); migrating those is staged (ADR-0030).
 - The app is **dark-only**: `<html>` carries the `dark` class so shadcn's
   `dark:` variants apply, and there is no theme toggle or `next-themes`.
   - **One sanctioned exception:** the Final Quote Tweet Image overlay

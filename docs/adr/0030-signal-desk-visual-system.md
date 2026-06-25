@@ -88,8 +88,12 @@ slice (this ADR + the Run Card + the tokens), staging the rest.
   Workspace stage scoreboard, overlay readiness dot** — later phases.
 
 This **amends** [ADR-0029](0029-category-colored-quote-tweet-template-and-locked-in-logo.md):
-CompactaICG is now a general UI display face, not composite-label-only, and the
-"Henrietta is kept as the section-title serif" note is now staged for migration.
+CompactaICG is now a general UI display face, not composite-label-only; the
+"Henrietta is kept as the section-title serif" note is now staged for migration
+(the workspace `SectionHeader` titles already use the display tier); and the News
+Category chips drop their at-rest color swatch (ADR-0029 "Editing UI") — chips are
+monochrome at rest, lighting their color only on the selected chip. The custom-word
+"Band color" row keeps its swatches, and the lit chip still fills with its color.
 The **load-bearing** artifact is untouched: `QuoteTweetComposite`, `template.ts`
 geometry (3240×4050), the auto-fit label, rasterization, and the sanctioned light
 overlay are unchanged.
