@@ -37,12 +37,20 @@ read [CONTEXT.md](CONTEXT.md) and the ADRs under [docs/adr/](docs/adr/).
   (six hues, ten categories), so always pair a signal color with the category
   **word**. Reach for color only when it *means* a category or a run state — the
   canvas is otherwise silent neutral type on near-black (no decorative washes).
+  **Blue is reserved for the FUNDED News Category.** `--accent` / `--accent-strong`
+  (and therefore `--primary` / `--ring`) are neutral, foreground-derived, so the only
+  blue on screen is `--signal-blue`. The **one sanctioned exception** is the Run
+  Card's verified ✓, which keeps an explicit X-badge blue (`#1d9bf0`) as *X-chrome*
+  (the card mimics a real X post) — hardcoded on the icon, decoupled from both the UI
+  accent and `--signal-blue`, so it is neither a UI accent nor a category signal.
+  Don't reintroduce blue as a generic accent, and don't widen this exception.
 - **Display tier.** `.display-locked` / `--font-display` (CompactaICG, heavy
-  condensed italic, all-caps) is the brand "signal word" voice — the Run Card's
-  News Category label, the masthead wordmark, and the workspace `SectionHeader`
-  titles. `.title-serif` (Henrietta) still styles the remaining headers (the
-  sidebar sections, the "Auto-news" workspace masthead, sign-in, the direction
-  panel); migrating those is staged (ADR-0030).
+  condensed italic, all-caps) is the brand "signal word" voice and styles **every
+  title in the app** — the Run Card's News Category label, the masthead wordmark,
+  the workspace `SectionHeader` titles, and (since ADR-0030 Phase 5) the Selected
+  Run sidebar headings, the "Auto-news" mastheads, sign-in, and the direction and
+  final-image headings. The Henrietta serif (`.title-serif`) was removed — class,
+  `@font-face`, and bundled face all gone, so there is no second title tier.
 - The app is **dark-only**: `<html>` carries the `dark` class so shadcn's
   `dark:` variants apply, and there is no theme toggle or `next-themes`.
   - **One sanctioned exception:** the Final Quote Tweet Image overlay

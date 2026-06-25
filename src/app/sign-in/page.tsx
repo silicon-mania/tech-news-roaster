@@ -26,7 +26,7 @@ export default async function SignInPage() {
           className="size-16 rounded-2xl shadow-lg shadow-black/30 sm:size-[72px]"
         />
         <div className="grid gap-2">
-          <h1 className="title-serif text-4xl text-foreground sm:text-5xl">Auto-news</h1>
+          <h1 className="display-locked text-4xl text-foreground sm:text-5xl">Auto-news</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
             Sign in with your operator email and a one-time code.
           </p>

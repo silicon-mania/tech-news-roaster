@@ -77,7 +77,11 @@ export function RunCard({ run, onSelect }: RunCardProps) {
           <div className="grid min-w-0 gap-0.5 leading-tight">
             <span className="flex items-center gap-1 font-medium text-foreground text-sm">
               <span className="truncate">{operatorAccount.displayName}</span>
-              <BadgeCheck aria-hidden className="size-4 shrink-0 text-primary" strokeWidth={2} />
+              {/* X-chrome: a real X post's verified check is blue. This is an
+                  explicit X-badge blue, decoupled from the neutral UI accent AND
+                  from the FUNDED --signal-blue, so retiring decorative blue never
+                  touches it and it never reads as a category signal (ADR-0030). */}
+              <BadgeCheck aria-hidden className="size-4 shrink-0 text-[#1d9bf0]" strokeWidth={2} />
               <span className="sr-only">Verified account</span>
             </span>
             <span className="truncate text-muted-foreground text-xs">

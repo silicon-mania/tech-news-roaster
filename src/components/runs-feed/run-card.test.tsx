@@ -43,6 +43,17 @@ describe("RunCard", () => {
     expect(screen.getByText("Verified account")).toBeInTheDocument();
   });
 
+  test("renders the verified ✓ in an explicit X-badge blue, decoupled from the UI accent", () => {
+    render(<RunCard run={buildCardRun()} />);
+
+    // X-chrome: the card mimics a real X post, whose verified check is blue. The
+    // tick carries an explicit X-badge blue — not the neutral --primary, nor the
+    // FUNDED --signal-blue — so retiring decorative blue never neutralizes it and it
+    // never reads as a category signal (ADR-0030 Phase 5).
+    const verifiedIcon = screen.getByText("Verified account").parentElement?.querySelector("svg");
+    expect(verifiedIcon).toHaveClass("text-[#1d9bf0]");
+  });
+
   test("uses the resolved Selected Draft as commentary", () => {
     render(<RunCard run={buildCardRun({ selectedDraftId: "draft-anthropic" })} />);
 

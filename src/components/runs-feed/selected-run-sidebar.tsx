@@ -100,7 +100,7 @@ export function SelectedRunSidebar({
           <SignalStripe color={resolveBandColor(run.newsCategory, run.newsCategoryColor)} lit />
           <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-5 py-6 sm:px-6">
             <header className="flex items-center justify-between gap-2">
-              <h2 className="title-serif text-foreground text-xl md:text-2xl">Selected run</h2>
+              <h2 className="display-locked text-foreground text-xl md:text-2xl">Selected run</h2>
               <Button
                 aria-label="Close selected run"
                 className="shrink-0 text-muted-foreground"
@@ -116,7 +116,7 @@ export function SelectedRunSidebar({
               directly above the Final Quote Tweet Image (ADR-0027). Its heading
               matches the sidebar's other sections (compact h3). */}
             <section aria-label="News category" className="grid min-w-0 gap-3">
-              <h3 className="title-serif text-foreground text-lg">News category</h3>
+              <h3 className="display-locked text-foreground text-lg">News category</h3>
               <NewsCategorySection
                 newsCategory={run.newsCategory}
                 newsCategoryClassification={run.newsCategoryClassification}
@@ -132,7 +132,7 @@ export function SelectedRunSidebar({
             {run.sourceTweet ? <SourcePostReference sourceTweet={run.sourceTweet} /> : null}
 
             <section aria-label="Text" className="grid min-w-0 gap-3">
-              <h3 className="title-serif text-foreground text-lg">Text</h3>
+              <h3 className="display-locked text-foreground text-lg">Text</h3>
               <DraftComparison
                 drafts={run.drafts}
                 selectedDraftId={run.selectedDraftId ?? null}
@@ -149,7 +149,7 @@ export function SelectedRunSidebar({
               editor. Uploading appends a new "Image set N" below the others. */}
             <section aria-label="Image" className="grid min-w-0 gap-3">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="title-serif text-foreground text-lg">Image</h3>
+                <h3 className="display-locked text-foreground text-lg">Image</h3>
                 <UploadImageButton disabled={isUploadGenerating} onUpload={onUploadImage} />
               </div>
               <ImageSetStack

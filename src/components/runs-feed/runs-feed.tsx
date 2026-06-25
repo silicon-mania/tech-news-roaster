@@ -31,7 +31,7 @@ type RunsFeedProps = {
 
 // The committed LOCKED IN brand mark (the same outlined, white wordmark the X
 // Quote Repost poster bugs with — ADR-0029/0030), reused as the masthead wordmark.
-const LOCKED_IN_LOGO_SRC = "/assets/quote-tweet/locked-in-logo.svg";
+const LOCKED_IN_LOGO_SRC = "/assets/logo/locked-in-logo.svg";
 
 // The Discovery Sweep cadence (tracks the cron in vercel.json, like the empty
 // state's copy). The masthead surfaces it and uses it as the freshness threshold:
@@ -111,7 +111,6 @@ export function RunsFeed({
                   unoptimized
                   className="h-7 w-auto sm:h-8"
                 />
-                <SignalBug />
               </h1>
 
               <div className="flex items-center gap-1">

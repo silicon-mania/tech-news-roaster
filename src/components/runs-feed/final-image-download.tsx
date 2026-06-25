@@ -78,7 +78,7 @@ export function FinalImageDownload({
   return (
     <section aria-label="Final image" className="grid min-w-0 gap-3">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="title-serif text-foreground text-lg">Final image</h3>
+        <h3 className="display-locked text-foreground text-lg">Final image</h3>
         <Tooltip>
           <TooltipTrigger
             render={

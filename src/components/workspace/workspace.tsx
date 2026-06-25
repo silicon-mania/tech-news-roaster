@@ -2,7 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { StageScoreboard } from "@/components/control-room";
+import { StageScoreboard } from "@/components/control-room/stage-scoreboard";
 import { useUploadedImageGeneration } from "@/components/image-sets";
 import type { CompositeRasterizer } from "@/services/final-quote-tweet-image";
 import {
