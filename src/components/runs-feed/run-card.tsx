@@ -1,12 +1,6 @@
-import {
-  BadgeCheck,
-  BarChart3,
-  Heart,
-  type LucideIcon,
-  MessageCircle,
-  Repeat2,
-} from "lucide-react";
+import { BadgeCheck } from "lucide-react";
 import Image from "next/image";
+import { SignalStripe } from "@/components/signal";
 import { QuoteTweetComposite } from "@/components/workspace/quote-tweet-composite";
 import { resolveBandColor, resolveNewsCategoryStamp } from "@/services/generation";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
@@ -32,45 +26,45 @@ const operatorAccount = {
   handle: "siliconmania",
 };
 
-// Decorative engagement chrome. A Quote Repost preview is unposted, so these
-// counts are fixed dressing that make the card read like a real X post; the row
-// is aria-hidden because it carries no real state.
-const engagementChrome: { Icon: LucideIcon; key: string; value: string }[] = [
-  { Icon: MessageCircle, key: "replies", value: "18" },
-  { Icon: Repeat2, key: "reposts", value: "7" },
-  { Icon: Heart, key: "likes", value: "124" },
-  { Icon: BarChart3, key: "views", value: "12.4K" },
-];
-
 /**
  * A faithful preview of the Quote Repost a Complete Run becomes, composed as an X
- * quote-repost post: the fixed Operator Account header, the resolved Selected
- * Draft as commentary, the reused Final Quote Tweet Image composite as media, the
- * Source Tweet embedded as the static quoted post, and decorative engagement
- * chrome — with "generated X ago" and "original tweet posted Y ago" beneath.
+ * quote-repost post in the LOCKED IN "Signal Desk" language (ADR-0030): the fixed
+ * Operator Account header, the run's News Category as a condensed-italic signal
+ * word, the resolved Selected Draft as commentary, the reused Final Quote Tweet
+ * Image composite as media, and the Source Tweet as a left-rule pull-quote — with
+ * "generated X ago" and "original tweet posted Y ago" beneath.
  *
- * Content slots resolve the operator's explicit choice or fall back to
- * first-of-each ({@link resolveRunCardContent}); the fallback is display-only and
- * persists nothing. The run label is the card's accessible name, not painted, so
- * the preview reads like a genuine post rather than an internal list row.
+ * The card is borderless: a single angular {@link SignalStripe} on the left flies
+ * the run's News Category Color (the same hex the composite bands with), lifting
+ * to full saturation on hover/focus as the click affordance. Content slots resolve
+ * the operator's explicit choice or fall back to first-of-each
+ * ({@link resolveRunCardContent}); the fallback is display-only and persists
+ * nothing. The run label is the card's accessible name, not painted, so the
+ * preview reads like a genuine post rather than an internal list row.
  */
 export function RunCard({ run, onSelect }: RunCardProps) {
   const { draft, sourceTweet, variation } = resolveRunCardContent(run);
+  // One color, two surfaces: the stripe and the composite band share this hex.
+  const bandColor = resolveBandColor(run.newsCategory, run.newsCategoryColor);
+  const stamp = resolveNewsCategoryStamp(run.newsCategory);
 
   return (
-    <article aria-label={run.label} className="grid gap-2">
-      <div className="relative grid gap-3 rounded-xl bg-card px-5 py-4">
-        {onSelect ? (
-          // A full-card overlay button — the card's content is non-interactive
-          // (the embedded Source Tweet is static, the chrome decorative), so the
-          // whole preview is a single click target that opens the sidebar.
-          <button
-            aria-label={`Open ${run.label}`}
-            className="absolute inset-0 z-10 rounded-xl transition-colors hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-            onClick={() => onSelect(run.id)}
-            type="button"
-          />
-        ) : null}
+    <article aria-label={run.label} className="group relative grid grid-cols-[6px_1fr] gap-x-4">
+      {onSelect ? (
+        // A full-card overlay button — the card's content is non-interactive
+        // (the embedded Source Tweet is static), so the whole preview is a single
+        // click target that opens the sidebar. Hover/focus lifts the signal stripe.
+        <button
+          aria-label={`Open ${run.label}`}
+          className="absolute inset-0 z-10 rounded-lg transition-colors hover:bg-foreground/[0.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          onClick={() => onSelect(run.id)}
+          type="button"
+        />
+      ) : null}
+
+      <SignalStripe color={bandColor} />
+
+      <div className="grid gap-3 py-0.5">
         <header className="flex items-center gap-3">
           <Image
             alt=""
@@ -92,6 +86,13 @@ export function RunCard({ run, onSelect }: RunCardProps) {
           </div>
         </header>
 
+        {/* The News Category as a condensed-italic signal word in the run's color —
+            category-at-a-glance on the feed, so a long masonry triages fast (the
+            word always accompanies the color; hue alone is a hint, not a key). */}
+        <p className="display-locked text-[15px] leading-none" style={{ color: bandColor }}>
+          {stamp}
+        </p>
+
         {draft ? (
           <p className="whitespace-pre-line text-foreground text-sm leading-6">{draft.text}</p>
         ) : null}
@@ -99,44 +100,36 @@ export function RunCard({ run, onSelect }: RunCardProps) {
         {variation ? (
           <div className="overflow-hidden rounded-xl">
             <QuoteTweetComposite
-              bandColor={resolveBandColor(run.newsCategory, run.newsCategoryColor)}
+              bandColor={bandColor}
               imageAlt={variation.altText ?? variation.label}
               imageUrl={variation.url}
-              label={resolveNewsCategoryStamp(run.newsCategory)}
+              label={stamp}
             />
           </div>
         ) : null}
 
         {sourceTweet ? <EmbeddedSourceTweet sourceTweet={sourceTweet} /> : null}
 
-        <div aria-hidden className="mt-0.5 flex items-center justify-between text-muted-foreground">
-          {engagementChrome.map(({ Icon, key, value }) => (
-            <span className="flex items-center gap-1.5 text-xs" key={key}>
-              <Icon className="size-4" strokeWidth={1.75} />
-              {value}
-            </span>
-          ))}
-        </div>
+        <footer className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 border-t border-border/60 pt-2 text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
+          <span>generated {formatRelativeTime(run.savedAt)}</span>
+          {sourceTweet ? (
+            <span>original tweet posted {formatRelativeTime(sourceTweet.createdAt)}</span>
+          ) : null}
+        </footer>
       </div>
-
-      <footer className="flex flex-wrap gap-x-3 gap-y-0.5 px-1 text-muted-foreground text-xs">
-        <span>generated {formatRelativeTime(run.savedAt)}</span>
-        {sourceTweet ? (
-          <span>original tweet posted {formatRelativeTime(sourceTweet.createdAt)}</span>
-        ) : null}
-      </footer>
     </article>
   );
 }
 
 /**
  * The original Source Tweet shown as the quoted post inside the card: author
- * identity, posted-time, and text. Static and non-interactive — opening the
- * source on X lives in the Selected Run sidebar, not on the card.
+ * identity, posted-time, and text. A left-rule pull-quote (no full border, per
+ * the borderless card) — static and non-interactive; opening the source on X
+ * lives in the Selected Run sidebar, not on the card.
  */
 function EmbeddedSourceTweet({ sourceTweet }: { sourceTweet: RetrievedSourceTweet }) {
   return (
-    <div className="grid gap-0.5 rounded-xl border border-border px-3 py-2.5">
+    <div className="grid gap-0.5 border-border border-l-[3px] pl-3">
       <div className="flex min-w-0 items-center gap-1">
         <span className="truncate font-medium text-foreground text-sm">
           {sourceTweet.author.displayName}

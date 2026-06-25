@@ -10,8 +10,9 @@
  * the Final Quote Tweet Image preview, and its html-to-image rasterization.
  *
  * - VC Henrietta Condensed — the editorial section-title serif (`.title-serif`).
- * - CompactaICG — the Final Quote Tweet Image label face (Compacta ICG Italic).
- *   See src/services/final-quote-tweet-image/template.ts.
+ * - CompactaICG — the LOCKED IN display face (Compacta ICG Italic): the Final
+ *   Quote Tweet Image label (src/services/final-quote-tweet-image/template.ts) and
+ *   the UI "signal word" display tier (`.display-locked` / `--font-display`).
  */
 @font-face {
   font-family: "VC Henrietta Condensed";
@@ -38,7 +39,7 @@
   color-scheme: dark;
 
   /* Brand palette (source of truth) */
-  --background: #08090c;
+  --background: #0a0a0a;
   --foreground: #f3f6f8;
   --muted: #8b98a8;
   --panel: #0d1116;
@@ -46,10 +47,26 @@
   --line: #252c38;
   --accent: #67c8ff;
   --accent-strong: #9bdcff;
-  --success: #34d399;
-  --warning: #fde68a;
-  --danger: #fb7185;
+  --success: #6acb3c;
+  --warning: #ffc20e;
+  --danger: #e63946;
   --font-editorial-serif: Georgia, "Times New Roman", serif;
+  --font-display: "CompactaICG", "Arial Narrow", var(--font-poppins), sans-serif;
+
+  /*
+   * LOCKED IN signal palette (ADR-0030) — the one color system. These mirror the
+   * authoritative `categoryBandColors` in
+   * src/services/generation/news-category.ts (the source of truth for per-run
+   * band colors); the vars name the same six hexes for UI chrome so a card's
+   * stripe and its poster band are provably the same color. The status tokens
+   * above ride the signals: success = green, warning = yellow, danger = red.
+   */
+  --signal-green: #6acb3c;
+  --signal-yellow: #ffc20e;
+  --signal-orange: #ff7a1a;
+  --signal-red: #e63946;
+  --signal-purple: #9c27b0;
+  --signal-blue: #1ea7f0;
 
   /* shadcn semantic tokens, wired onto the brand palette */
   --radius: 0.625rem;
@@ -79,16 +96,12 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
-  background:
-    linear-gradient(180deg, rgba(103, 200, 255, 0.08), transparent 18rem),
-    repeating-linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.025) 0,
-      rgba(255, 255, 255, 0.025) 1px,
-      transparent 1px,
-      transparent 7rem
-    ),
-    var(--background);
+  /*
+   * Silent canvas (ADR-0030): a flat near-black field. The old accent-blue wash
+   * and vertical pinstripe are removed so the only color on the page is a run's
+   * signal — its card stripe and the X Quote Repost poster.
+   */
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
   text-rendering: geometricPrecision;
@@ -104,6 +117,19 @@ textarea {
   font-family: "VC Henrietta Condensed", var(--font-editorial-serif);
 }
 
+/*
+ * LOCKED IN display tier (ADR-0030): heavy condensed italic, all-caps — the
+ * brand "signal word" voice (CompactaICG). Used for UI signal words such as the
+ * Run Card's News Category label. The section-title serif (`.title-serif`) stays
+ * Henrietta for now; its migration to this tier is staged.
+ */
+.display-locked {
+  font-family: var(--font-display);
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.012em;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
@@ -116,7 +142,7 @@ textarea {
 }
 
 ::selection {
-  background: rgba(103, 200, 255, 0.35);
+  background: rgba(243, 246, 248, 0.18);
 }
 
 @theme inline {
@@ -152,6 +178,17 @@ textarea {
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-accent-strong: var(--accent-strong);
+
+  /*
+   * Signal palette exposed for static `text-signal-*` / `bg-signal-*` utilities;
+   * per-run colors keep riding inline style from resolveBandColor (ADR-0030).
+   */
+  --color-signal-green: var(--signal-green);
+  --color-signal-yellow: var(--signal-yellow);
+  --color-signal-orange: var(--signal-orange);
+  --color-signal-red: var(--signal-red);
+  --color-signal-purple: var(--signal-purple);
+  --color-signal-blue: var(--signal-blue);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);

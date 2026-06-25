@@ -182,8 +182,12 @@ function FeedSkeletons() {
   return (
     <div aria-hidden className="columns-1 gap-5 lg:columns-2">
       {skeletonCards.map(({ captionWidths, key }) => (
-        <div key={key} className="mb-5 grid gap-2 break-inside-avoid">
-          <div className="grid gap-3 rounded-xl bg-card px-5 py-4">
+        // Mirror the borderless Run Card: a leading stripe column + a panel-less
+        // body, so the skeleton's footprint matches the real card (no layout
+        // shift when data arrives).
+        <div key={key} className="mb-5 grid grid-cols-[6px_1fr] gap-x-4 break-inside-avoid">
+          <div className="w-1.5 rounded-[2px] bg-muted-foreground/10" />
+          <div className="grid gap-3 py-0.5">
             <div className="flex items-center gap-3">
               <Skeleton className="size-10 rounded-full" />
               <div className="grid gap-1.5">
@@ -191,6 +195,7 @@ function FeedSkeletons() {
                 <Skeleton className="h-3 w-20" />
               </div>
             </div>
+            <Skeleton className="h-3.5 w-24" />
             {captionWidths.map((width, lineIndex) => (
               <Skeleton
                 className={cn("h-4", width)}
@@ -201,9 +206,9 @@ function FeedSkeletons() {
             {/* Matches the portrait Final Quote Tweet Image frame so media load
                 causes no layout shift. */}
             <Skeleton className="aspect-[3240/4050] w-full rounded-xl" />
-            <Skeleton className="h-16 w-full rounded-xl" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-3 w-56" />
           </div>
-          <Skeleton className="h-3 w-56" />
         </div>
       ))}
     </div>

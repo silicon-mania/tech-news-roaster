@@ -4,6 +4,11 @@ status: accepted
 
 # Category-Colored Quote Tweet Template and Locked-In Logo
 
+> **Amended by [ADR-0030](0030-signal-desk-visual-system.md).** CompactaICG is
+> promoted from this asset's label face to a general UI display tier
+> (`.display-locked`); the "VC Henrietta Condensed is kept as the section-title
+> serif" note below is now staged for migration to that tier.
+
 ## Context
 
 The **Final Quote Tweet Image** is rendered from a baked layout extracted from

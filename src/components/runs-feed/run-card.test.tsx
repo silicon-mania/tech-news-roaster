@@ -53,20 +53,29 @@ describe("RunCard", () => {
   test("renders the Final Quote Tweet Image composite with the News Category stamp and variation", () => {
     render(<RunCard run={buildCardRun()} />);
 
-    expect(
-      screen.getByRole("figure", { name: "Final Quote Tweet Image preview" }),
-    ).toBeInTheDocument();
+    const figure = screen.getByRole("figure", { name: "Final Quote Tweet Image preview" });
+    expect(figure).toBeInTheDocument();
     // The value-less fixture renders VIRAL over the first generated variation (the
-    // image falls back since the fixture has no explicit image selection).
-    expect(screen.getByText(fallbackStamp)).toBeInTheDocument();
+    // image falls back since the fixture has no explicit image selection). Scoped
+    // to the figure because the card now also prints the category as a signal word.
+    expect(within(figure).getByText(fallbackStamp)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: firstVariationAlt })).toBeInTheDocument();
   });
 
   test("renders the run's News Category as the stamp, uppercased", () => {
     render(<RunCard run={buildCardRun({ newsCategory: "acquired" })} />);
 
-    expect(screen.getByText("ACQUIRED")).toBeInTheDocument();
+    const figure = screen.getByRole("figure", { name: "Final Quote Tweet Image preview" });
+    expect(within(figure).getByText("ACQUIRED")).toBeInTheDocument();
     expect(screen.queryByText(fallbackStamp)).not.toBeInTheDocument();
+  });
+
+  test("prints the News Category as a signal word on the card, beside the stripe", () => {
+    render(<RunCard run={buildCardRun({ newsCategory: "ACQUIRED" })} />);
+
+    // The category reads twice — stamped in the composite, and again as the card's
+    // condensed-italic signal word (category-at-a-glance on the feed).
+    expect(screen.getAllByText("ACQUIRED")).toHaveLength(2);
   });
 
   test("tints the composite band with the run's News Category Color", () => {
@@ -128,8 +137,9 @@ describe("RunCard", () => {
       />,
     );
 
+    const figure = screen.getByRole("figure", { name: "Final Quote Tweet Image preview" });
     expect(screen.getByText(firstDraftText)).toBeInTheDocument();
-    expect(screen.getByText(fallbackStamp)).toBeInTheDocument();
+    expect(within(figure).getByText(fallbackStamp)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: firstVariationAlt })).toBeInTheDocument();
   });
 

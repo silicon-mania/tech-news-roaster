@@ -27,6 +27,20 @@ read [CONTEXT.md](CONTEXT.md) and the ADRs under [docs/adr/](docs/adr/).
   text/link colors here, so shadcn's surface variants are mapped to `--panel*`
   instead. When a new primitive needs a token, map it there; do **not** add a
   competing set of color variables.
+- **Signal palette = the one color system** (ADR-0030, "Signal Desk"). *Black and
+  white are the brand; color is the signal.* The six `--signal-*` vars
+  (green/yellow/orange/red/purple/blue) **mirror** `categoryBandColors` in
+  `src/services/generation/news-category.ts` — that map stays authoritative for
+  per-run band colors; the vars just name the same hexes for UI chrome (a card's
+  stripe == its poster band). Status tokens ride the signals: `--success` = green,
+  `--warning` = yellow, `--danger` = red. Color is a **hint, not a unique key**
+  (six hues, ten categories), so always pair a signal color with the category
+  **word**. Reach for color only when it *means* a category or a run state — the
+  canvas is otherwise silent neutral type on near-black (no decorative washes).
+- **Display tier.** `.display-locked` / `--font-display` (CompactaICG, heavy
+  condensed italic, all-caps) is the brand "signal word" voice — e.g. the Run
+  Card's News Category label. `.title-serif` (Henrietta) still styles section
+  titles; its migration to the display tier is staged (ADR-0030).
 - The app is **dark-only**: `<html>` carries the `dark` class so shadcn's
   `dark:` variants apply, and there is no theme toggle or `next-themes`.
   - **One sanctioned exception:** the Final Quote Tweet Image overlay
