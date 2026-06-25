@@ -3,12 +3,14 @@
 import { Plus, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { SignalBug } from "@/components/signal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { httpSavedRunStore } from "@/services/saved-runs";
-import type { SavedRunStore } from "@/services/workspace";
+import type { GenerationRun, SavedRunStore } from "@/services/workspace";
+import { formatRelativeTime } from "@/utils/relative-time";
 import { RunsFeedEmptyState } from "./empty-state";
 import { RunCard } from "./run-card";
 import { SelectedRunSidebar } from "./selected-run-sidebar";
@@ -27,7 +29,34 @@ type RunsFeedProps = {
   uploadImageFetcher?: typeof fetch;
 };
 
-const LOGO_SRC = "/assets/logo/logo.png";
+// The committed LOCKED IN brand mark (the same outlined, white wordmark the X
+// Quote Repost poster bugs with — ADR-0029/0030), reused as the masthead wordmark.
+const LOCKED_IN_LOGO_SRC = "/assets/quote-tweet/locked-in-logo.svg";
+
+// The Discovery Sweep cadence (tracks the cron in vercel.json, like the empty
+// state's copy). The masthead surfaces it and uses it as the freshness threshold:
+// when the newest loaded run is older than one sweep, a newer automated run likely
+// exists — an honest, derived nudge (the feed itself does not poll).
+const AUTO_SWEEP_CADENCE = "2h";
+const AUTO_SWEEP_MS = 2 * 60 * 60 * 1000;
+
+/** A derived, honest status line: loaded count, cadence, and freshness of the feed. */
+function deriveDeck(runs: GenerationRun[]): { text: string; isStale: boolean } | null {
+  if (runs.length === 0) {
+    return null;
+  }
+
+  // Runs are newest-first, so the head carries the freshest "generated" time.
+  const latestSavedAt = runs[0]?.savedAt;
+  const isStale =
+    latestSavedAt !== undefined && Date.now() - Date.parse(latestSavedAt) > AUTO_SWEEP_MS;
+  const count = `${runs.length} ${runs.length === 1 ? "run" : "runs"}`;
+
+  return {
+    isStale,
+    text: `${count} · auto-sweep ${AUTO_SWEEP_CADENCE} · last generated ${formatRelativeTime(latestSavedAt)}`,
+  };
+}
 
 /**
  * The Runs Feed — the product's landing page. Lists the operator's Complete Runs
@@ -59,6 +88,7 @@ export function RunsFeed({
   } = useSelectedRun({ runs, savedRunStore, setRuns, uploadImageFetcher });
   const isInitialLoading = isLoading && runs.length === 0;
   const isEmpty = !isLoading && runs.length === 0;
+  const deck = deriveDeck(runs);
 
   return (
     <>
@@ -70,60 +100,84 @@ export function RunsFeed({
           selectedRun ? "lg:pr-[28rem]" : "",
         )}>
         <div className="mx-auto grid w-full max-w-md gap-6 lg:max-w-2xl">
-          <header className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <Image
-                src={LOGO_SRC}
-                alt=""
-                aria-hidden
-                width={32}
-                height={32}
-                className="size-7 rounded-lg sm:size-8"
-              />
-              <h1 className="title-serif text-2xl text-foreground sm:text-3xl">Auto-news</h1>
-            </div>
+          <div className="grid gap-2">
+            <header className="flex items-center justify-between gap-3">
+              <h1 className="flex items-center gap-2.5">
+                <Image
+                  src={LOCKED_IN_LOGO_SRC}
+                  alt="LOCKED IN"
+                  width={164}
+                  height={48}
+                  unoptimized
+                  className="h-7 w-auto sm:h-8"
+                />
+                <SignalBug />
+              </h1>
 
-            <div className="flex items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Refresh"
-                      onClick={refresh}
-                      disabled={isRefreshing}
-                      className="text-muted-foreground"
-                    />
-                  }>
-                  <RefreshCw
-                    aria-hidden
-                    className={cn("size-4", isRefreshing && "animate-spin")}
-                    strokeWidth={1.75}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>Refresh</TooltipContent>
-              </Tooltip>
+              <div className="flex items-center gap-1">
+                <span className="relative inline-flex">
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Refresh"
+                          onClick={refresh}
+                          disabled={isRefreshing}
+                          className="text-muted-foreground"
+                        />
+                      }>
+                      <RefreshCw
+                        aria-hidden
+                        className={cn("size-4", isRefreshing && "animate-spin")}
+                        strokeWidth={1.75}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {deck?.isStale ? "Refresh — newer runs may be available" : "Refresh"}
+                    </TooltipContent>
+                  </Tooltip>
+                  {deck?.isStale ? (
+                    <>
+                      {/* Honest, derived nudge: the newest loaded run is older than
+                          one auto-sweep, so a newer automated run likely exists. */}
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute top-1 right-1 size-1.5 rounded-full"
+                        style={{ backgroundColor: "var(--signal-green)" }}
+                      />
+                      <span className="sr-only">Newer runs may be available</span>
+                    </>
+                  ) : null}
+                </span>
 
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Link
-                      href="/workspace"
-                      aria-label="New Manual Run"
-                      className={cn(
-                        buttonVariants({ size: "icon", variant: "ghost" }),
-                        "text-muted-foreground",
-                      )}
-                    />
-                  }>
-                  <Plus aria-hidden className="size-4" strokeWidth={1.75} />
-                </TooltipTrigger>
-                <TooltipContent>New Manual Run</TooltipContent>
-              </Tooltip>
-            </div>
-          </header>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Link
+                        href="/workspace"
+                        aria-label="New Manual Run"
+                        className={cn(
+                          buttonVariants({ size: "icon", variant: "ghost" }),
+                          "text-muted-foreground",
+                        )}
+                      />
+                    }>
+                    <Plus aria-hidden className="size-4" strokeWidth={1.75} />
+                  </TooltipTrigger>
+                  <TooltipContent>New Manual Run</TooltipContent>
+                </Tooltip>
+              </div>
+            </header>
+
+            {deck ? (
+              <p className="text-[11px] text-muted-foreground uppercase tracking-[0.16em]">
+                {deck.text}
+              </p>
+            ) : null}
+          </div>
 
           {isInitialLoading ? (
             <FeedSkeletons />

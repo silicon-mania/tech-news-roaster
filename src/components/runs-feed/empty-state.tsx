@@ -20,7 +20,9 @@ type RunsFeedEmptyStateProps = {
 export function RunsFeedEmptyState({ discoverySourceListIds }: RunsFeedEmptyStateProps) {
   return (
     <section aria-label="No runs yet" className="grid justify-items-center gap-5 py-16 text-center">
-      <p className="text-base text-foreground leading-6">No complete runs yet.</p>
+      <p className="display-locked text-4xl text-foreground leading-none sm:text-5xl">
+        No runs. Yet.
+      </p>
 
       <p className="max-w-sm text-muted-foreground text-sm leading-6">
         Make your first one with the{" "}

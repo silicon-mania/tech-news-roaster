@@ -4,10 +4,11 @@ import { ArrowUpRight, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect } from "react";
 import { ImageSetStack, UploadImageButton } from "@/components/image-sets";
+import { SignalStripe } from "@/components/signal";
 import { Button } from "@/components/ui/button";
 import { DraftComparison } from "@/components/workspace/draft-comparison";
 import { NewsCategorySection } from "@/components/workspace/news-category-section";
-import type { NewsCategory } from "@/services/generation";
+import { type NewsCategory, resolveBandColor } from "@/services/generation";
 import type { RetrievedSourceTweet } from "@/services/tweet-retrieval";
 import type { GenerationRun } from "@/services/workspace";
 import { FinalImageDownload } from "./final-image-download";
@@ -88,82 +89,87 @@ export function SelectedRunSidebar({
   return (
     <aside
       aria-label="Selected run"
-      className={`fixed inset-y-0 right-0 z-50 flex w-[min(28rem,calc(100vw-2rem))] flex-col gap-6 overflow-y-auto bg-popover/95 px-5 py-6 shadow-2xl shadow-black/40 backdrop-blur transition-transform duration-300 ease-out sm:px-6 ${
+      className={`fixed inset-y-0 right-0 z-50 flex w-[min(28rem,calc(100vw-2rem))] bg-popover shadow-2xl shadow-black/40 transition-transform duration-300 ease-out ${
         isOpen ? "translate-x-0" : "translate-x-full"
       }`}
       inert={!isOpen}>
       {run ? (
         <>
-          <header className="flex items-center justify-between gap-2">
-            <h2 className="title-serif text-foreground text-xl md:text-2xl">Selected run</h2>
-            <Button
-              aria-label="Close selected run"
-              className="shrink-0 text-muted-foreground"
-              onClick={onClose}
-              size="icon"
-              type="button"
-              variant="ghost">
-              <X aria-hidden className="size-4" strokeWidth={1.75} />
-            </Button>
-          </header>
+          {/* The card→editor handoff: a full-height stripe in the SAME signal color
+              as the clicked Run Card, so the live-edit relationship is visible. */}
+          <SignalStripe color={resolveBandColor(run.newsCategory, run.newsCategoryColor)} lit />
+          <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-5 py-6 sm:px-6">
+            <header className="flex items-center justify-between gap-2">
+              <h2 className="title-serif text-foreground text-xl md:text-2xl">Selected run</h2>
+              <Button
+                aria-label="Close selected run"
+                className="shrink-0 text-muted-foreground"
+                onClick={onClose}
+                size="icon"
+                type="button"
+                variant="ghost">
+                <X aria-hidden className="size-4" strokeWidth={1.75} />
+              </Button>
+            </header>
 
-          {/* The News Category section sits next to the artifact it stamps —
+            {/* The News Category section sits next to the artifact it stamps —
               directly above the Final Quote Tweet Image (ADR-0027). Its heading
               matches the sidebar's other sections (compact h3). */}
-          <section aria-label="News category" className="grid min-w-0 gap-3">
-            <h3 className="title-serif text-foreground text-lg">News category</h3>
-            <NewsCategorySection
-              newsCategory={run.newsCategory}
-              newsCategoryClassification={run.newsCategoryClassification}
-              newsCategoryColor={run.newsCategoryColor}
-              onNewsCategoryChange={onNewsCategoryChange}
-              onNewsCategoryCustomChange={onNewsCategoryCustomChange}
-              onNewsCategoryColorChange={onNewsCategoryColorChange}
-            />
-          </section>
+            <section aria-label="News category" className="grid min-w-0 gap-3">
+              <h3 className="title-serif text-foreground text-lg">News category</h3>
+              <NewsCategorySection
+                newsCategory={run.newsCategory}
+                newsCategoryClassification={run.newsCategoryClassification}
+                newsCategoryColor={run.newsCategoryColor}
+                onNewsCategoryChange={onNewsCategoryChange}
+                onNewsCategoryCustomChange={onNewsCategoryCustomChange}
+                onNewsCategoryColorChange={onNewsCategoryColorChange}
+              />
+            </section>
 
-          <FinalImageDownload run={run} />
+            <FinalImageDownload run={run} />
 
-          {run.sourceTweet ? <SourcePostReference sourceTweet={run.sourceTweet} /> : null}
+            {run.sourceTweet ? <SourcePostReference sourceTweet={run.sourceTweet} /> : null}
 
-          <section aria-label="Text" className="grid min-w-0 gap-3">
-            <h3 className="title-serif text-foreground text-lg">Text</h3>
-            <DraftComparison
-              drafts={run.drafts}
-              selectedDraftId={run.selectedDraftId ?? null}
-              onDraftTextChange={onDraftTextChange}
-              onSelectedDraftChange={onSelectedDraftChange}
-            />
-          </section>
+            <section aria-label="Text" className="grid min-w-0 gap-3">
+              <h3 className="title-serif text-foreground text-lg">Text</h3>
+              <DraftComparison
+                drafts={run.drafts}
+                selectedDraftId={run.selectedDraftId ?? null}
+                onDraftTextChange={onDraftTextChange}
+                onSelectedDraftChange={onSelectedDraftChange}
+              />
+            </section>
 
-          {/* The Image section always shows so the upload trigger is reachable on
+            {/* The Image section always shows so the upload trigger is reachable on
               any run. The stack uses the same Image Set article the workspace does,
               so only the four generated variations of each set are selectable — the
               Selected Image Original stays display-only, and there is no
               regeneration or prompt control here, keeping the sidebar a quick
               editor. Uploading appends a new "Image set N" below the others. */}
-          <section aria-label="Image" className="grid min-w-0 gap-3">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="title-serif text-foreground text-lg">Image</h3>
-              <UploadImageButton disabled={isUploadGenerating} onUpload={onUploadImage} />
-            </div>
-            <ImageSetStack
-              isGenerationPending={isUploadGenerating}
-              onSelectedGeneratedImageChange={onSelectedGeneratedImageChange}
-              run={run}
-              selectedGeneratedImageOptionId={run.selectedGeneratedImage?.imageOptionId ?? null}
-            />
-          </section>
+            <section aria-label="Image" className="grid min-w-0 gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="title-serif text-foreground text-lg">Image</h3>
+                <UploadImageButton disabled={isUploadGenerating} onUpload={onUploadImage} />
+              </div>
+              <ImageSetStack
+                isGenerationPending={isUploadGenerating}
+                onSelectedGeneratedImageChange={onSelectedGeneratedImageChange}
+                run={run}
+                selectedGeneratedImageOptionId={run.selectedGeneratedImage?.imageOptionId ?? null}
+              />
+            </section>
 
-          {/* The delete region sits last, below the editing controls, so removing
+            {/* The delete region sits last, below the editing controls, so removing
               a run is a deliberate scroll-to-the-bottom action — there's no
               blocking confirm dialog, just a quiet toast (PRD). */}
-          <section aria-label="Delete run" className="mt-auto flex pt-2">
-            <Button className="gap-2" onClick={onDelete} type="button" variant="destructive">
-              <Trash2 aria-hidden className="size-4" strokeWidth={1.75} />
-              Delete run
-            </Button>
-          </section>
+            <section aria-label="Delete run" className="mt-auto flex pt-2">
+              <Button className="gap-2" onClick={onDelete} type="button" variant="destructive">
+                <Trash2 aria-hidden className="size-4" strokeWidth={1.75} />
+                Delete run
+              </Button>
+            </section>
+          </div>
         </>
       ) : null}
     </aside>
