@@ -54,7 +54,7 @@ describe("Workspace runs navigation", () => {
       }),
     ).toHaveAttribute("aria-current", "true");
     expect(screen.getByTitle("Enrichment running")).toBeInTheDocument();
-    expect(screen.getByLabelText(/text generation loading/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/composing generation run/i)).toBeInTheDocument();
     expect(generateButton).toBeDisabled();
 
     await user.click(generateButton);
@@ -97,12 +97,12 @@ describe("Workspace runs navigation", () => {
     expect(
       screen.getByRole("region", { name: /compressed source tweet bar/i }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(/text generation loading/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/composing generation run/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /open runs, 2 saved/i }));
     await user.click(screen.getByRole("button", { name: /second run/i }));
 
-    expect(screen.getByLabelText(/text generation loading/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/composing generation run/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /second run/i })).toHaveAttribute(
       "aria-current",
       "true",

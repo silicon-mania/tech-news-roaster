@@ -57,6 +57,12 @@ export function renderWorkspace({
   imageGenerationStreamFetcher = vi.fn(
     async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(""),
   ),
+  // Default to a request that never resolves, so a submitted Manual Run stays in its
+  // composing state for the duration of the test; tests that need the run to finish
+  // pass their own fetcher (see {@link manualRunFetcher}).
+  submitManualRunFetcher = vi.fn(
+    (_input: RequestInfo | URL, _init?: RequestInit) => new Promise<Response>(() => {}),
+  ),
   uploadImageFetcher,
   isDesktop = false,
   initialActiveRunId,
@@ -72,6 +78,7 @@ export function renderWorkspace({
 }: {
   generationEventSources?: FakeGenerationEventSource[];
   imageGenerationStreamFetcher?: typeof fetch;
+  submitManualRunFetcher?: typeof fetch;
   uploadImageFetcher?: typeof fetch;
   isDesktop?: boolean;
   initialActiveRunId?: string;
@@ -102,6 +109,7 @@ export function renderWorkspace({
           return eventSource;
         }}
         imageGenerationStreamFetcher={imageGenerationStreamFetcher}
+        submitManualRunFetcher={submitManualRunFetcher}
         uploadImageFetcher={uploadImageFetcher}
         initialActiveRunId={initialActiveRunId}
         initialRuns={initialRuns}
@@ -120,6 +128,68 @@ export function renderWorkspace({
     sourceTweetUrlInput: screen.getByLabelText(/source tweet url/i),
     generateButton: screen.getByRole("button", { name: /^run$/i }),
     generationStreamUrls,
+    submitManualRunFetcher,
+  };
+}
+
+/**
+ * Wraps a Manual Run response: the `POST /api/generation-runs` route returns the
+ * persisted run as `{ run }` with HTTP 200 — including a failed-status run, which
+ * the client still renders.
+ */
+export function buildManualRunResponse(run: GenerationRun): Response {
+  return new Response(JSON.stringify({ run }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * A fake `submitManualRunFetcher` that stands in for the compose route: it reads
+ * the client-minted id and inputs off the request body and echoes back a run the
+ * caller builds from them, mirroring the real route (which persists under, and
+ * returns, the client-minted id).
+ */
+export function manualRunFetcher(
+  buildRun: (request: {
+    runId: string;
+    sourceTweetUrl: string;
+    usersDirection: string;
+  }) => GenerationRun,
+) {
+  return vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body ?? "{}")) as {
+      runId: string;
+      sourceTweetUrl: string;
+      usersDirection: string;
+    };
+
+    return buildManualRunResponse(buildRun(body));
+  });
+}
+
+/**
+ * A persisted failed Manual Run, shaped like the composer's tweet-retrieval
+ * failure (status failed, phase failed, no creative output) so it renders the
+ * Generation Failure State on reopen.
+ */
+export function buildFailedManualRun(overrides: Partial<GenerationRun> = {}): GenerationRun {
+  return {
+    id: "failed-run",
+    label: "Manual run for 1234567890",
+    origin: "manual",
+    imagePromptSource: "user",
+    sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
+    usersDirection: "",
+    draftTarget: 3,
+    savedAt: "2026-06-06T10:30:00.000Z",
+    status: "failed",
+    draftCount: 0,
+    drafts: [],
+    uploadedImageSets: [],
+    failureMessage: "Source tweet could not be retrieved.",
+    phase: "failed",
+    ...overrides,
   };
 }
 

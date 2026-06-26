@@ -37,7 +37,7 @@ describe("Workspace run form", () => {
     expect(
       screen.getByRole("region", { name: /compressed source tweet bar/i }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(/text generation loading/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/composing generation run/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("region", { name: /completed draft stack/i }),
     ).not.toBeInTheDocument();
@@ -158,7 +158,7 @@ describe("Workspace run form", () => {
   test("disables Run in production when live integrations are not ready", async () => {
     const user = userEvent.setup();
     const startGenerationRun = vi.fn();
-    const { sourceTweetUrlInput, generateButton, generationStreamUrls } = renderWorkspace({
+    const { sourceTweetUrlInput, generateButton, submitManualRunFetcher } = renderWorkspace({
       initialRuntimeStatus: buildRuntimeStatus({
         productionReady: false,
       }),
@@ -173,7 +173,7 @@ describe("Workspace run form", () => {
     await user.click(generateButton);
 
     expect(startGenerationRun).not.toHaveBeenCalled();
-    expect(generationStreamUrls).toEqual([]);
+    expect(submitManualRunFetcher).not.toHaveBeenCalled();
   });
 
   test("allows production runs when live integrations are ready", async () => {
@@ -212,9 +212,9 @@ describe("Workspace run form", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   });
 
-  test("opens the generation stream with the accepted source tweet", async () => {
+  test("posts a manual compose request with a client-minted id and the accepted source tweet", async () => {
     const user = userEvent.setup();
-    const { sourceTweetUrlInput, generateButton, generationStreamUrls } = renderWorkspace();
+    const { sourceTweetUrlInput, generateButton, submitManualRunFetcher } = renderWorkspace();
 
     await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/13579");
     await user.click(screen.getByRole("button", { name: /add direction/i }));
@@ -224,8 +224,14 @@ describe("Workspace run form", () => {
     await user.type(usersDirectionInput, "Challenge the premise.");
     await user.click(generateButton);
 
-    expect(generationStreamUrls).toEqual([
-      "/api/generation-runs/stream?sourceTweetUrl=https%3A%2F%2Fx.com%2Fsiliconmania%2Fstatus%2F13579&usersDirection=Challenge+the+premise.",
-    ]);
+    expect(submitManualRunFetcher).toHaveBeenCalledTimes(1);
+    const [url, init] = (submitManualRunFetcher as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("/api/generation-runs");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      runId: expect.stringMatching(/^run-/),
+      sourceTweetUrl: "https://x.com/siliconmania/status/13579",
+      usersDirection: "Challenge the premise.",
+    });
   });
 });
