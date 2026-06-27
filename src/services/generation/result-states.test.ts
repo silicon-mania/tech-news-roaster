@@ -1,10 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
-  buildGenerationRunStateEvent,
-  buildStubbedGenerationEvents,
+  buildStubbedGenerationRun,
   parseCompletedGenerationRunPayload,
   parseGenerationResultStates,
-  parseGenerationStreamEvent,
   parseJokeContextSnapshot,
   parseStructuredJokeContext,
 } from "@/services/generation";
@@ -53,24 +51,12 @@ describe("generation result-state contracts", () => {
       debugLog: ["Started context gathering.", "No usable claim remained."],
       status: "failed",
     });
-    expect(
-      parseGenerationStreamEvent(
-        buildGenerationRunStateEvent({
-          generationResultStates,
-          label: "Drafts for 2468",
-          sourceTweet: buildFixtureTweetContext("https://x.com/siliconmania/status/2468")
-            .sourceTweet,
-        }),
-      ),
-    ).toMatchObject({
-      type: "run-state",
-      generationResultStates: {
-        contextGathering: {
-          status: "completed",
-        },
-        textGeneration: {
-          status: "completed",
-        },
+    expect(generationResultStates).toMatchObject({
+      contextGathering: {
+        status: "completed",
+      },
+      textGeneration: {
+        status: "completed",
       },
     });
 
@@ -78,7 +64,7 @@ describe("generation result-state contracts", () => {
       parseCompletedGenerationRunPayload({
         label: "Drafts for 2468",
         sourceTweet: buildFixtureTweetContext("https://x.com/siliconmania/status/2468").sourceTweet,
-        drafts: buildStubbedGenerationEvents({
+        drafts: buildStubbedGenerationRun({
           replySignals: buildReplySignals(
             buildFixtureTweetContext("https://x.com/siliconmania/status/2468"),
           ),
@@ -86,7 +72,7 @@ describe("generation result-state contracts", () => {
             .sourceTweet,
           sourceTweetUrl: "https://x.com/siliconmania/status/2468",
           usersDirection: "Keep it skeptical.",
-        }).flatMap((event) => (event.type === "progress" ? [event.draft] : [])),
+        }).drafts,
         jokeContextSnapshot,
         generationResultStates,
       }),

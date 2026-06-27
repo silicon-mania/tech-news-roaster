@@ -1,8 +1,11 @@
 import type { z } from "zod";
 import type { retrievedSourceTweetSchema } from "@/services/tweet-retrieval";
+import {
+  type CompletedGenerationRunPayload,
+  parseCompletedGenerationRunPayload,
+} from "./generation-run";
 import type { NewsLinkedImage } from "./news-linked-image";
 import type { QuoteTweetDraft } from "./quote-tweet-draft";
-import { buildCompletedGenerationRunEvents, type GenerationStreamEvent } from "./stream-events";
 
 type StubbedGenerationInput = {
   sourceTweetUrl: string;
@@ -15,13 +18,13 @@ type StubbedGenerationInput = {
   usersDirection: string;
 };
 
-export function buildStubbedGenerationEvents({
+export function buildStubbedGenerationRun({
   enrichmentContext,
   replySignals,
   sourceTweet,
   sourceTweetUrl,
   usersDirection,
-}: StubbedGenerationInput): GenerationStreamEvent[] {
+}: StubbedGenerationInput): CompletedGenerationRunPayload {
   const runLabel = buildStubbedRunLabel(sourceTweetUrl);
   const directionClause = usersDirection
     ? ` It respects the user's direction: ${usersDirection}`
@@ -75,14 +78,12 @@ export function buildStubbedGenerationEvents({
       url: newsLinkedImage.url,
     }));
 
-  return buildCompletedGenerationRunEvents({
-    run: {
-      label: runLabel,
-      sourceTweet,
-      drafts,
-      imageOriginalCandidates,
-      newsLinkedImages: enrichmentContext?.newsLinkedImages,
-    },
+  return parseCompletedGenerationRunPayload({
+    label: runLabel,
+    sourceTweet,
+    drafts,
+    imageOriginalCandidates,
+    newsLinkedImages: enrichmentContext?.newsLinkedImages,
   });
 }
 

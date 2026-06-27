@@ -1,79 +1,13 @@
 import { z } from "zod";
-import { retrievedSourceTweetSchema } from "@/services/tweet-retrieval";
-import {
-  completedGenerationRunPayloadSchema,
-  parseCompletedGenerationRunPayload,
-} from "./generation-run";
 import {
   failedImageSetSchema,
   imageGenerationTerminalStateSchema,
   imageSetSchema,
 } from "./image-generation";
-import type { ImageOriginalCandidate } from "./image-original-candidate";
-import {
-  imageOriginalCandidateSchema,
-  imageOriginalCandidateTarget,
-} from "./image-original-candidate";
-import type { NewsLinkedImage } from "./news-linked-image";
-import { newsLinkedImageSchema } from "./news-linked-image";
-import { draftTarget } from "./providers";
-import { quoteTweetDraftSchema } from "./quote-tweet-draft";
-import { type GenerationResultStates, generationResultStatesSchema } from "./result-states";
-import { nonEmptyTrimmedStringSchema } from "./schema-primitives";
 
-const generationRunStateEventSchema = z
-  .object({
-    type: z.literal("run-state"),
-    label: nonEmptyTrimmedStringSchema,
-    sourceTweet: retrievedSourceTweetSchema,
-    generationResultStates: generationResultStatesSchema,
-  })
-  .strict();
-
-const generationProgressEventSchema = z
-  .object({
-    type: z.literal("progress"),
-    label: nonEmptyTrimmedStringSchema,
-    sourceTweet: retrievedSourceTweetSchema,
-    draft: quoteTweetDraftSchema,
-    draftCount: z.number().int().min(1).max(draftTarget),
-    draftTarget: z.literal(draftTarget),
-  })
-  .strict();
-
-const enrichmentCompletedEventSchema = z
-  .object({
-    type: z.literal("enrichment-completed"),
-    sourceTweet: retrievedSourceTweetSchema,
-    newsLinkedImages: z.array(newsLinkedImageSchema).min(1).max(5),
-    imageOriginalCandidates: z
-      .array(imageOriginalCandidateSchema)
-      .min(1)
-      .max(imageOriginalCandidateTarget),
-  })
-  .strict();
-
-const generationCompletedEventSchema = z
-  .object({
-    type: z.literal("completed"),
-    run: completedGenerationRunPayloadSchema,
-  })
-  .strict();
-
-const generationFailedEventSchema = z
-  .object({
-    type: z.literal("failed"),
-    message: nonEmptyTrimmedStringSchema,
-  })
-  .strict();
-
-const generationStreamEventSchema = z.discriminatedUnion("type", [
-  enrichmentCompletedEventSchema,
-  generationRunStateEventSchema,
-  generationProgressEventSchema,
-  generationCompletedEventSchema,
-  generationFailedEventSchema,
-]);
+// The Server-Sent Events the operator-triggered Image Generation flow streams to
+// the workspace. (The manual *generation* run no longer streams — it composes and
+// persists server-side in one request — so only the Image Generation events remain.)
 
 const imageSetCompletedEventSchema = z
   .object({
@@ -102,82 +36,8 @@ const imageGenerationStreamEventSchema = z.discriminatedUnion("type", [
   imageGenerationCompletedEventSchema,
 ]);
 
-export type GenerationStreamEvent = z.infer<typeof generationStreamEventSchema>;
 export type ImageGenerationStreamEvent = z.infer<typeof imageGenerationStreamEventSchema>;
-
-type CompletedGenerationRunEventsInput = {
-  run: z.infer<typeof completedGenerationRunPayloadSchema>;
-};
-
-export function parseGenerationStreamEvent(event: unknown): GenerationStreamEvent {
-  return generationStreamEventSchema.parse(event);
-}
 
 export function parseImageGenerationStreamEvent(event: unknown): ImageGenerationStreamEvent {
   return imageGenerationStreamEventSchema.parse(event);
-}
-
-export function buildEnrichmentCompletedEvent({
-  imageOriginalCandidates,
-  newsLinkedImages,
-  sourceTweet,
-}: {
-  imageOriginalCandidates: ImageOriginalCandidate[];
-  newsLinkedImages: NewsLinkedImage[];
-  sourceTweet: z.infer<typeof retrievedSourceTweetSchema>;
-}): GenerationStreamEvent {
-  return generationStreamEventSchema.parse({
-    type: "enrichment-completed",
-    sourceTweet,
-    newsLinkedImages,
-    imageOriginalCandidates,
-  });
-}
-
-export function buildGenerationRunStateEvent({
-  generationResultStates,
-  label,
-  sourceTweet,
-}: {
-  generationResultStates: GenerationResultStates;
-  label: string;
-  sourceTweet: z.infer<typeof retrievedSourceTweetSchema>;
-}): GenerationStreamEvent {
-  return generationStreamEventSchema.parse({
-    type: "run-state",
-    label,
-    sourceTweet,
-    generationResultStates,
-  });
-}
-
-export function buildCompletedGenerationRunEvents({
-  run,
-}: CompletedGenerationRunEventsInput): GenerationStreamEvent[] {
-  const validatedRun = parseCompletedGenerationRunPayload(run);
-  const progressEvents = validatedRun.drafts.map((draft, index) =>
-    generationStreamEventSchema.parse({
-      type: "progress",
-      label: validatedRun.label,
-      sourceTweet: validatedRun.sourceTweet,
-      draft,
-      draftCount: index + 1,
-      draftTarget,
-    }),
-  );
-
-  return [
-    ...progressEvents,
-    generationStreamEventSchema.parse({
-      type: "completed",
-      run: validatedRun,
-    }),
-  ];
-}
-
-export function buildGenerationFailureEvent(message: string): GenerationStreamEvent {
-  return generationStreamEventSchema.parse({
-    type: "failed",
-    message,
-  });
 }

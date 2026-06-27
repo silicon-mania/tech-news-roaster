@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  buildStubbedGenerationEvents,
+  buildStubbedGenerationRun,
   parseCompletedGenerationRunPayload,
   parseJokeContextSnapshot,
   parseSavedGenerationRun,
@@ -47,12 +47,12 @@ describe("generation run contracts", () => {
         draftTarget: 3,
         sourceTweet: tweetContext.sourceTweet,
         savedAt: "2026-06-05T10:30:00.000Z",
-        drafts: buildStubbedGenerationEvents({
+        drafts: buildStubbedGenerationRun({
           replySignals: buildReplySignals(tweetContext),
           sourceTweet: tweetContext.sourceTweet,
           sourceTweetUrl: "https://x.com/siliconmania/status/2468",
           usersDirection: "Keep it skeptical.",
-        }).flatMap((event) => (event.type === "progress" ? [event.draft] : [])),
+        }).drafts,
         imageGenerationState: {
           status: "completed",
           selectedImageId: "news-linked-image-1",
@@ -226,12 +226,12 @@ describe("generation run contracts", () => {
 
   test("a failed News Category classification never breaks a Complete Run", () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
-    const drafts = buildStubbedGenerationEvents({
+    const drafts = buildStubbedGenerationRun({
       replySignals: buildReplySignals(tweetContext),
       sourceTweet: tweetContext.sourceTweet,
       sourceTweetUrl: "https://x.com/siliconmania/status/2468",
       usersDirection: "",
-    }).flatMap((event) => (event.type === "progress" ? [event.draft] : []));
+    }).drafts;
 
     // A completed run with all its creative output, plus a failed classification:
     // classification sits outside the success determination, so the run still
@@ -265,12 +265,12 @@ describe("generation run contracts", () => {
 
   test("accepts a Selected Draft id that names one of the run's drafts and rejects a stray one", () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
-    const drafts = buildStubbedGenerationEvents({
+    const drafts = buildStubbedGenerationRun({
       replySignals: buildReplySignals(tweetContext),
       sourceTweet: tweetContext.sourceTweet,
       sourceTweetUrl: "https://x.com/siliconmania/status/2468",
       usersDirection: "",
-    }).flatMap((event) => (event.type === "progress" ? [event.draft] : []));
+    }).drafts;
     const baseSavedRun = {
       id: "run-1",
       label: "Drafts for 2468",
@@ -296,12 +296,12 @@ describe("generation run contracts", () => {
 
   test("links an automated run to the News Coverage Cluster it was started from", () => {
     const tweetContext = buildFixtureTweetContext("https://x.com/siliconmania/status/2468");
-    const drafts = buildStubbedGenerationEvents({
+    const drafts = buildStubbedGenerationRun({
       replySignals: buildReplySignals(tweetContext),
       sourceTweet: tweetContext.sourceTweet,
       sourceTweetUrl: "https://x.com/siliconmania/status/2468",
       usersDirection: "",
-    }).flatMap((event) => (event.type === "progress" ? [event.draft] : []));
+    }).drafts;
 
     expect(
       parseSavedGenerationRun({
