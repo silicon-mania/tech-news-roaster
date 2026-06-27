@@ -4,9 +4,7 @@ import { vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
 import type { CompositeRasterizer } from "@/services/final-quote-tweet-image";
 import {
-  buildStubbedGenerationEvents,
   type GenerationProviderId,
-  type GenerationStreamEvent,
   type ImageGenerationInput,
   type ImageGenerationStreamEvent,
   type ImageOriginalCandidate,
@@ -17,43 +15,12 @@ import {
   parseJokeContextSnapshot,
   type QuoteTweetDraft,
 } from "@/services/generation";
-import { buildReplySignals } from "@/services/outside-x-enrichment";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import type { SavedRunStore } from "@/services/workspace";
 import { type GenerationRun, type GenerationRunInput, Workspace } from "./workspace";
 
-export class FakeGenerationEventSource {
-  readonly listeners = new Map<
-    "enrichment-completed" | "run-state" | "progress" | "completed" | "failed",
-    ((message: MessageEvent<string>) => void)[]
-  >();
-  closed = false;
-
-  addEventListener(
-    type: "enrichment-completed" | "run-state" | "progress" | "completed" | "failed",
-    listener: (message: MessageEvent<string>) => void,
-  ) {
-    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
-  }
-
-  close() {
-    this.closed = true;
-  }
-
-  emit(event: GenerationStreamEvent) {
-    const message = new MessageEvent(event.type, {
-      data: JSON.stringify(event),
-    });
-
-    for (const listener of this.listeners.get(event.type) ?? []) {
-      listener(message);
-    }
-  }
-}
-
 export function renderWorkspace({
-  generationEventSources = [],
   imageGenerationStreamFetcher = vi.fn(
     async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(""),
   ),
@@ -76,7 +43,6 @@ export function renderWorkspace({
   // the production HTTP store; tests that assert on persistence pass their own.
   savedRunStore = createMemorySavedRunStore(),
 }: {
-  generationEventSources?: FakeGenerationEventSource[];
   imageGenerationStreamFetcher?: typeof fetch;
   submitManualRunFetcher?: typeof fetch;
   uploadImageFetcher?: typeof fetch;
@@ -90,8 +56,6 @@ export function renderWorkspace({
   runtimeEnvironment?: "development" | "production";
   savedRunStore?: SavedRunStore;
 } = {}) {
-  const generationStreamUrls: string[] = [];
-
   // The runs sidebar persists its pinned state to localStorage; clear it so each
   // test starts from the collapsed state regardless of what earlier tests pinned.
   window.localStorage.clear();
@@ -100,14 +64,6 @@ export function renderWorkspace({
   render(
     <>
       <Workspace
-        generationEventSourceFactory={(url) => {
-          generationStreamUrls.push(url);
-          const eventSource = new FakeGenerationEventSource();
-
-          generationEventSources.push(eventSource);
-
-          return eventSource;
-        }}
         imageGenerationStreamFetcher={imageGenerationStreamFetcher}
         submitManualRunFetcher={submitManualRunFetcher}
         uploadImageFetcher={uploadImageFetcher}
@@ -127,7 +83,6 @@ export function renderWorkspace({
   return {
     sourceTweetUrlInput: screen.getByLabelText(/source tweet url/i),
     generateButton: screen.getByRole("button", { name: /^run$/i }),
-    generationStreamUrls,
     submitManualRunFetcher,
   };
 }
@@ -431,23 +386,6 @@ export function buildRuntimeStatus(overrides: Partial<RuntimeStatus> = {}): Runt
     ...status,
     ...overrides,
   };
-}
-
-export function buildGenerationEvents({
-  sourceTweetUrl,
-  usersDirection = "",
-}: {
-  sourceTweetUrl: string;
-  usersDirection?: string;
-}) {
-  const tweetContext = buildFixtureTweetContext(sourceTweetUrl);
-
-  return buildStubbedGenerationEvents({
-    replySignals: buildReplySignals(tweetContext),
-    sourceTweet: tweetContext.sourceTweet,
-    sourceTweetUrl,
-    usersDirection,
-  });
 }
 
 export function buildNewsLinkedImages(): NewsLinkedImage[] {

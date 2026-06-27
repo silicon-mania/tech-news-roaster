@@ -15,7 +15,6 @@ import {
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { httpSavedRunStore } from "@/services/saved-runs";
 import type {
-  GenerationEventSourceFactory,
   GenerationRun,
   GenerationRunInput,
   SavedRunStore,
@@ -32,7 +31,6 @@ import { DirectionPanelContext } from "./direction-panel-context";
 import { FinalQuoteTweetImageOverlay } from "./final-quote-tweet-image-overlay";
 import { GenerationRunForm } from "./generation-run-form";
 import { RunsSidebar } from "./runs-sidebar";
-import { genericRunningRunLabel, useGenerationRunStream } from "./use-generation-stream";
 import { useImageGenerationStream } from "./use-image-generation-stream";
 import { useRunAutosave } from "./use-run-autosave";
 import { useRunsSidebarPin } from "./use-runs-sidebar-pin";
@@ -45,7 +43,6 @@ export type { GenerationRun, GenerationRunInput } from "@/services/workspace";
 type WorkspaceProps = {
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
-  generationEventSourceFactory?: GenerationEventSourceFactory;
   imageGenerationStreamFetcher?: typeof fetch;
   submitManualRunFetcher?: typeof fetch;
   uploadImageFetcher?: typeof fetch;
@@ -63,13 +60,10 @@ const developmentImagesUnavailableMessage =
 const liveApiWarningMessage = "Live APIs enabled. Runs may use paid quota.";
 const productionNotReadyMessage = "Live integrations are not configured.";
 const composeFailureMessage = "Generation run could not be composed.";
-
-function createGenerationEventSource(url: string) {
-  return new EventSource(url);
-}
+// The composing placeholder's label until the composed run returns its own.
+const genericRunningRunLabel = "New generation run";
 
 export function Workspace({
-  generationEventSourceFactory = createGenerationEventSource,
   imageGenerationStreamFetcher = fetch,
   submitManualRunFetcher = fetch,
   uploadImageFetcher = fetch,
@@ -121,12 +115,6 @@ export function Workspace({
     persistRun: scheduleRunAutosave,
     setRuns,
     uploadFetcher: uploadImageFetcher,
-  });
-  const { enrichedRunState } = useGenerationRunStream({
-    generationEventSourceFactory,
-    savedRunStore,
-    setRuns,
-    setSubmissionState,
   });
 
   useSavedRunHydration({ savedRunStore, setActiveRunId, setRuns });
@@ -483,11 +471,6 @@ export function Workspace({
       }),
     );
 
-    enrichedRunState.current.set(input.parentRunId, {
-      imageGenerationState: startedImageGenerationState,
-      imageOriginalCandidates: startedRun.imageOriginalCandidates,
-      newsLinkedImages: startedRun.newsLinkedImages,
-    });
     scheduleRunAutosave(startedRun);
 
     void onStartImageGeneration?.(input);

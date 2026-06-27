@@ -72,7 +72,7 @@ describe("Workspace saved runs", () => {
     const savedRunStore = createMemorySavedRunStore([
       buildCompletedRun({ label: "Previously saved run" }),
     ]);
-    const { generationStreamUrls, sourceTweetUrlInput } = renderWorkspace({
+    const { sourceTweetUrlInput } = renderWorkspace({
       savedRunStore,
     });
 
@@ -87,7 +87,6 @@ describe("Workspace saved runs", () => {
       }),
     );
 
-    expect(generationStreamUrls).toEqual([]);
     expect(sourceTweetUrlInput).toHaveValue("https://x.com/siliconmania/status/1234567890");
     expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
     expect(
@@ -110,7 +109,7 @@ describe("Workspace saved runs", () => {
       usersDirection: "Keep the saved direction.",
     });
     const savedRunStore = createMemorySavedRunStore([savedRun]);
-    const { generationStreamUrls, sourceTweetUrlInput } = renderWorkspace({
+    const { sourceTweetUrlInput } = renderWorkspace({
       imageGenerationStreamFetcher,
       onStartGenerationRun: startGenerationRun,
       onStartImageGeneration: startImageGeneration,
@@ -128,7 +127,6 @@ describe("Workspace saved runs", () => {
       }),
     );
 
-    expect(generationStreamUrls).toEqual([]);
     expect(startGenerationRun).not.toHaveBeenCalled();
     expect(startImageGeneration).not.toHaveBeenCalled();
     expect(imageGenerationStreamFetcher).not.toHaveBeenCalled();
@@ -173,7 +171,7 @@ describe("Workspace saved runs", () => {
         phase: "waiting-for-image-selection",
       }),
     ]);
-    const { generationStreamUrls } = renderWorkspace({
+    renderWorkspace({
       onStartImageGeneration: startImageGeneration,
       savedRunStore,
     });
@@ -193,7 +191,6 @@ describe("Workspace saved runs", () => {
       name: /image generation area/i,
     });
 
-    expect(generationStreamUrls).toEqual([]);
     expect(imageGenerationArea).toHaveTextContent("Waiting for image selection");
     expect(imageGenerationArea).toHaveTextContent("Launch visual");
 

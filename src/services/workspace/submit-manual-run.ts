@@ -4,8 +4,8 @@ import type { GenerationRun, GenerationRunInput } from "./types";
 const generationRunsEndpoint = "/api/generation-runs";
 
 /**
- * The batch counterpart of the streaming `subscribeToGenerationRun`: composes a
- * Manual Run server-side and resolves to the persisted run. The client mints the
+ * Composes a Manual Run server-side in one request (no streaming) and resolves to
+ * the persisted run. The client mints the
  * run id and passes it through so the optimistic placeholder and the returned run
  * share one id (stable optimistic UI; one id avoids collisions on the owner/run
  * composite key). The route persists under the signed-in Operator and returns the

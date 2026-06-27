@@ -1,5 +1,5 @@
 import { parseImageGenerationParentRun } from "@/services/generation";
-import type { GenerationRun, GenerationRunInput } from "./types";
+import type { GenerationRun } from "./types";
 
 export function mergeRuns(currentRuns: GenerationRun[], savedRuns: GenerationRun[]) {
   const currentRunIds = new Set(currentRuns.map((run) => run.id));
@@ -63,18 +63,6 @@ export function buildImageGenerationParentRun(run: GenerationRun) {
     phase: run.phase,
     selectedImageOriginal: run.selectedImageOriginal,
   });
-}
-
-export function buildGenerationStreamUrl(runInput: GenerationRunInput) {
-  const searchParams = new URLSearchParams({
-    sourceTweetUrl: runInput.sourceTweetUrl,
-  });
-
-  if (runInput.usersDirection) {
-    searchParams.set("usersDirection", runInput.usersDirection);
-  }
-
-  return `/api/generation-runs/stream?${searchParams.toString()}`;
 }
 
 export function createRunId(existingRuns: GenerationRun[]) {

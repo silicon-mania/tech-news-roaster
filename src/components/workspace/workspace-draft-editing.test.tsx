@@ -248,7 +248,7 @@ describe("Workspace draft editing", () => {
         ],
       }),
     ]);
-    const { generationStreamUrls } = renderWorkspace({ savedRunStore });
+    renderWorkspace({ savedRunStore });
 
     await user.click(
       await screen.findByRole("button", {
@@ -286,7 +286,6 @@ describe("Workspace draft editing", () => {
       }),
     );
 
-    expect(generationStreamUrls).toEqual([]);
     expect(
       screen.getByRole("article", {
         name: /expanded draft 1/i,
