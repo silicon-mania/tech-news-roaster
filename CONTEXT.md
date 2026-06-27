@@ -9,7 +9,7 @@ The parent attempt to turn a source tweet into candidate drafts and optional ima
 _Avoid_: Session, job, request
 
 **Manual Run**:
-A generation run started by the user submitting a source tweet URL in the source tweet bar, keeping user-owned image selection and user image prompt.
+A generation run started by the user submitting a source tweet URL in the source tweet bar, keeping user-owned image selection and user image prompt. It is composed and persisted server-side in a single request under the operator account — through the same composition core every entry point uses — so the workspace shows one composing state while it runs rather than live per-phase progress.
 _Avoid_: Interactive run, browser run, classic run
 
 **Automated Run**:
@@ -117,7 +117,7 @@ The service boundary that interprets source tweet media after tweet retrieval, i
 _Avoid_: Tweet Retrieval Service, image discovery, media downloader
 
 **Generation Orchestrator**:
-The server-side boundary that calls the connected AI providers, tracks provider progress, applies fallback rules, and returns a complete generation run to the client.
+The server-side boundary that calls the connected AI providers, applies fallback rules, and returns a complete generation-run payload to the composition core (the single tweet→candidates pipeline every entry point runs).
 _Avoid_: Client coordinator, frontend workflow, provider client
 
 **Single-Page Workspace**:
