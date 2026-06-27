@@ -149,7 +149,7 @@ describe("Workspace final quote tweet image overlay", () => {
       buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture }),
     ]);
 
-    const { generationStreamUrls } = renderWorkspace({
+    renderWorkspace({
       imageGenerationStreamFetcher,
       onStartGenerationRun,
       onStartImageGeneration,
@@ -170,7 +170,6 @@ describe("Workspace final quote tweet image overlay", () => {
     expect(onStartGenerationRun).not.toHaveBeenCalled();
     expect(onStartImageGeneration).not.toHaveBeenCalled();
     expect(imageGenerationStreamFetcher).not.toHaveBeenCalled();
-    expect(generationStreamUrls).toHaveLength(0);
   });
 
   test("reopening a saved run missing a pick shows the quiet empty state naming the missing pick", async () => {

@@ -1,123 +1,70 @@
 import "@testing-library/jest-dom/vitest";
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
-import {
-  buildCompletedGenerationRunEvents,
-  buildGenerationFailureEvent,
-  defaultImagePrompt,
-} from "@/services/generation";
+import { defaultImagePrompt } from "@/services/generation";
 import {
   buildCompletedRun,
   buildCompletedV3Run,
-  buildGenerationEvents,
+  buildFailedManualRun,
   buildNewsLinkedImages,
   createMemorySavedRunStore,
-  type FakeGenerationEventSource,
+  manualRunFetcher,
   renderWorkspace,
 } from "./workspace-test-utils";
 
 describe("Workspace saved runs", () => {
-  test("automatically saves every completed Generation Run", async () => {
+  test("composes a run server-side and renders the persisted result in the runs list", async () => {
     const user = userEvent.setup();
-    const generationEventSources: FakeGenerationEventSource[] = [];
-    const savedRunStore = createMemorySavedRunStore();
-    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
-      generationEventSources,
-      savedRunStore,
-    });
-
-    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
-    await user.click(generateButton);
-
-    const events = buildGenerationEvents({
-      sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
-      usersDirection: "",
-    });
-
-    act(() => {
-      for (const event of events) {
-        generationEventSources[0]?.emit(event);
-      }
-    });
-
-    await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
-    expect(savedRunStore.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: expect.stringMatching(/^run-/),
-        label: "Drafts for 1234567890",
-        sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
-        status: "completed",
-        draftCount: 3,
-        sourceTweet: expect.objectContaining({
-          text: expect.stringContaining("agent workspace"),
-        }),
-        savedAt: expect.any(String),
-      }),
-    );
-    expect(sourceTweetUrlInput).toHaveValue("https://x.com/siliconmania/status/1234567890");
-
-    await user.click(screen.getByRole("button", { name: /open runs, 1 saved/i }));
-    expect(
-      screen.getByRole("button", {
-        name: /drafts for 1234567890.*just now/i,
-      }),
-    ).toBeInTheDocument();
-  });
-
-  test("automatically saves completed v3 runs with context, image state, and independent result states", async () => {
-    const user = userEvent.setup();
-    const generationEventSources: FakeGenerationEventSource[] = [];
-    const savedRunStore = createMemorySavedRunStore();
     const sourceTweetUrl = "https://x.com/siliconmania/status/1234567890";
-    const completedV3Run = buildCompletedV3Run();
-    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
-      generationEventSources,
-      savedRunStore,
-    });
+    // The route persists the run under the client-minted id and returns it; the
+    // fake echoes a completed run, mirroring that contract.
+    const submitManualRunFetcher = manualRunFetcher(
+      ({ runId, sourceTweetUrl: url, usersDirection }) =>
+        buildCompletedV3Run({
+          id: runId,
+          label: "Drafts for 1234567890",
+          sourceTweetUrl: url,
+          usersDirection,
+        }),
+    );
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({ submitManualRunFetcher });
 
     await user.type(sourceTweetUrlInput, sourceTweetUrl);
     await user.click(generateButton);
 
-    if (!completedV3Run.sourceTweet) {
-      throw new Error("Expected completed v3 fixture to include a Source Tweet.");
-    }
+    expect(submitManualRunFetcher).toHaveBeenCalledTimes(1);
+    // The composing placeholder is replaced by the finished run the route returned.
+    expect(
+      await screen.findByRole("region", { name: /completed draft stack/i }),
+    ).toBeInTheDocument();
+    expect(sourceTweetUrlInput).toHaveValue(sourceTweetUrl);
 
-    const events = buildCompletedGenerationRunEvents({
-      run: {
-        drafts: completedV3Run.drafts,
-        failedImageSet: completedV3Run.failedImageSet,
-        generationResultStates: completedV3Run.generationResultStates,
-        imageGenerationState: completedV3Run.imageGenerationState,
-        imageModelProvenance: completedV3Run.imageModelProvenance,
-        imageSet: completedV3Run.imageSet,
-        jokeContextSnapshot: completedV3Run.jokeContextSnapshot,
-        label: completedV3Run.label,
-        newsLinkedImages: completedV3Run.newsLinkedImages,
-        phase: completedV3Run.phase,
-        selectedImageOriginal: completedV3Run.selectedImageOriginal,
-        sourceTweet: completedV3Run.sourceTweet,
-      },
-    });
+    await user.click(screen.getByRole("button", { name: /open runs, 1 saved/i }));
+    expect(screen.getByRole("button", { name: /drafts for 1234567890/i })).toBeInTheDocument();
+  });
 
-    act(() => {
-      for (const event of events) {
-        generationEventSources[0]?.emit(event);
-      }
-    });
-
-    await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
-    expect(savedRunStore.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        drafts: completedV3Run.drafts,
-        generationResultStates: completedV3Run.generationResultStates,
-        imageGenerationState: completedV3Run.imageGenerationState,
-        imageSet: completedV3Run.imageSet,
-        jokeContextSnapshot: completedV3Run.jokeContextSnapshot,
-        newsLinkedImages: completedV3Run.newsLinkedImages,
-        selectedImageOriginal: completedV3Run.selectedImageOriginal,
-      }),
+  test("renders a composed v3 run with its generated image set and drafts", async () => {
+    const user = userEvent.setup();
+    const sourceTweetUrl = "https://x.com/siliconmania/status/1234567890";
+    const submitManualRunFetcher = manualRunFetcher(
+      ({ runId, sourceTweetUrl: url, usersDirection }) =>
+        buildCompletedV3Run({ id: runId, sourceTweetUrl: url, usersDirection }),
     );
+    const { sourceTweetUrlInput, generateButton } = renderWorkspace({ submitManualRunFetcher });
+
+    await user.type(sourceTweetUrlInput, sourceTweetUrl);
+    await user.click(generateButton);
+
+    const imageGenerationArea = await screen.findByRole("complementary", {
+      name: /image generation area/i,
+    });
+
+    expect(imageGenerationArea).toHaveTextContent("Image generation complete");
+    expect(
+      within(imageGenerationArea).getByRole("region", { name: /image results area/i }),
+    ).toHaveTextContent("Variation 4");
+    expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
   });
 
   test("reopens Saved Runs from the drawer without regenerating", async () => {
@@ -125,7 +72,7 @@ describe("Workspace saved runs", () => {
     const savedRunStore = createMemorySavedRunStore([
       buildCompletedRun({ label: "Previously saved run" }),
     ]);
-    const { generationStreamUrls, sourceTweetUrlInput } = renderWorkspace({
+    const { sourceTweetUrlInput } = renderWorkspace({
       savedRunStore,
     });
 
@@ -140,7 +87,6 @@ describe("Workspace saved runs", () => {
       }),
     );
 
-    expect(generationStreamUrls).toEqual([]);
     expect(sourceTweetUrlInput).toHaveValue("https://x.com/siliconmania/status/1234567890");
     expect(screen.getByRole("region", { name: /completed draft stack/i })).toBeInTheDocument();
     expect(
@@ -163,7 +109,7 @@ describe("Workspace saved runs", () => {
       usersDirection: "Keep the saved direction.",
     });
     const savedRunStore = createMemorySavedRunStore([savedRun]);
-    const { generationStreamUrls, sourceTweetUrlInput } = renderWorkspace({
+    const { sourceTweetUrlInput } = renderWorkspace({
       imageGenerationStreamFetcher,
       onStartGenerationRun: startGenerationRun,
       onStartImageGeneration: startImageGeneration,
@@ -181,7 +127,6 @@ describe("Workspace saved runs", () => {
       }),
     );
 
-    expect(generationStreamUrls).toEqual([]);
     expect(startGenerationRun).not.toHaveBeenCalled();
     expect(startImageGeneration).not.toHaveBeenCalled();
     expect(imageGenerationStreamFetcher).not.toHaveBeenCalled();
@@ -226,7 +171,7 @@ describe("Workspace saved runs", () => {
         phase: "waiting-for-image-selection",
       }),
     ]);
-    const { generationStreamUrls } = renderWorkspace({
+    renderWorkspace({
       onStartImageGeneration: startImageGeneration,
       savedRunStore,
     });
@@ -246,7 +191,6 @@ describe("Workspace saved runs", () => {
       name: /image generation area/i,
     });
 
-    expect(generationStreamUrls).toEqual([]);
     expect(imageGenerationArea).toHaveTextContent("Waiting for image selection");
     expect(imageGenerationArea).toHaveTextContent("Launch visual");
 
@@ -284,29 +228,31 @@ describe("Workspace saved runs", () => {
     });
   });
 
-  test("shows retrieval failure feedback without saving a completed run", async () => {
+  test("renders a persisted failed run without re-saving it client-side", async () => {
     const user = userEvent.setup();
-    const generationEventSources: FakeGenerationEventSource[] = [];
     const savedRunStore = createMemorySavedRunStore();
+    // A composition that fails is persisted server-side as a failed run and returned
+    // (HTTP 200), so the route fake resolves with it rather than rejecting.
+    const submitManualRunFetcher = manualRunFetcher(({ runId, sourceTweetUrl: url }) =>
+      buildFailedManualRun({
+        id: runId,
+        sourceTweetUrl: url,
+        failureMessage: "Source tweet could not be retrieved.",
+      }),
+    );
     const { sourceTweetUrlInput, generateButton } = renderWorkspace({
-      generationEventSources,
       savedRunStore,
+      submitManualRunFetcher,
     });
 
     await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
     await user.click(generateButton);
 
-    act(() => {
-      generationEventSources[0]?.emit(
-        buildGenerationFailureEvent("Source tweet could not be retrieved."),
-      );
-    });
-
-    expect(generationEventSources[0]?.closed).toBe(true);
-    expect(screen.getByRole("region", { name: /generation failure state/i })).toHaveTextContent(
-      "Source tweet could not be retrieved.",
-    );
+    expect(
+      await screen.findByRole("region", { name: /generation failure state/i }),
+    ).toHaveTextContent("Source tweet could not be retrieved.");
     expect(screen.getByRole("status")).toHaveTextContent("Source tweet could not be retrieved.");
+    // The route already persisted the failed run; the client never re-saves it.
     expect(savedRunStore.save).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("region", { name: /completed draft stack/i }),
@@ -316,52 +262,38 @@ describe("Workspace saved runs", () => {
     expect(screen.getByTitle("Failed")).toBeInTheDocument();
   });
 
-  test("reusing the same source tweet creates an independent Saved Run", async () => {
+  test("composing the same source tweet again creates an independent run", async () => {
     const user = userEvent.setup();
-    const generationEventSources: FakeGenerationEventSource[] = [];
+    const sourceTweetUrl = "https://x.com/siliconmania/status/1234567890";
     const savedRunStore = createMemorySavedRunStore([
-      buildCompletedRun({ id: "original-saved-run" }),
+      buildCompletedRun({ id: "original-saved-run", label: "Original run" }),
     ]);
+    const submitManualRunFetcher = manualRunFetcher(
+      ({ runId, sourceTweetUrl: url, usersDirection }) =>
+        buildCompletedV3Run({ id: runId, label: "New run", sourceTweetUrl: url, usersDirection }),
+    );
     const { generateButton, sourceTweetUrlInput } = renderWorkspace({
-      generationEventSources,
       savedRunStore,
+      submitManualRunFetcher,
     });
 
-    await screen.findByRole("button", {
-      name: /open runs, 1 saved/i,
-    });
-    await waitFor(() =>
-      expect(sourceTweetUrlInput).toHaveValue("https://x.com/siliconmania/status/1234567890"),
-    );
-    await user.clear(sourceTweetUrlInput);
-    await waitFor(() => expect(sourceTweetUrlInput).toHaveValue(""));
-    await user.type(sourceTweetUrlInput, "https://x.com/siliconmania/status/1234567890");
+    // The reopened saved run pre-fills the composer with its source tweet.
+    await screen.findByRole("button", { name: /open runs, 1 saved/i });
+    await waitFor(() => expect(sourceTweetUrlInput).toHaveValue(sourceTweetUrl));
+
     await user.click(generateButton);
 
-    const events = buildGenerationEvents({
-      sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
-      usersDirection: "Keep it dry.",
-    });
+    // The new run is composed under its own client-minted id — never the reopened
+    // run's id — and lands alongside the original in the runs list.
+    expect(
+      await screen.findByRole("region", { name: /completed draft stack/i }),
+    ).toBeInTheDocument();
+    const [, init] = (submitManualRunFetcher as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(JSON.parse(String(init?.body)).runId).not.toBe("original-saved-run");
 
-    act(() => {
-      for (const event of events) {
-        generationEventSources[0]?.emit(event);
-      }
-    });
-
-    await waitFor(() => expect(savedRunStore.save).toHaveBeenCalledTimes(1));
-    expect(savedRunStore.savedRuns.has("original-saved-run")).toBe(true);
-    const newSavedRun = [...savedRunStore.savedRuns.values()].find(
-      (savedRun) => savedRun.id !== "original-saved-run",
-    );
-
-    expect(newSavedRun).toEqual(
-      expect.objectContaining({
-        id: expect.stringMatching(/^run-/),
-        sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
-        usersDirection: "Keep it dry.",
-      }),
-    );
+    await user.click(screen.getByRole("button", { name: /open runs, 2 saved/i }));
+    expect(screen.getByRole("button", { name: /original run/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /new run/i })).toBeInTheDocument();
   });
 
   test("renders saved-run relative dates", async () => {

@@ -9,14 +9,12 @@ import { DraftComparison } from "./draft-comparison";
 import { getStageFailure } from "./failure-details";
 import { GenerationFailureState } from "./generation-failure-state";
 import { ImageGenerationArea } from "./image-generation-area";
-import { ImageGenerationSkeleton } from "./image-generation-skeleton";
 import { NewsCategorySection } from "./news-category-section";
-import { NewsCategorySectionSkeleton } from "./news-category-section-skeleton";
 import { QuietRunReveals } from "./quiet-run-reveals";
+import { RunComposingState } from "./run-composing-state";
 import { SectionHeader } from "./section-header";
 import { SourceTweetPreview } from "./source-tweet-preview";
 import { TextGenerationSection } from "./text-generation-section";
-import { TextGenerationSkeleton } from "./text-generation-skeleton";
 
 type ActiveRunPanelProps = {
   activeRun: GenerationRun | null;
@@ -47,7 +45,13 @@ export function ActiveRunPanel({
     return <section aria-label="Empty draft canvas" className="min-h-72 sm:min-h-88" />;
   }
 
-  const isRunning = activeRun.status === "running";
+  // A Manual Run composes server-side as one batch request, so a running run has no
+  // live per-phase result-states to reveal — it shows a single composing state
+  // until the finished run (or its failure) replaces the placeholder.
+  if (activeRun.status === "running") {
+    return <RunComposingState />;
+  }
+
   const isFailed = activeRun.status === "failed";
   const isCompleted = activeRun.status === "completed";
 
@@ -94,8 +98,6 @@ export function ActiveRunPanel({
       heading="Image work"
       failure={imageDiscoveryFailure}
     />
-  ) : isRunning ? (
-    <ImageGenerationSkeleton />
   ) : null;
 
   const hasCompleteDraftStack =
@@ -118,8 +120,6 @@ export function ActiveRunPanel({
       heading="Drafts"
       failure={textGenerationFailure}
     />
-  ) : isRunning ? (
-    <TextGenerationSkeleton />
   ) : null;
 
   return (
@@ -129,28 +129,20 @@ export function ActiveRunPanel({
       {sourceTweetPreview}
       {/* The News Category editor — the same shared chips the Selected Run sidebar
           uses — as its own section in the workspace column, headed by the same
-          SectionHeader as Text/Image generation so it reads at the same scale.
-          While the run is in flight it holds the section's footprint as a skeleton
-          (the classifier result only lands on completion, ADR-0027 / issue 004);
-          once complete the real editor takes its place with no layout shift. */}
-      {isRunning || isCompleted ? (
-        <section
-          aria-busy={isRunning}
-          aria-label="News category"
-          className="mb-6 grid min-w-0 gap-3">
+          SectionHeader as Text/Image generation so it reads at the same scale. The
+          classifier result lands on completion (ADR-0027 / issue 004), so the
+          editor appears once the run is complete. */}
+      {isCompleted ? (
+        <section aria-label="News category" className="mb-6 grid min-w-0 gap-3">
           <SectionHeader title="News category" />
-          {isCompleted ? (
-            <NewsCategorySection
-              newsCategory={activeRun.newsCategory}
-              newsCategoryClassification={activeRun.newsCategoryClassification}
-              newsCategoryColor={activeRun.newsCategoryColor}
-              onNewsCategoryChange={onNewsCategoryChange}
-              onNewsCategoryCustomChange={onNewsCategoryCustomChange}
-              onNewsCategoryColorChange={onNewsCategoryColorChange}
-            />
-          ) : (
-            <NewsCategorySectionSkeleton />
-          )}
+          <NewsCategorySection
+            newsCategory={activeRun.newsCategory}
+            newsCategoryClassification={activeRun.newsCategoryClassification}
+            newsCategoryColor={activeRun.newsCategoryColor}
+            onNewsCategoryChange={onNewsCategoryChange}
+            onNewsCategoryCustomChange={onNewsCategoryCustomChange}
+            onNewsCategoryColorChange={onNewsCategoryColorChange}
+          />
         </section>
       ) : null}
       <RunWorkspaceLayout

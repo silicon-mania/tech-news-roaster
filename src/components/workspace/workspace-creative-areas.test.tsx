@@ -1,19 +1,15 @@
 import "@testing-library/jest-dom/vitest";
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
-import {
-  buildGenerationFailureEvent,
-  buildGenerationRunStateEvent,
-  defaultImagePrompt,
-} from "@/services/generation";
+import { defaultImagePrompt } from "@/services/generation";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import {
   buildCompletedRun,
+  buildFailedManualRun,
   buildJokeContextSnapshot,
   buildNewsLinkedImages,
   createMemorySavedRunStore,
-  type FakeGenerationEventSource,
   renderWorkspace,
 } from "./workspace-test-utils";
 
@@ -204,19 +200,18 @@ describe("Workspace creative result areas", () => {
 
   test("keeps context failure details behind a quiet reveal", async () => {
     const user = userEvent.setup();
-    const generationEventSources: FakeGenerationEventSource[] = [];
-    const { sourceTweetUrlInput, generateButton } = renderWorkspace({
-      generationEventSources,
-    });
     const sourceTweetUrl = "https://x.com/siliconmania/status/1234567890";
     const tweetContext = buildFixtureTweetContext(sourceTweetUrl);
 
-    await user.type(sourceTweetUrlInput, sourceTweetUrl);
-    await user.click(generateButton);
-
-    act(() => {
-      generationEventSources[0]?.emit(
-        buildGenerationRunStateEvent({
+    // A Manual Run that failed at Joke Context Gathering is persisted as a failed
+    // run carrying its Quiet Failure Details, so reopening it shows the reveal.
+    renderWorkspace({
+      initialActiveRunId: "context-failed-run",
+      initialRuns: [
+        buildFailedManualRun({
+          id: "context-failed-run",
+          sourceTweet: tweetContext.sourceTweet,
+          failureMessage: "Joke context gathering could not form usable context.",
           generationResultStates: {
             contextGathering: {
               debugLog: ["Started fixture context gathering.", "Tweet text stayed too thin."],
@@ -235,13 +230,8 @@ describe("Workspace creative result areas", () => {
               status: "not-started",
             },
           },
-          label: "Drafts for 1234567890",
-          sourceTweet: tweetContext.sourceTweet,
         }),
-      );
-      generationEventSources[0]?.emit(
-        buildGenerationFailureEvent("Joke context gathering could not form usable context."),
-      );
+      ],
     });
 
     const failureState = screen.getByRole("region", {

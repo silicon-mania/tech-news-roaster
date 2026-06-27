@@ -2,7 +2,7 @@ import "server-only";
 
 import { getOperatorSession } from "@/services/auth/operator-session";
 import {
-  assembleImageOriginalCandidates,
+  buildRunLabel,
   defaultImagePrompt,
   deriveAutomatedSelection,
   draftTarget,
@@ -10,45 +10,28 @@ import {
   type GenerationResultStates,
   type ImageModelProvenance,
   type ImageSet,
+  isSuccessfulRun,
   type JokeContextSnapshot,
-  type NewsLinkedImage,
   parseGenerationResultStates,
   parseSavedGenerationRun,
   type SavedGenerationRun,
 } from "@/services/generation";
-import {
-  type GenerationOrchestrator,
-  orchestrateThreeProviderGeneration,
-} from "@/services/generation/generation-orchestrator";
+import { composeQuoteRepostCore } from "@/services/generation/compose-quote-repost-core";
+import type { GenerationOrchestrator } from "@/services/generation/generation-orchestrator";
 import {
   generateImageSetForRun,
   type ImageGenerationServiceResult,
 } from "@/services/generation/image-generation-service";
-import {
-  gatherJokeContext,
-  JokeContextGatheringError,
-  type JokeContextGatheringInput,
-} from "@/services/joke-context-gathering";
-import { classifyNewsCategory } from "@/services/news-category-classifier";
-import {
-  discoverNewsLinkedImages,
-  type NewsLinkedImageDiscoveryService,
-  NewsLinkedImageDiscoveryUnavailableError,
-} from "@/services/news-linked-image-discovery";
-import { buildReplySignals, type ReplySignal } from "@/services/outside-x-enrichment";
+import type { JokeContextGatheringInput } from "@/services/joke-context-gathering";
+import type { classifyNewsCategory } from "@/services/news-category-classifier";
+import type { NewsLinkedImageDiscoveryService } from "@/services/news-linked-image-discovery";
 import { persistImageSetToOwnerStorage } from "@/services/saved-runs/persist-image-set-to-owner-storage";
 import { normalizeRunForPersistence } from "@/services/saved-runs/run-persistence";
 import {
   type OperatorSessionReader,
   resolveRunRepository,
 } from "@/services/saved-runs/run-repository";
-import {
-  type RetrievedSourceTweet,
-  type RetrievedTweetContext,
-  retrieveTweetContext,
-  TweetRetrievalError,
-  type TweetRetrievalService,
-} from "@/services/tweet-retrieval";
+import type { TweetRetrievalService } from "@/services/tweet-retrieval";
 
 type AutomatedRunEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -110,6 +93,12 @@ export type ComposeAutomatedRunResult = { run: SavedGenerationRun } | { unauthor
  * Image Generation of four variations using the Default Image Prompt → Automated
  * Selection → server-side persistence under the Operator Account.
  *
+ * Everything up to Image Original Candidates runs through the shared
+ * {@link composeQuoteRepostCore}; this wrapper supplies only Automated Run policy
+ * (run-kind automated, no operator direction) and owns the persistence-bearing
+ * steps the core deliberately leaves out: Image Generation, Automated Selection,
+ * and saving under the Operator Account.
+ *
  * The run carries `origin: "automated"` and `imagePromptSource: "default"`, is
  * left unseen (`seenAt` absent), and **prepares but never publishes to X** —
  * there is simply no publish step; the operator posts manually later. A failed or
@@ -121,11 +110,6 @@ export async function composeAutomatedRun(
   input: ComposeAutomatedRunInput,
   dependencies: ComposeAutomatedRunDependencies = {},
 ): Promise<ComposeAutomatedRunResult> {
-  const retrieve = dependencies.retrieveTweetContext ?? retrieveTweetContext;
-  const gather = dependencies.gatherJokeContext ?? gatherJokeContext;
-  const discover = dependencies.discoverNewsLinkedImages ?? discoverNewsLinkedImages;
-  const orchestrate = dependencies.orchestrateGeneration ?? orchestrateThreeProviderGeneration;
-  const classify = dependencies.classifyNewsCategory ?? classifyNewsCategory;
   const generateImageSet = dependencies.generateImageSet ?? generateImageSetForRun;
   const env = dependencies.env ?? process.env;
   const operatorSession = dependencies.operatorSession ?? getOperatorSession;
@@ -157,7 +141,7 @@ export async function composeAutomatedRun(
 
   const repository = repositoryResolution.repository;
   const runId = createRunId();
-  const baseLabel = buildAutomatedRunLabel(input.sourceTweetUrl);
+  const baseLabel = buildRunLabel(input.sourceTweetUrl);
 
   function buildBaseRun(label: string) {
     return {
@@ -189,122 +173,66 @@ export async function composeAutomatedRun(
     return { run: normalized };
   }
 
-  // 1. Tweet retrieval. A failure persists a failed run so it still appears in
-  //    the unified list with its concise failure state.
-  let tweetContext: RetrievedTweetContext;
+  // Steps 1–4 — tweet retrieval, joke context gathering, the parallel creative
+  // block (three-provider Text Generation + News-Linked Image Discovery + News
+  // Category classification), and Image Original Candidate assembly — run through
+  // the shared composition core. An Automated Run bills the spend-capped automated
+  // key for every AI Gateway call, isolating the cron's spend from Workspace users
+  // on the shared key, and carries no operator-supplied direction.
+  const composition = await composeQuoteRepostCore(
+    { sourceTweetUrl: input.sourceTweetUrl, usersDirection: "" },
+    {
+      runKind: "automated",
+      retrieveTweetContext: dependencies.retrieveTweetContext,
+      gatherJokeContext: dependencies.gatherJokeContext,
+      discoverNewsLinkedImages: dependencies.discoverNewsLinkedImages,
+      orchestrateGeneration: dependencies.orchestrateGeneration,
+      classifyNewsCategory: dependencies.classifyNewsCategory,
+      now,
+    },
+  );
 
-  try {
-    tweetContext = await retrieve({ sourceTweetUrl: input.sourceTweetUrl });
-  } catch (error) {
-    const message =
-      error instanceof TweetRetrievalError
-        ? error.userMessage
-        : "Source tweet could not be retrieved.";
+  if (composition.status === "failed") {
+    // Tweet retrieval failed: persist a failed run so it still appears in the
+    // unified list with its concise failure state.
+    if (composition.stage === "tweet-retrieval") {
+      return saveAutomatedRun({
+        ...buildBaseRun(baseLabel),
+        status: "failed",
+        draftCount: 0,
+        drafts: [],
+        failureMessage: composition.failureMessage,
+        phase: "failed",
+      });
+    }
 
+    // Joke context gathering failed: no creative branch ran. Persist a failed run
+    // carrying the Quiet Failure Details (the gathering debug log) plus the
+    // not-started creative areas, adding the caller-owned not-started Image
+    // Generation area the core does not track.
     return saveAutomatedRun({
       ...buildBaseRun(baseLabel),
+      sourceTweet: composition.sourceTweet,
       status: "failed",
       draftCount: 0,
       drafts: [],
-      failureMessage: message,
-      phase: "failed",
-    });
-  }
-
-  const sourceTweet = tweetContext.sourceTweet;
-
-  // 2. Joke context gathering. A failure short-circuits the creative branches —
-  //    no Text Generation, discovery, or Image Generation is attempted — and
-  //    persists a failed run carrying the Quiet Failure Details (the gathering
-  //    debug log).
-  const contextStartedAt = now().toISOString();
-  let jokeContextSnapshot: JokeContextSnapshot;
-
-  try {
-    jokeContextSnapshot = await gather({ tweetContext });
-  } catch (error) {
-    const debugLog = error instanceof JokeContextGatheringError ? error.debugLog : [];
-    const message =
-      error instanceof JokeContextGatheringError
-        ? error.userMessage
-        : "Joke context gathering could not form usable context.";
-
-    return saveAutomatedRun({
-      ...buildBaseRun(baseLabel),
-      sourceTweet,
-      status: "failed",
-      draftCount: 0,
-      drafts: [],
-      failureMessage: message,
+      failureMessage: composition.failureMessage,
       generationResultStates: parseGenerationResultStates({
-        contextGathering: {
-          status: "failed",
-          startedAt: contextStartedAt,
-          failedAt: now().toISOString(),
-          message,
-          ...(debugLog.length > 0 ? { debugLog } : {}),
-        },
-        textGeneration: { status: "not-started" },
-        newsLinkedImageDiscovery: { status: "not-started" },
+        ...composition.creativeResultStates,
         imageGeneration: { status: "not-started" },
       }),
       phase: "failed",
     });
   }
 
-  const contextCompletedAt = now().toISOString();
-
-  // 3. News-Linked Image Discovery, three-provider generation, and News Category
-  //    classification run together — all depend only on the snapshot.
-  const creativeStartedAt = now().toISOString();
-  const replySignals = buildReplySignals(tweetContext);
-  const discoveryPromise = runNewsLinkedImageDiscovery({
-    discover,
-    now,
-    replySignals,
+  const {
+    creativeResultStates,
+    drafts,
+    imageOriginalCandidates,
+    jokeContextSnapshot,
+    newsLinkedImages,
     sourceTweet,
-    startedAt: creativeStartedAt,
-  });
-  const orchestrationPromise = orchestrate(
-    {
-      jokeContextSnapshot,
-      sourceTweet,
-      sourceTweetUrl: input.sourceTweetUrl,
-      usersDirection: "",
-    },
-    // An Automated Run bills the spend-capped automated key for every AI Gateway
-    // call (Text Generation, classification, Image Generation), isolating the
-    // cron's spend from Workspace users on the shared key.
-    { runKind: "automated" },
-  )
-    .then((run) => ({ run, status: "fulfilled" as const }))
-    .catch((error: unknown) => ({ error, status: "rejected" as const }));
-  // The classifier reads only the snapshot, so it never steers the drafts. It
-  // never throws — on any failure it yields a failed state plus a VIRAL fallback —
-  // so it needs no rejection guard and can never block the run from completing.
-  const classificationPromise = classify({ jokeContextSnapshot }, { now, runKind: "automated" });
-
-  const discoveryResult = await discoveryPromise;
-  const orchestrationResult = await orchestrationPromise;
-  const classificationResult = await classificationPromise;
-  const completedRun =
-    orchestrationResult.status === "fulfilled" ? orchestrationResult.run : undefined;
-  const drafts = completedRun?.drafts ?? [];
-  const textGenerationState: GenerationResultStates["textGeneration"] = completedRun
-    ?.generationResultStates?.textGeneration ?? {
-    status: "failed",
-    startedAt: creativeStartedAt,
-    failedAt: now().toISOString(),
-    message: "Text generation could not produce a usable draft set.",
-  };
-
-  // 4. Image Original Candidates: Source Tweet media first, topped up by
-  //    News-Linked Images only when the tweet supplies fewer than four.
-  const imageOriginalCandidates = assembleImageOriginalCandidates({
-    newsLinkedImages:
-      discoveryResult.status === "available" ? discoveryResult.newsLinkedImages : [],
-    sourceTweetMedia: sourceTweet.mediaReferences,
-  });
+  } = composition;
 
   // 5. Image Generation of four variations from the first candidate, using the
   //    Default Image Prompt. All four are generated even though Automated
@@ -370,33 +298,26 @@ export async function composeAutomatedRun(
   );
 
   const generationResultStates = parseGenerationResultStates({
-    contextGathering: {
-      status: "completed",
-      startedAt: contextStartedAt,
-      completedAt: contextCompletedAt,
-      jokeContextSnapshot,
-    },
-    textGeneration: textGenerationState,
-    newsLinkedImageDiscovery: discoveryResult.state,
+    ...creativeResultStates,
     imageGeneration: imageGenerationState,
   });
   const isSuccessful = isSuccessfulRun(generationResultStates);
 
   return saveAutomatedRun({
-    ...buildBaseRun(completedRun?.label ?? baseLabel),
+    ...buildBaseRun(composition.orchestratorLabel ?? baseLabel),
     sourceTweet,
     jokeContextSnapshot,
     // The stamp the operator can later override per fanned-out copy. The classifier
     // always resolves a value (VIRAL on failure) and a terminal state; the failed
     // state is persisted so the ghost icon + Quiet Failure Details survive reopen,
     // and it is deliberately NOT part of the Successful Run determination below.
-    newsCategory: classificationResult.newsCategory,
-    newsCategoryClassification: classificationResult.classification,
+    newsCategory: composition.newsCategory,
+    newsCategoryClassification: composition.newsCategoryClassification,
     status: isSuccessful ? "completed" : "failed",
     draftCount: drafts.length,
     drafts,
-    ...(completedRun?.fallbackDisclosure
-      ? { fallbackDisclosure: completedRun.fallbackDisclosure }
+    ...(composition.fallbackDisclosure
+      ? { fallbackDisclosure: composition.fallbackDisclosure }
       : {}),
     ...(isSuccessful
       ? {}
@@ -407,9 +328,7 @@ export async function composeAutomatedRun(
     ...(failedImageSet ? { failedImageSet } : {}),
     ...(imageModelProvenance ? { imageModelProvenance } : {}),
     imageGenerationState,
-    ...(discoveryResult.status === "available"
-      ? { newsLinkedImages: discoveryResult.newsLinkedImages }
-      : {}),
+    ...(newsLinkedImages.length > 0 ? { newsLinkedImages } : {}),
     ...(selection.selectedDraftId ? { selectedDraftId: selection.selectedDraftId } : {}),
     ...(selection.selectedGeneratedImage
       ? { selectedGeneratedImage: selection.selectedGeneratedImage }
@@ -419,85 +338,6 @@ export async function composeAutomatedRun(
       : {}),
     phase: deriveAutomatedRunPhase({ failedImageSet, imageSet, isSuccessful }),
   });
-}
-
-type NewsLinkedImageDiscoveryOutcome =
-  | {
-      status: "available";
-      newsLinkedImages: NewsLinkedImage[];
-      state: GenerationResultStates["newsLinkedImageDiscovery"];
-    }
-  | { status: "failed"; state: GenerationResultStates["newsLinkedImageDiscovery"] };
-
-async function runNewsLinkedImageDiscovery({
-  discover,
-  now,
-  replySignals,
-  sourceTweet,
-  startedAt,
-}: {
-  discover: NewsLinkedImageDiscoveryService;
-  now: () => Date;
-  replySignals: ReplySignal[];
-  sourceTweet: RetrievedSourceTweet;
-  startedAt: string;
-}): Promise<NewsLinkedImageDiscoveryOutcome> {
-  try {
-    const result = await discover({ replySignals, sourceTweet });
-
-    if (result.newsLinkedImages.length === 0) {
-      return {
-        status: "failed",
-        state: {
-          status: "failed",
-          startedAt,
-          failedAt: now().toISOString(),
-          message: "News-linked image discovery could not find qualifying images.",
-        },
-      };
-    }
-
-    return {
-      status: "available",
-      newsLinkedImages: result.newsLinkedImages,
-      state: {
-        status: "completed",
-        startedAt,
-        completedAt: now().toISOString(),
-        newsLinkedImages: result.newsLinkedImages,
-      },
-    };
-  } catch (error) {
-    const message =
-      error instanceof NewsLinkedImageDiscoveryUnavailableError &&
-      process.env.NODE_ENV !== "production"
-        ? "News-linked image discovery is unavailable in local development without OUTSIDE_X_ENRICHMENT_ENDPOINT."
-        : "News-linked image discovery could not find qualifying images.";
-
-    return {
-      status: "failed",
-      state: { status: "failed", startedAt, failedAt: now().toISOString(), message },
-    };
-  }
-}
-
-/**
- * Successful Run: Joke Context Gathering succeeded and at least one creative
- * result area succeeded. Mirrors the rule the saved-run schema enforces (Text
- * Generation and News-Linked Image Discovery are the counted areas) so the
- * composition never builds a run the schema rejects.
- */
-function isSuccessfulRun(states: GenerationResultStates): boolean {
-  if (states.contextGathering.status !== "completed") {
-    return false;
-  }
-
-  const completedCreativeAreas = [
-    states.textGeneration.status === "completed",
-    states.newsLinkedImageDiscovery.status === "completed",
-  ].filter(Boolean).length;
-
-  return completedCreativeAreas > 0;
 }
 
 function deriveAutomatedRunPhase({
@@ -522,12 +362,6 @@ function deriveAutomatedRunPhase({
   }
 
   return undefined;
-}
-
-function buildAutomatedRunLabel(sourceTweetUrl: string): string {
-  const statusId = sourceTweetUrl.match(/status\/([^/?#]+)/)?.[1] ?? "tweet";
-
-  return `Automated run for ${statusId}`;
 }
 
 function defaultCreateRunId(): string {

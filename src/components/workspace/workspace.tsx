@@ -15,19 +15,22 @@ import {
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { httpSavedRunStore } from "@/services/saved-runs";
 import type {
-  GenerationEventSourceFactory,
   GenerationRun,
   GenerationRunInput,
   SavedRunStore,
   SubmissionState,
 } from "@/services/workspace";
-import { createRunId, isRunInFlight, parseSourceTweetUrl } from "@/services/workspace";
+import {
+  createRunId,
+  isRunInFlight,
+  parseSourceTweetUrl,
+  submitManualRun,
+} from "@/services/workspace";
 import { ActiveRunPanel } from "./active-run-panel";
 import { DirectionPanelContext } from "./direction-panel-context";
 import { FinalQuoteTweetImageOverlay } from "./final-quote-tweet-image-overlay";
 import { GenerationRunForm } from "./generation-run-form";
 import { RunsSidebar } from "./runs-sidebar";
-import { genericRunningRunLabel, useGenerationRunStream } from "./use-generation-stream";
 import { useImageGenerationStream } from "./use-image-generation-stream";
 import { useRunAutosave } from "./use-run-autosave";
 import { useRunsSidebarPin } from "./use-runs-sidebar-pin";
@@ -40,8 +43,8 @@ export type { GenerationRun, GenerationRunInput } from "@/services/workspace";
 type WorkspaceProps = {
   initialActiveRunId?: string;
   initialRuns?: GenerationRun[];
-  generationEventSourceFactory?: GenerationEventSourceFactory;
   imageGenerationStreamFetcher?: typeof fetch;
+  submitManualRunFetcher?: typeof fetch;
   uploadImageFetcher?: typeof fetch;
   initialRuntimeStatus?: RuntimeStatus;
   onStartGenerationRun?: (runInput: GenerationRunInput) => void | Promise<void>;
@@ -56,14 +59,13 @@ const developmentImagesUnavailableMessage =
   "News-linked images unavailable. Set OUTSIDE_X_ENRICHMENT_ENDPOINT to enable image generation.";
 const liveApiWarningMessage = "Live APIs enabled. Runs may use paid quota.";
 const productionNotReadyMessage = "Live integrations are not configured.";
-
-function createGenerationEventSource(url: string) {
-  return new EventSource(url);
-}
+const composeFailureMessage = "Generation run could not be composed.";
+// The composing placeholder's label until the composed run returns its own.
+const genericRunningRunLabel = "New generation run";
 
 export function Workspace({
-  generationEventSourceFactory = createGenerationEventSource,
   imageGenerationStreamFetcher = fetch,
+  submitManualRunFetcher = fetch,
   uploadImageFetcher = fetch,
   initialActiveRunId,
   initialRuns = [],
@@ -113,12 +115,6 @@ export function Workspace({
     persistRun: scheduleRunAutosave,
     setRuns,
     uploadFetcher: uploadImageFetcher,
-  });
-  const { enrichedRunState, subscribeToGenerationRun } = useGenerationRunStream({
-    generationEventSourceFactory,
-    savedRunStore,
-    setRuns,
-    setSubmissionState,
   });
 
   useSavedRunHydration({ savedRunStore, setActiveRunId, setRuns });
@@ -228,41 +224,57 @@ export function Workspace({
 
     setSourceTweetUrl(parsedSourceTweetUrl.url);
     const runId = createRunId(runs);
-    const contextGatheringStartedAt = new Date().toISOString();
-    const runningRun: GenerationRun = {
+    // A Manual Run composes and persists server-side in one request: insert a
+    // single composing placeholder under the client-minted id (no live per-phase
+    // result-states stream in), then swap it for the finished run the route returns.
+    const composingRun: GenerationRun = {
       id: runId,
       label: genericRunningRunLabel,
       sourceTweetUrl: parsedSourceTweetUrl.url,
-      usersDirection: usersDirection.trim(),
+      usersDirection: runInput.usersDirection,
       status: "running",
-      phase: "enrichment-running",
       draftCount: 0,
       draftTarget,
       drafts: [],
       uploadedImageSets: [],
-      generationResultStates: {
-        contextGathering: {
-          startedAt: contextGatheringStartedAt,
-          status: "running",
-        },
-        imageGeneration: {
-          status: "not-started",
-        },
-        newsLinkedImageDiscovery: {
-          status: "not-started",
-        },
-        textGeneration: {
-          status: "not-started",
-        },
-      },
     };
 
-    setRuns((currentRuns) => [runningRun, ...currentRuns]);
+    setRuns((currentRuns) => [composingRun, ...currentRuns]);
     setActiveRunId(runId);
     setSubmissionState({ kind: "accepted" });
 
     void onStartGenerationRun?.(runInput);
-    subscribeToGenerationRun(runId, runInput);
+    void submitManualRun(runId, runInput, { fetcher: submitManualRunFetcher })
+      .then((run) => {
+        // The route persisted the run under the client-minted id and echoes it
+        // back; swap the placeholder for it. A composition that failed comes back as
+        // a failed-status run (HTTP 200) — surface its message in the submission
+        // state so the form reads like the old stream's failure did.
+        setRuns((currentRuns) =>
+          currentRuns.map((current) => (current.id === runId ? run : current)),
+        );
+
+        if (run.status === "failed") {
+          setSubmissionState({
+            kind: "blocked",
+            message: run.failureMessage ?? composeFailureMessage,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        // Only an unresolved operator (401) or an invalid/missing URL (400) rejects;
+        // mark the run failed and surface the route's message.
+        const message = error instanceof Error ? error.message : composeFailureMessage;
+
+        setRuns((currentRuns) =>
+          currentRuns.map((current) =>
+            current.id === runId
+              ? { ...current, status: "failed", phase: "failed", failureMessage: message }
+              : current,
+          ),
+        );
+        setSubmissionState({ kind: "blocked", message });
+      });
   }
 
   function updateSourceTweetUrl(nextSourceTweetUrl: string) {
@@ -459,11 +471,6 @@ export function Workspace({
       }),
     );
 
-    enrichedRunState.current.set(input.parentRunId, {
-      imageGenerationState: startedImageGenerationState,
-      imageOriginalCandidates: startedRun.imageOriginalCandidates,
-      newsLinkedImages: startedRun.newsLinkedImages,
-    });
     scheduleRunAutosave(startedRun);
 
     void onStartImageGeneration?.(input);

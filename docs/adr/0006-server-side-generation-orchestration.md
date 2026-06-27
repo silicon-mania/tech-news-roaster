@@ -1,3 +1,5 @@
 # Server-Side Generation Orchestration
 
+> **Status: amended by [ADR-0031](0031-unified-quote-repost-composition-core.md).** The server-side orchestration stands, but the "progressive updates ... as drafts arrive" no longer applies to the **Manual Run**. Every entry point now runs the shared composition core `composeQuoteRepostCore`, and the manual path composes and persists server-side in one request — the SSE generation route and its client EventSource hook are removed, and the workspace shows a single composing state instead of streamed per-phase progress. The Generation Orchestrator itself is unchanged (it now returns its completed-run payload to the core rather than to a streaming route); the Image Generation flow keeps its own SSE stream.
+
 The application uses a server-side generation orchestrator behind internal Next.js API routes rather than coordinating provider calls directly in the browser. We chose this because provider keys, prompting, fallback logic, and provider-specific behavior belong behind a protected boundary, while the client still receives progressive updates so the running run can feel immediate and visibly advance as drafts arrive.

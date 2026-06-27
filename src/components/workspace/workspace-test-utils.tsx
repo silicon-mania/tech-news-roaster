@@ -4,9 +4,7 @@ import { vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
 import type { CompositeRasterizer } from "@/services/final-quote-tweet-image";
 import {
-  buildStubbedGenerationEvents,
   type GenerationProviderId,
-  type GenerationStreamEvent,
   type ImageGenerationInput,
   type ImageGenerationStreamEvent,
   type ImageOriginalCandidate,
@@ -17,45 +15,20 @@ import {
   parseJokeContextSnapshot,
   type QuoteTweetDraft,
 } from "@/services/generation";
-import { buildReplySignals } from "@/services/outside-x-enrichment";
 import type { RuntimeStatus } from "@/services/runtime-status";
 import { buildFixtureTweetContext } from "@/services/tweet-retrieval";
 import type { SavedRunStore } from "@/services/workspace";
 import { type GenerationRun, type GenerationRunInput, Workspace } from "./workspace";
 
-export class FakeGenerationEventSource {
-  readonly listeners = new Map<
-    "enrichment-completed" | "run-state" | "progress" | "completed" | "failed",
-    ((message: MessageEvent<string>) => void)[]
-  >();
-  closed = false;
-
-  addEventListener(
-    type: "enrichment-completed" | "run-state" | "progress" | "completed" | "failed",
-    listener: (message: MessageEvent<string>) => void,
-  ) {
-    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
-  }
-
-  close() {
-    this.closed = true;
-  }
-
-  emit(event: GenerationStreamEvent) {
-    const message = new MessageEvent(event.type, {
-      data: JSON.stringify(event),
-    });
-
-    for (const listener of this.listeners.get(event.type) ?? []) {
-      listener(message);
-    }
-  }
-}
-
 export function renderWorkspace({
-  generationEventSources = [],
   imageGenerationStreamFetcher = vi.fn(
     async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(""),
+  ),
+  // Default to a request that never resolves, so a submitted Manual Run stays in its
+  // composing state for the duration of the test; tests that need the run to finish
+  // pass their own fetcher (see {@link manualRunFetcher}).
+  submitManualRunFetcher = vi.fn(
+    (_input: RequestInfo | URL, _init?: RequestInit) => new Promise<Response>(() => {}),
   ),
   uploadImageFetcher,
   isDesktop = false,
@@ -70,8 +43,8 @@ export function renderWorkspace({
   // the production HTTP store; tests that assert on persistence pass their own.
   savedRunStore = createMemorySavedRunStore(),
 }: {
-  generationEventSources?: FakeGenerationEventSource[];
   imageGenerationStreamFetcher?: typeof fetch;
+  submitManualRunFetcher?: typeof fetch;
   uploadImageFetcher?: typeof fetch;
   isDesktop?: boolean;
   initialActiveRunId?: string;
@@ -83,8 +56,6 @@ export function renderWorkspace({
   runtimeEnvironment?: "development" | "production";
   savedRunStore?: SavedRunStore;
 } = {}) {
-  const generationStreamUrls: string[] = [];
-
   // The runs sidebar persists its pinned state to localStorage; clear it so each
   // test starts from the collapsed state regardless of what earlier tests pinned.
   window.localStorage.clear();
@@ -93,15 +64,8 @@ export function renderWorkspace({
   render(
     <>
       <Workspace
-        generationEventSourceFactory={(url) => {
-          generationStreamUrls.push(url);
-          const eventSource = new FakeGenerationEventSource();
-
-          generationEventSources.push(eventSource);
-
-          return eventSource;
-        }}
         imageGenerationStreamFetcher={imageGenerationStreamFetcher}
+        submitManualRunFetcher={submitManualRunFetcher}
         uploadImageFetcher={uploadImageFetcher}
         initialActiveRunId={initialActiveRunId}
         initialRuns={initialRuns}
@@ -119,7 +83,68 @@ export function renderWorkspace({
   return {
     sourceTweetUrlInput: screen.getByLabelText(/source tweet url/i),
     generateButton: screen.getByRole("button", { name: /^run$/i }),
-    generationStreamUrls,
+    submitManualRunFetcher,
+  };
+}
+
+/**
+ * Wraps a Manual Run response: the `POST /api/generation-runs` route returns the
+ * persisted run as `{ run }` with HTTP 200 — including a failed-status run, which
+ * the client still renders.
+ */
+export function buildManualRunResponse(run: GenerationRun): Response {
+  return new Response(JSON.stringify({ run }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * A fake `submitManualRunFetcher` that stands in for the compose route: it reads
+ * the client-minted id and inputs off the request body and echoes back a run the
+ * caller builds from them, mirroring the real route (which persists under, and
+ * returns, the client-minted id).
+ */
+export function manualRunFetcher(
+  buildRun: (request: {
+    runId: string;
+    sourceTweetUrl: string;
+    usersDirection: string;
+  }) => GenerationRun,
+) {
+  return vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body ?? "{}")) as {
+      runId: string;
+      sourceTweetUrl: string;
+      usersDirection: string;
+    };
+
+    return buildManualRunResponse(buildRun(body));
+  });
+}
+
+/**
+ * A persisted failed Manual Run, shaped like the composer's tweet-retrieval
+ * failure (status failed, phase failed, no creative output) so it renders the
+ * Generation Failure State on reopen.
+ */
+export function buildFailedManualRun(overrides: Partial<GenerationRun> = {}): GenerationRun {
+  return {
+    id: "failed-run",
+    label: "Manual run for 1234567890",
+    origin: "manual",
+    imagePromptSource: "user",
+    sourceTweetUrl: "https://x.com/siliconmania/status/1234567890",
+    usersDirection: "",
+    draftTarget: 3,
+    savedAt: "2026-06-06T10:30:00.000Z",
+    status: "failed",
+    draftCount: 0,
+    drafts: [],
+    uploadedImageSets: [],
+    failureMessage: "Source tweet could not be retrieved.",
+    phase: "failed",
+    ...overrides,
   };
 }
 
@@ -361,23 +386,6 @@ export function buildRuntimeStatus(overrides: Partial<RuntimeStatus> = {}): Runt
     ...status,
     ...overrides,
   };
-}
-
-export function buildGenerationEvents({
-  sourceTweetUrl,
-  usersDirection = "",
-}: {
-  sourceTweetUrl: string;
-  usersDirection?: string;
-}) {
-  const tweetContext = buildFixtureTweetContext(sourceTweetUrl);
-
-  return buildStubbedGenerationEvents({
-    replySignals: buildReplySignals(tweetContext),
-    sourceTweet: tweetContext.sourceTweet,
-    sourceTweetUrl,
-    usersDirection,
-  });
 }
 
 export function buildNewsLinkedImages(): NewsLinkedImage[] {

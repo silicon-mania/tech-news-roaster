@@ -104,7 +104,7 @@ describe("Workspace run review and override loop", () => {
       async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(""),
     );
 
-    const { generationStreamUrls } = renderWorkspace({
+    renderWorkspace({
       imageGenerationStreamFetcher,
       initialActiveRunId: "saved-run",
       initialRuns: [buildCompletedV3Run({ selectedGeneratedImage: selectedGeneratedImageFixture })],
@@ -138,7 +138,6 @@ describe("Workspace run review and override loop", () => {
     // Re-picking is pure rendering: nothing is regenerated.
     expect(onStartImageGeneration).not.toHaveBeenCalled();
     expect(imageGenerationStreamFetcher).not.toHaveBeenCalled();
-    expect(generationStreamUrls).toEqual([]);
   });
 });
 

@@ -108,6 +108,26 @@ export function parseGenerationResultStates(input: unknown): GenerationResultSta
 }
 
 /**
+ * Successful Run: Joke Context Gathering succeeded and at least one creative result
+ * area succeeded. Mirrors the rule the saved-run schema enforces (Text Generation
+ * and News-Linked Image Discovery are the counted areas) so a composition never
+ * builds a run the schema rejects. The shared determination both composition
+ * wrappers (Manual and Automated) apply.
+ */
+export function isSuccessfulRun(states: GenerationResultStates): boolean {
+  if (states.contextGathering.status !== "completed") {
+    return false;
+  }
+
+  const completedCreativeAreas = [
+    states.textGeneration.status === "completed",
+    states.newsLinkedImageDiscovery.status === "completed",
+  ].filter(Boolean).length;
+
+  return completedCreativeAreas > 0;
+}
+
+/**
  * The News Category classifier's terminal result-state (ADR-0027). It reuses the
  * per-area failed shape (timestamps, message, optional debug log) so it renders
  * through the same Quiet Failure Details surface, but it is deliberately NOT a
