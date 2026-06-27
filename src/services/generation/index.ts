@@ -11,5 +11,6 @@ export * from "./news-linked-image";
 export * from "./providers";
 export * from "./quote-tweet-draft";
 export * from "./result-states";
+export * from "./run-label";
 export * from "./run-phase";
 export * from "./stream-events";

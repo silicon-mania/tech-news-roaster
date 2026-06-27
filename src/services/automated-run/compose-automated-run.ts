@@ -2,6 +2,7 @@ import "server-only";
 
 import { getOperatorSession } from "@/services/auth/operator-session";
 import {
+  buildRunLabel,
   defaultImagePrompt,
   deriveAutomatedSelection,
   draftTarget,
@@ -9,6 +10,7 @@ import {
   type GenerationResultStates,
   type ImageModelProvenance,
   type ImageSet,
+  isSuccessfulRun,
   type JokeContextSnapshot,
   parseGenerationResultStates,
   parseSavedGenerationRun,
@@ -139,7 +141,7 @@ export async function composeAutomatedRun(
 
   const repository = repositoryResolution.repository;
   const runId = createRunId();
-  const baseLabel = buildAutomatedRunLabel(input.sourceTweetUrl);
+  const baseLabel = buildRunLabel(input.sourceTweetUrl);
 
   function buildBaseRun(label: string) {
     return {
@@ -338,25 +340,6 @@ export async function composeAutomatedRun(
   });
 }
 
-/**
- * Successful Run: Joke Context Gathering succeeded and at least one creative
- * result area succeeded. Mirrors the rule the saved-run schema enforces (Text
- * Generation and News-Linked Image Discovery are the counted areas) so the
- * composition never builds a run the schema rejects.
- */
-function isSuccessfulRun(states: GenerationResultStates): boolean {
-  if (states.contextGathering.status !== "completed") {
-    return false;
-  }
-
-  const completedCreativeAreas = [
-    states.textGeneration.status === "completed",
-    states.newsLinkedImageDiscovery.status === "completed",
-  ].filter(Boolean).length;
-
-  return completedCreativeAreas > 0;
-}
-
 function deriveAutomatedRunPhase({
   failedImageSet,
   imageSet,
@@ -379,12 +362,6 @@ function deriveAutomatedRunPhase({
   }
 
   return undefined;
-}
-
-function buildAutomatedRunLabel(sourceTweetUrl: string): string {
-  const statusId = sourceTweetUrl.match(/status\/([^/?#]+)/)?.[1] ?? "tweet";
-
-  return `Automated run for ${statusId}`;
 }
 
 function defaultCreateRunId(): string {

@@ -2,8 +2,9 @@ import "server-only";
 
 import { getOperatorSession } from "@/services/auth/operator-session";
 import {
+  buildRunLabel,
   draftTarget,
-  type GenerationResultStates,
+  isSuccessfulRun,
   type JokeContextSnapshot,
   parseGenerationResultStates,
   parseSavedGenerationRun,
@@ -92,7 +93,7 @@ export async function composeManualRun(
 
   const repository = repositoryResolution.repository;
   const runId = input.runId ?? createRunId();
-  const baseLabel = buildManualRunLabel(input.sourceTweetUrl);
+  const baseLabel = buildRunLabel(input.sourceTweetUrl);
 
   function buildBaseRun(label: string) {
     return {
@@ -208,25 +209,6 @@ export async function composeManualRun(
   });
 }
 
-/**
- * Successful Run: Joke Context Gathering succeeded and at least one creative
- * result area succeeded. Mirrors the rule the saved-run schema enforces (Text
- * Generation and News-Linked Image Discovery are the counted areas) so the
- * composition never builds a run the schema rejects.
- */
-function isSuccessfulRun(states: GenerationResultStates): boolean {
-  if (states.contextGathering.status !== "completed") {
-    return false;
-  }
-
-  const completedCreativeAreas = [
-    states.textGeneration.status === "completed",
-    states.newsLinkedImageDiscovery.status === "completed",
-  ].filter(Boolean).length;
-
-  return completedCreativeAreas > 0;
-}
-
 function deriveManualRunPhase({
   hasImageOriginalCandidates,
   isSuccessful,
@@ -242,12 +224,6 @@ function deriveManualRunPhase({
   // one and triggers Image Generation next. With no candidates there is nothing to
   // select, so the run carries no phase.
   return hasImageOriginalCandidates ? "waiting-for-image-selection" : undefined;
-}
-
-function buildManualRunLabel(sourceTweetUrl: string): string {
-  const statusId = sourceTweetUrl.match(/status\/([^/?#]+)/)?.[1] ?? "tweet";
-
-  return `Manual run for ${statusId}`;
 }
 
 function defaultCreateRunId(): string {
